@@ -1,123 +1,284 @@
 import cProfile
 import pstats
 import re
+import os
 import sys
+import sqlite3
 from collections import defaultdict
 from typing import List, Set, Tuple, Union
 
+import numpy as np
+import pandas as pd
 from Bio.Data import CodonTable
 from Bio.Data.CodonTable import NCBICodonTableDNA
+from ete3 import PhyloTree
+import tqdm
 
-PATH_TO_GENCODE5 = "data/external/genetic_code5.txt"
-
-
-def _read_gencode(path: str) -> List[Tuple[str]]:
-    pattern = re.compile("([ACGT]{3})\s([A-Z\*])\s([A-Za-z]{3})\s(i?)")
-    gencode = []
-    with open(path) as fin:
-        for line in fin:
-            for code in pattern.findall(line):
-                gencode.append(code)
-    return gencode
+#################
+## CODON FUNC  ##
+#################
 
 
-def _read_start_stop_codons(path: str) -> Tuple[Set[str]]:
-    gencode = _read_gencode(path)
-    startcodons = set()
-    stopcodons = set()
-    for code in gencode:
-        if code[-1] == "i":
-            startcodons.add(code[0])
-        if code[1] == "*":
-            stopcodons.add(code[0])
-    return startcodons, stopcodons
+class CodonAnnotation:
+    nucl_order = ["A", "C", "G", "T"]
 
+    def __init__(self, codontable: Union[NCBICodonTableDNA, int]):
+        self.codontable = self._prepare_codontable(codontable)
+        self._syn_codons, self._ff_codons = self.__extract_syn_codons()
 
-def __prepare_codontable(codontable: Union[NCBICodonTableDNA, int]):
-    if isinstance(codontable, NCBICodonTableDNA):
-        pass
-    elif isinstance(codontable, int):
-        codontable = CodonTable.unambiguous_dna_by_id[codontable]
-    else:
-        ValueError("passed codontable is not appropriate")
-    return codontable
+    def is_four_fold(self, codon):
+        return codon in self._ff_codons
+
+    def is_syn_codons(self, codon1: str, codon2: str):
+        if not isinstance(codon1, str) or not isinstance(codon2, str):
+            return False
+        gc = self.codontable.forward_table
+        return gc.get(codon1, "*") == gc.get(codon2, "*")
+    
+    def get_syn_number(self, cdn: str, pic: int):
+        """return number of possible syn codons"""
+        assert 0 <= pic <= 2, "pic must be 0-based and less than 3"
+        return self._syn_codons.get((cdn, pic), 0)
+        
+    def get_mut_effect(self, codon1: str, codon2: str, pic: int):
+        """
+        returned labels:
+        - -1 - stopcodon loss or gain
+        -  0 - usual sbs
+        -  1 - synonimous sbs
+        -  2 - fourfold sbs
+        """
+        assert codon1 != codon2, "codons must be different"
+        assert 0 <= pic <= 2, "pic must be 0-based and less than 3"
+        aa1 = self.codontable.forward_table.get(codon1, "*")
+        aa2 = self.codontable.forward_table.get(codon2, "*")
+        if aa1 == "*" or aa2 == "*":
+            label = -1
+        elif aa1 == aa2:
+            label = 1
+            if pic == 2 and self.is_four_fold(codon1):
+                label = 2
+        else:
+            label = 0
+
+        return label, aa1, aa2
+
+    def __extract_syn_codons(self):
+        """ extract synonymous (codons that mutate without amino acid change) 
+        and fourfold codons from codon table
+
+        usefull function for expected mutspec (filtration)
+
+        return mapping[(cdn, pic)] of syn codons and set of ff codons
+        """
+        aa2codons = defaultdict(set)
+        for codon, aa in self.codontable.forward_table.items():
+            aa2codons[aa].add(codon)
+
+        syn_codons = defaultdict(int)
+        for aa, codons in aa2codons.items():
+            if len(codons) > 1:
+                interim_dct = defaultdict(set)
+                for i, slc in enumerate([slice(1, 3), slice(0, 3, 2), slice(0, 2)]):
+                    for codon in codons:
+                        cdn_stump = codon[slc]
+                        interim_dct[(cdn_stump, i)].add(codon)
+
+                for key, aa_syn_codons in interim_dct.items():
+                    if len(aa_syn_codons) > 1:
+                        pic = key[1]
+                        for cdn in aa_syn_codons:
+                            syn_codons[(cdn, pic)] += len(aa_syn_codons) - 1
+        ff_codons = set()
+        for (cdn, pic), num in syn_codons.items():
+            if num == 3 and pic == 2:
+                ff_codons.add(cdn)
+        return dict(syn_codons), ff_codons
+
+    @staticmethod
+    def _prepare_codontable(codontable: Union[NCBICodonTableDNA, int]):
+        if isinstance(codontable, NCBICodonTableDNA):
+            pass
+        elif isinstance(codontable, int):
+            codontable = CodonTable.unambiguous_dna_by_id[codontable]
+        else:
+            ValueError("passed codontable is not appropriate")
+        return codontable
+
+    def _codon_iterator(self, codon_states: np.ndarray, cutoff=0.01):
+        assert codon_states.shape == (3, 4)
+        for i, p1 in enumerate(codon_states[0]):
+            if p1 < cutoff:
+                continue
+            for j, p2 in enumerate(codon_states[1]):
+                if p2 < cutoff:
+                    continue
+                for k, p3 in enumerate(codon_states[2]):
+                    if p3 < cutoff:
+                        continue
+                    codon_proba = p1 * p2 * p3
+                    if codon_proba < cutoff:
+                        continue
+                    codon = [self.nucl_order[x] for x in [i, j, k]]
+                    yield codon, codon_proba
+
+    def _sample_context(self, pos, pic, genome: np.ndarray, cutoff=0.01):
+        nuc_cutoff = cutoff * 5
+        codon_states = genome[pos - pic: pos - pic + 3]        
+        extra_codon_states = genome[pos + pic - 1]  # doesn't mean if pic == 1
+        # gaps are not appropriate
+        if np.any(codon_states.sum(1) == 0) or extra_codon_states.sum() == 0:
+            return
+        
+        for i, p1 in enumerate(codon_states[0]):
+            if p1 < nuc_cutoff:
+                continue
+            for j, p2 in enumerate(codon_states[1]):
+                if p2 < nuc_cutoff:
+                    continue
+                for k, p3 in enumerate(codon_states[2]):
+                    if p3 < nuc_cutoff:
+                        continue
+                    codon_proba = p1 * p2 * p3
+                    if codon_proba < cutoff:
+                        continue
+                    codon = tuple(self.nucl_order[_] for _ in (i, j, k))
+                    
+                    if pic != 1:
+                        for m, p4 in enumerate(extra_codon_states):
+                            if p4 < nuc_cutoff:
+                                continue
+                            full_proba = codon_proba * p4
+                            if full_proba < cutoff:
+                                continue
+                            if pic == 0:
+                                mut_context = tuple(self.nucl_order[_] for _ in (m, i, j))
+                            elif pic == 2:
+                                mut_context = tuple(self.nucl_order[_] for _ in (j, k, m))
+                            yield codon, mut_context, full_proba
+                    else:
+                        yield codon, codon, codon_proba
 
 
 def read_start_stop_codons(codontable: Union[NCBICodonTableDNA, int]):
-    codontable = __prepare_codontable(codontable)
+    codontable = CodonAnnotation._prepare_codontable(codontable)
     return set(codontable.start_codons), set(codontable.stop_codons)
 
 
-def _extract_ff_codons(codontable: Union[NCBICodonTableDNA, int]):
-    codontable = __prepare_codontable(codontable)
-    aa2codons = defaultdict(set)
-    for codon, aa in codontable.forward_table.items():
-        aa2codons[aa].add(codon)
-
-    ff_codons = set()
-    for aa, codons in aa2codons.items():
-        if len(codons) >= 4:
-            interim_dct = defaultdict(set)
-            for codon in codons:
-                interim_dct[codon[:2]].add(codon)
-
-            for nn in interim_dct:
-                if len(interim_dct[nn]) == 4:
-                    ff_codons = ff_codons.union(interim_dct[nn])
-    return ff_codons
-
-
-def extract_syn_codons(codontable: Union[NCBICodonTableDNA, int]):
-    """ extract synonymous (codons that mutate without amino acid change) 
-    and fourfold codons from codon table
-
-    usefull function for expected mutspec (filtration)
-
-    return mapping[(cdn, pic)] of syn codons and set of ff codons
-    """
-    codontable = __prepare_codontable(codontable)
-    aa2codons = defaultdict(set)
-    for codon, aa in codontable.forward_table.items():
-        aa2codons[aa].add(codon)
-
-    syn_codons = defaultdict(int)
-    for aa, codons in aa2codons.items():
-        if len(codons) > 1:
-            interim_dct = defaultdict(set)
-            for i, slc in enumerate([slice(1, 3), slice(0, 3, 2), slice(0, 2)]):
-                for codon in codons:
-                    cdn_stump = codon[slc]
-                    interim_dct[(cdn_stump, i)].add(codon)
-
-            for key, aa_syn_codons in interim_dct.items():
-                if len(aa_syn_codons) > 1:
-                    pic = key[1]
-                    for cdn in aa_syn_codons:
-                        syn_codons[(cdn, pic)] += len(aa_syn_codons) - 1
-
-    ff_codons = set()
-    for (cdn, pic), num in syn_codons.items():
-        if num == 3 and pic == 2:
-            ff_codons.add(cdn)
-    return dict(syn_codons), ff_codons
-
-
-def is_syn_codons(codon1: str, codon2: str, codontable: Union[NCBICodonTableDNA, int]):
-    """
-    extract codons containing mutation that are synonymous
-
-    return dict[codon: set[PosInCodon]]
-    """
-    codontable = __prepare_codontable(codontable)
-    gc = codontable.forward_table
-    return gc.get(codon1, "*") == gc.get(codon2, "*")
-
+#################
+##  TREE FUNC  ##
+#################
 
 def node_parent(node):
     try:
         return next(node.iter_ancestors())
     except BaseException:
         return None
+
+
+def get_farthest_leaf(tree: PhyloTree, quantile=None):
+    """
+    TODO check if tree is rooted
+    """
+    if quantile is None:
+        _, md = tree.get_farthest_leaf()
+        return md
+    elif isinstance(quantile, (float, int)) and 0 <= quantile <= 1:
+        distances = []
+        for leaf in tree.iter_leaves():
+            d = tree.get_distance(leaf)
+            distances.append(d)
+        md = np.quantile(distances, quantile)
+    else:
+        raise TypeError(f"quantile must be int, float or None, got {type(quantile)}")
+    return md
+
+
+#################
+## OTHER FUNC  ##
+#################
+
+
+class GenomeStates:
+    """
+    tips:
+    - use mode="dict" if your tree is small (~1500 nodes require ~350MB of RAM); 
+    big trees with 100000 nodes require tens GB of RAM, therefore use mode="sqlite"
+    """
+    def __init__(self, path_to_anc, path_to_leaves, mode="dict") -> None:
+        if mode not in {"dict", "db"}:
+            raise ValueError("mode must be 'dict' or 'db'")
+        self.mode = mode
+        if mode == "dict":
+            self.node2genome = self.precalc_node2genome(path_to_anc, path_to_leaves)
+        elif mode == "db":
+            self.prepare_db(path_to_anc, path_to_leaves)
+            raise NotImplementedError
+    
+    def get_genome(self, node: str):
+        if self.mode == "dict":
+            return self.node2genome[node]
+        elif self.mode == "db":
+            raise NotImplementedError
+        else:
+            raise ValueError("mode must be 'dict' or 'db'")
+
+    def prepare_db(self, path_to_anc, path_to_leaves):
+        """sequentially read tsv and write to db"""
+        path_to_db = '/tmp/example.db'
+        os.remove(path_to_db)
+        con = sqlite3.connect(path_to_db)
+        cur = con.cursor()
+        cur.execute('''CREATE TABLE states
+               (Node TEXT, Part INTEGER, Site INTEGER, State TEXT, p_A REAL, p_C REAL, p_G REAL, p_T REAL)'''
+        )
+        for path in [path_to_leaves, path_to_anc]:
+            print(f"Loading {path} ...", file=sys.stderr)
+            handle = open(path, "r")
+            header = handle.readline().strip()
+            if header != "Node\tPart\tSite\tState\tp_A\tp_C\tp_G\tp_T":
+                handle.close()
+                con.close()
+                raise ValueError(f"Inappropriate type of table, expected another columns order,\ngot {repr(header)}")
+
+            for line in tqdm.tqdm(handle, total=8652300):
+                row = line.strip().split()
+                query = "INSERT INTO states VALUES ('{}',{},{},'{}',{},{},{},{})".format(*row)
+                cur.execute(query)
+            con.commit()
+
+            handle.close()
+        con.close()
+
+    def precalc_node2genome(self, path_to_anc, path_to_leaves) -> dict:
+        anc, leaves = self.read_data(path_to_anc, path_to_leaves)
+        node2genome = defaultdict(dict)
+        for states in [anc, leaves]:
+            print(f"Loading table...", file=sys.stderr)
+            states = states.sort_values(["Node", "Part", "Site"])
+            gr = states.groupby(["Node", "Part"])
+            for (node, part), gene_pos_ids in gr.groups.items():
+                gene_df = states.loc[gene_pos_ids]
+                gene_states = gene_df[["p_A", "p_C", "p_G", "p_T"]].values
+                node2genome[node][part] = gene_states
+        return node2genome
+
+    @staticmethod
+    def read_data(path_to_anc, path_to_leaves, states_dtype=np.float16):
+        dtypes = {
+            "p_A": states_dtype, 
+            "p_C": states_dtype, 
+            "p_G": states_dtype, 
+            "p_T": states_dtype,
+            "Site": np.int32,
+            "Part": np.int8,
+        }
+        usecols = ["Node", "Part", "Site", "p_A", "p_C", "p_G", "p_T"]
+        anc = pd.read_csv(path_to_anc, sep="\t", comment='#', usecols=usecols, dtype=dtypes)
+        leaves = pd.read_csv(path_to_leaves, sep="\t", usecols=usecols, dtype=dtypes)
+        aln_sizes = leaves.groupby("Node").apply(len)
+        assert aln_sizes.nunique() == 1, "uncomplete leaves state table"
+        return anc, leaves
 
 
 def profiler(_func=None, *, nlines=10):
@@ -187,11 +348,12 @@ possible_codons = {
 
 
 if __name__ == "__main__":
-    # print(read_start_stop_codons(2))
-    # print(extract_syn_codons(2))
-    code = 5
-    syn_codons, ff_codons = extract_syn_codons(code)
-    ff_codons_true = extract_ff_codons(code)
-    print(syn_codons)
-    assert ff_codons == ff_codons_true
+    gcode = 2
+    ca = CodonAnnotation(gcode)
+    print(ca.is_syn_codons("ATC", "ATG"))
+    print(read_start_stop_codons(2))
+    print(ca.get_syn_number("ATG", 2))
 
+    path_to_anc = "./data/example_birds/anc_kg_states_birds.tsv"
+    path_to_leaves = "./data/example_birds/leaves_birds_states.tsv"
+    gs = GenomeStates(path_to_anc, path_to_leaves, mode="db")
