@@ -153,14 +153,14 @@ class MutSpec(CodonAnnotation, GenomeStates):
                     genome_mutations.append(gene_mut_df)
                 
                 # calculate gene mutational spectra for all labels
-                if len(gene_mut_df) > 200:
+                if len(gene_mut_df) > 200:  # TODO number of mutations is implicit ??
                     for lbl in self.MUT_LABELS:
-                        mutspec12 = self.calculate_mutspec12(gene_mut_df, gene_nucl_freqs[lbl], label=lbl)
+                        mutspec12 = self.calculate_mutspec(gene_mut_df, gene_nucl_freqs[lbl], label=lbl, msl=12)
                         mutspec12["RefNode"] = ref_node.name
                         mutspec12["AltNode"] = alt_node.name
                         mutspec12["Effect"] = lbl
                         mutspec12["Gene"] = gene
-                        mutspec192 = self.calculate_mutspec192(gene_mut_df, gene_cxt_freqs[lbl], label=lbl)
+                        mutspec192 = self.calculate_mutspec(gene_mut_df, gene_cxt_freqs[lbl], label=lbl, msl=192)
                         mutspec192["RefNode"] = ref_node.name
                         mutspec192["AltNode"] = alt_node.name
                         mutspec192["Effect"] = lbl
@@ -181,11 +181,11 @@ class MutSpec(CodonAnnotation, GenomeStates):
             
             # calculate full genome mutational spectra for all labels
             for lbl in self.MUT_LABELS:
-                mutspec12 = self.calculate_mutspec12(genome_mutations_df, genome_nucl_freqs[lbl], label=lbl)
+                mutspec12 = self.calculate_mutspec(genome_mutations_df, genome_nucl_freqs[lbl], label=lbl, msl=12)
                 mutspec12["RefNode"] = ref_node.name
                 mutspec12["AltNode"] = alt_node.name
                 mutspec12["Effect"] = lbl
-                mutspec192 = self.calculate_mutspec192(genome_mutations_df, genome_cxt_freqs[lbl], label=lbl)
+                mutspec192 = self.calculate_mutspec(genome_mutations_df, genome_cxt_freqs[lbl], label=lbl, msl=192)
                 mutspec192["RefNode"] = ref_node.name
                 mutspec192["AltNode"] = alt_node.name
                 mutspec192["Effect"] = lbl
@@ -282,7 +282,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
         return nucl_freqs, cxt_freqs
 
     @staticmethod
-    def calculate_mutspec12(mut: pd.DataFrame, nucl_freqs, label: str):
+    def calculate_mutspec(mut: pd.DataFrame, freqs, label: str, msl=192):
         mut = mut.copy()
         cols = ["Effect", "Mut", "ProbaFull"]
         for c in cols:
@@ -302,78 +302,34 @@ class MutSpec(CodonAnnotation, GenomeStates):
         else:
             raise ValueError(f"pass the appropriate label: {labels}")
 
-        mut["MutBase"] = mut["Mut"].str.slice(2, 5)
-        mutspec = mut[mut["Effect"] >= label].groupby("MutBase")["ProbaFull"].sum().reset_index()
-        mutspec.columns = ["Mut", "ObsFr"]
-
-        mutspec_appendix = []
-        unobserved_sbs = possible_sbs12_set.difference(mutspec["Mut"].values)
-        for usbs in unobserved_sbs:
-            mutspec_appendix.append({"Mut": usbs, "ObsFr": 0})
-        mutspec = pd.concat(
-            [mutspec, pd.DataFrame(mutspec_appendix)],
-            ignore_index=True
-        )
-        mutspec["RefNuc"] = mutspec["Mut"].str.get(0)
-        mutspec["ExpFr"] = mutspec["RefNuc"].map(nucl_freqs)
-        mutspec["RawMutSpec"] = mutspec["ObsFr"] / mutspec["ExpFr"]
-        mutspec["MutSpec"] = mutspec["RawMutSpec"] / mutspec["RawMutSpec"].sum()
-        mutspec.drop("RefNuc", axis=1, inplace=True)
-        # return mutspec
-
-        # mutspec = mut[mut["Effect"] >= label].MutExt.value_counts().reset_index()
-        # mutspec.columns = ["Mut", "ObsFr"]
-
-        # mutspec_appendix = []
-        # unobserved_sbs = possible_sbs192_set.difference(mutspec.Mut.values)
-        # for usbs in unobserved_sbs:
-        #     mutspec_appendix.append({"Mut": usbs, "ObsFr": 0})
-        # mutspec = pd.concat(
-        #     [mutspec, pd.DataFrame(mutspec_appendix)],
-        #     ignore_index=True
-        # )
-        # mutspec["Context"] = mutspec.Mut.str.get(0) + mutspec.Mut.str.get(2) + mutspec.Mut.str.get(-1)
-        # mutspec["ExpFr"] = mutspec.Context.map(codon_freqs)
-        # mutspec["RawMutSpec"] = (mutspec.ObsFr / mutspec.ExpFr).fillna(0)
-        # mutspec["MutSpec"] = mutspec["RawMutSpec"] / mutspec["RawMutSpec"].sum()
-        # mutspec.drop("Context", axis=1, inplace=True)
-        return mutspec
-
-    @staticmethod
-    def calculate_mutspec192(mut: pd.DataFrame, codon_freqs, label: str):
-        mut = mut.copy()
-        cols = ["Effect", "Mut", "ProbaFull"]
-        for c in cols:
-            assert c in mut.columns, f"Column {c} is not in mut df"
-
-        available_labels = {"syn", "ff", "all"}
-        if isinstance(label, str):
-            label = label.lower()
-            if label not in available_labels:
-                raise ValueError(f"pass the appropriate label: {available_labels}")
-            if label == "syn":
-                label = 1
-            elif label == "ff":
-                label = 2
-            elif label == "all":
-                label = 0
+        if msl == 12:
+            mut["MutBase"] = mut["Mut"].str.slice(2, 5)
+            col_mut = "MutBase"
+            full_sbs = possible_sbs12_set
+        elif msl == 192:
+            col_mut = "Mut"
+            full_sbs = possible_sbs192_set
         else:
-            raise ValueError(f"pass the appropriate label: {available_labels}")
+            raise ValueError(f"Inappropriate value for mutspec type: {msl}; must be 12 or 192")
 
-        mutspec = mut[mut["Effect"] >= label].MutExt.value_counts().reset_index()
+        mutspec = mut[mut["Effect"] >= label].groupby(col_mut)["ProbaFull"].sum().reset_index()
         mutspec.columns = ["Mut", "ObsFr"]
 
+        # fill unobserved mutations by zeros
         mutspec_appendix = []
-        unobserved_sbs = possible_sbs192_set.difference(mutspec.Mut.values)
+        unobserved_sbs = full_sbs.difference(mutspec["Mut"].values)
         for usbs in unobserved_sbs:
             mutspec_appendix.append({"Mut": usbs, "ObsFr": 0})
-        mutspec = pd.concat(
-            [mutspec, pd.DataFrame(mutspec_appendix)],
-            ignore_index=True
-        )
-        mutspec["Context"] = mutspec.Mut.str.get(0) + mutspec.Mut.str.get(2) + mutspec.Mut.str.get(-1)
-        mutspec["ExpFr"] = mutspec.Context.map(codon_freqs)
-        mutspec["RawMutSpec"] = (mutspec.ObsFr / mutspec.ExpFr).fillna(0)
+        mutspec = pd.concat([mutspec, pd.DataFrame(mutspec_appendix)], ignore_index=True)
+
+        if msl == 12:
+            mutspec["Context"] = mutspec["Mut"].str.get(0)
+        else:
+            sbs = mutspec["Mut"]
+            mutspec["Context"] = sbs.str.get(0) + sbs.str.get(2) + sbs.str.get(-1)
+
+        mutspec["ExpFr"] = mutspec["Context"].map(freqs)
+        mutspec["RawMutSpec"] = (mutspec["ObsFr"] / mutspec["ExpFr"]).fillna(0)
         mutspec["MutSpec"] = mutspec["RawMutSpec"] / mutspec["RawMutSpec"].sum()
         mutspec.drop("Context", axis=1, inplace=True)
         return mutspec
