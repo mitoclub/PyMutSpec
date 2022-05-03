@@ -5,6 +5,7 @@ import os
 import sys
 import sqlite3
 from collections import defaultdict
+from queue import Queue
 from typing import List, Set, Tuple, Union
 
 import numpy as np
@@ -14,6 +15,8 @@ from Bio.Data.CodonTable import NCBICodonTableDNA
 from ete3 import PhyloTree
 import tqdm
 
+from custom_logging import logger
+
 #################
 ## CODON FUNC  ##
 #################
@@ -22,7 +25,7 @@ import tqdm
 class CodonAnnotation:
     nucl_order = ["A", "C", "G", "T"]
 
-    def __init__(self, codontable: Union[NCBICodonTableDNA, int]):
+    def __init__(self, codontable: Union[NCBICodonTableDNA, int], *args, **kwargs):
         self.codontable = self._prepare_codontable(codontable)
         self._syn_codons, self._ff_codons = self.__extract_syn_codons()
 
@@ -176,6 +179,24 @@ def node_parent(node):
         return None
 
 
+def iter_tree_edges(tree: PhyloTree):
+    discovered_nodes = set()
+    discovered_nodes.add(tree.name)
+    Q = Queue()
+    Q.put(tree)
+
+    while not Q.empty():
+        cur_node = Q.get()
+        for child in cur_node.children:
+            Q.put(child)
+
+        if cur_node.name not in discovered_nodes:
+            discovered_nodes.add(cur_node.name)
+            alt_node = cur_node
+            ref_node = node_parent(alt_node)
+            yield ref_node, alt_node
+
+
 def get_farthest_leaf(tree: PhyloTree, quantile=None):
     """
     TODO check if tree is rooted
@@ -202,38 +223,71 @@ def get_farthest_leaf(tree: PhyloTree, quantile=None):
 class GenomeStates:
     """
     tips:
-    - use mode="dict" if your tree is small (~1500 nodes require ~350MB of RAM); 
+    - use mode="dict" if your mtDNA tree is small (~1500 nodes require ~350MB of RAM); 
     big trees with 100000 nodes require tens GB of RAM, therefore use mode="db"
     """
-    def __init__(self, path_to_anc, path_to_leaves, path_to_db=None, mode="dict") -> None:
-        if mode not in {"dict", "db"}:
-            raise ValueError("mode must be 'dict' or 'db'")
+    def __init__(self, 
+            path_to_anc=None, path_to_leaves=None, path_to_db=None, 
+            mode="dict", rewrite=False, *args, **kwargs
+        ):
         self.mode = mode
+        logger.debug(f"Genome states storage mode = '{mode}'")
+        self.path_to_db = path_to_db
         if mode == "dict":
-            self.node2genome = self.precalc_node2genome(path_to_anc, path_to_leaves)
+            self._prepare_node2genome(path_to_anc, path_to_leaves)
         elif mode == "db":
-            if path_to_db is not None:
-                self.prepare_db(path_to_anc, path_to_leaves, path_to_db)
+            if path_to_db is None:
+                raise ValueError("Pass the path to database to use or write it")
+            else:
+                self._prepare_db(path_to_anc, path_to_leaves, rewrite)
+        else:
+            raise ValueError("Mode must be 'dict' or 'db'")
     
     def get_genome(self, node: str):
         if self.mode == "dict":
             return self.node2genome[node]
         elif self.mode == "db":
-            raise NotImplementedError
+            genome = defaultdict(list)
+            cur = self.con.cursor()
+            for row in cur.execute(f"""SELECT Part, p_A, p_C, p_G, p_T FROM states 
+                WHERE Node='{node}'
+                ORDER by Part, Site"""):
+                part = row[0]
+                state = row[1:]
+                genome[part].append(state)
+            genome = {k: np.array(v, dtype=np.float16) for k, v in genome.items()}
+            return genome
         else:
             raise ValueError("mode must be 'dict' or 'db'")
 
-    def prepare_db(self, path_to_anc, path_to_leaves, path_to_db):
+    def _prepare_db(self, path_to_anc, path_to_leaves, rewrite=False):
         """sequentially read tsv and write to db"""
-        if os.path.exists(path_to_db):
-            os.remove(path_to_db)
-        con = sqlite3.connect(path_to_db)
+        done = False
+        if os.path.exists(self.path_to_db):
+            if rewrite:
+                os.remove(self.path_to_db)
+            else:
+                logger.info(f"Loading existing database from {self.path_to_db}")
+                done = True
+        try:
+            con = sqlite3.connect(self.path_to_db)
+        except:
+            raise ValueError("Cannot connect to database by given path")
+        
         cur = con.cursor()
+        self.con = con
+        if done:
+            self.nodes = self._get_nodes()
+            return
+
+        logger.info("Writing new database file")
         cur.execute('''CREATE TABLE states
                (Node TEXT, Part INTEGER, Site INTEGER, State TEXT, p_A REAL, p_C REAL, p_G REAL, p_T REAL)'''
         )
         for path in [path_to_leaves, path_to_anc]:
-            print(f"Loading {path} ...", file=sys.stderr)
+            if path is None:
+                continue
+            logger.info(f"Loading {path} ...")
             handle = open(path, "r")
             header = handle.readline().strip()
             if header != "Node\tPart\tSite\tState\tp_A\tp_C\tp_G\tp_T":
@@ -248,37 +302,41 @@ class GenomeStates:
 
             con.commit()
             handle.close()
-        con.close()
 
-    def precalc_node2genome(self, path_to_anc, path_to_leaves) -> dict:
-        anc, leaves = self.read_data(path_to_anc, path_to_leaves)
+        self.nodes = self._get_nodes()
+        # con.close()
+    
+    def _get_nodes(self):
+        nodes = set()
+        cur = self.con.cursor()
+        for node in cur.execute("SELECT DISTINCT Node from states"):
+            nodes.add(node[0])
+        return nodes
+
+    def _prepare_node2genome(self, path_to_anc, path_to_leaves, states_dtype=np.float16):
+        dtypes = {
+            "p_A":  states_dtype, "p_C": states_dtype, 
+            "p_G":  states_dtype, "p_T": states_dtype,
+            "Site": np.int32,     "Part": np.int8,
+        }
+        usecols = ["Node", "Part", "Site", "p_A", "p_C", "p_G", "p_T"]
         node2genome = defaultdict(dict)
-        for states in [anc, leaves]:
-            print(f"Loading table...", file=sys.stderr)
+        for path in [path_to_anc, path_to_leaves]:
+            if path is None:
+                continue
+            logger.info(f"Loading {path}...")
+            states = pd.read_csv(path, sep="\t", comment='#', usecols=usecols, dtype=dtypes)
+            aln_sizes = states.groupby("Node").apply(len)
+            assert aln_sizes.nunique() == 1, "uncomplete leaves state table"
             states = states.sort_values(["Node", "Part", "Site"])
             gr = states.groupby(["Node", "Part"])
             for (node, part), gene_pos_ids in gr.groups.items():
                 gene_df = states.loc[gene_pos_ids]
                 gene_states = gene_df[["p_A", "p_C", "p_G", "p_T"]].values
                 node2genome[node][part] = gene_states
-        return node2genome
 
-    @staticmethod
-    def read_data(path_to_anc, path_to_leaves, states_dtype=np.float16):
-        dtypes = {
-            "p_A": states_dtype, 
-            "p_C": states_dtype, 
-            "p_G": states_dtype, 
-            "p_T": states_dtype,
-            "Site": np.int32,
-            "Part": np.int8,
-        }
-        usecols = ["Node", "Part", "Site", "p_A", "p_C", "p_G", "p_T"]
-        anc = pd.read_csv(path_to_anc, sep="\t", comment='#', usecols=usecols, dtype=dtypes)
-        leaves = pd.read_csv(path_to_leaves, sep="\t", usecols=usecols, dtype=dtypes)
-        aln_sizes = leaves.groupby("Node").apply(len)
-        assert aln_sizes.nunique() == 1, "uncomplete leaves state table"
-        return anc, leaves
+        self.node2genome = node2genome
+        self.nodes = set(node2genome.keys())
 
 
 def profiler(_func=None, *, nlines=10):
@@ -354,7 +412,13 @@ if __name__ == "__main__":
     print(read_start_stop_codons(2))
     print(ca.get_syn_number("ATG", 2))
 
-    path_to_anc = "./data/example_birds/anc_kg_states_birds.tsv"
-    path_to_leaves = "./data/example_birds/leaves_birds_states.tsv"
-    path_to_db = './data/states.db'
-    gs = GenomeStates(path_to_anc, path_to_leaves, path_to_db, mode="db")
+    # path_to_anc = "./data/example_birds/anc_kg_states_birds.tsv"
+    # path_to_leaves = "./data/example_birds/leaves_birds_states.tsv"
+    # path_to_db = './data/states.db'
+
+    path_to_states = "./data/states_sample.tsv"
+    path_to_db = './data/states_sample.db'
+
+    gs = GenomeStates(path_to_states, path_to_db=path_to_db, mode="db", rewrite=False)
+    print(gs.get_genome("Node2"))
+

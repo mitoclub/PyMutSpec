@@ -2,7 +2,7 @@
 pic is position in codon
 
 TODO:
-- optimal states reading
++ optimal states reading
 - optimal mutations and spectra writing to files
 - syn support
 + minimal sequence is gene (Part), not genome
@@ -23,20 +23,26 @@ import pandas as pd
 from Bio.Data import CodonTable
 from ete3 import PhyloTree
 
-from utils import (node_parent, profiler, get_farthest_leaf, CodonAnnotation,
-                   possible_codons, possible_sbs12, possible_sbs192)
+from utils import (
+    iter_tree_edges, node_parent, profiler, get_farthest_leaf, 
+    CodonAnnotation, GenomeStates,
+    possible_codons, possible_sbs12, possible_sbs192
+)
 from custom_logging import logger
 
 
-class MutSpec(CodonAnnotation):
+class MutSpec(CodonAnnotation, GenomeStates):
     nucl_order = ["A", "C", "G", "T"]
     # EPS = 1e-5
     
     def __init__(
-            self, path_to_tree, path_to_anc, path_to_leaves,
-            out_dir, gcode=2, run=True,
+            self, path_to_tree, path_to_anc, path_to_leaves, out_dir, 
+            path_to_db="data/states.db", gcode=2, run=True, db_mode="db", 
+            rewrite_db=False,
         ):
-        super().__init__(gcode)
+        CodonAnnotation.__init__(self, gcode)
+        GenomeStates.__init__(self, path_to_anc, path_to_leaves, path_to_db, db_mode, rewrite_db)
+
         self.gcode = gcode
         self.MUT_LABELS = ["all", "ff"]  # TODO add syn
         self.tree = PhyloTree(path_to_tree, format=1)
@@ -50,8 +56,6 @@ class MutSpec(CodonAnnotation):
             self.calc(path_to_anc, path_to_leaves, out_dir)
 
     def calc(self, path_to_anc, path_to_leaves, out_dir):
-        self.node2genome = self.precalc_node2genome(path_to_anc, path_to_leaves)
-        self.nodes = set(self.node2genome.keys())
         mutations = self.extract_mutspec_from_tree(self.tree)
         # mutations, edge_mutspec12, edge_mutspec192, total_nucl_freqs = self.extract_mutspec_from_tree(self.tree)
 
@@ -70,128 +74,81 @@ class MutSpec(CodonAnnotation):
             edge_mutspec12[label].to_csv(fp_mutspec12, index=None)
             edge_mutspec192[label].to_csv(fp_mutspec192, index=None)
 
-    def precalc_node2genome(self, path_to_anc, path_to_leaves) -> dict:
-        anc, leaves = self.read_data(path_to_anc, path_to_leaves)
-        node2genome = defaultdict(dict)
-        for states in [anc, leaves]:
-            logger.debug("Sorting states")
-            states = states.sort_values(["Node", "Part", "Site"])
-            logger.debug("States sorted")
-            gr = states.groupby(["Node", "Part"])
-            for (node, part), gene_pos_ids in gr.groups.items():
-                gene_df = states.loc[gene_pos_ids]
-                gene_states = gene_df[["p_A", "p_C", "p_G", "p_T"]].values
-                node2genome[node][part] = gene_states
-        logger.info("node2genome mapping builded")
-        return node2genome
-    
-    def get_genome(self, node: str):
-        return self.node2genome[node]
 
-    @staticmethod
-    def read_data(path_to_anc, path_to_leaves, states_dtype=np.float16):
-        dtypes = {
-            "p_A": states_dtype, 
-            "p_C": states_dtype, 
-            "p_G": states_dtype, 
-            "p_T": states_dtype,
-            "Site": np.int32,
-            "Part": np.int8,
-        }
-        usecols = ["Node", "Part", "Site", "p_A", "p_C", "p_G", "p_T"]
-        anc = pd.read_csv(path_to_anc, sep="\t", comment='#', usecols=usecols, dtype=dtypes)
-        logger.info(f"anc states loaded, shape = {anc.shape}")
-        leaves = pd.read_csv(path_to_leaves, sep="\t", usecols=usecols, dtype=dtypes)
-        logger.info(f"leaves states loaded, shape = {leaves.shape}")
-        aln_sizes = leaves.groupby("Node").apply(len)
-        assert aln_sizes.nunique() == 1, "uncomplete leaves state table"
-        return anc, leaves
-
-    def extract_mutspec_from_tree(self, tree):
-        logger.info("Start extracting mutspec from tree")
-        discovered_nodes = set()
-        discovered_nodes.add(tree.name)
-        Q = Queue()
-        Q.put(tree)
-
+    def extract_mutspec_from_tree(self, tree: PhyloTree):
+        logger.info("Start mutation extraction from tree")
         edge_mutspec12 = defaultdict(list)  # all, syn, ff
         edge_mutspec192 = defaultdict(list)
-        full_tree_mutations = []
-        total_nucl_freqs = []
-        while not Q.empty():
-            cur_node = Q.get()
-            for child in cur_node.children:
-                Q.put(child)
+        # full_tree_mutations = []  # TODO remove these lines, replace by online writing
+        # total_nucl_freqs    = []  #
+        for ref_node, alt_node in iter_tree_edges(tree):
+            if ref_node.name not in self.nodes or alt_node.name not in self.nodes:
+                continue
+            logger.debug(f"extracting mutations from {ref_node.name} to {alt_node.name}")
+            ref_genome = self.get_genome(ref_node.name)
+            alt_genome  = self.get_genome(alt_node.name)
+            _, dist_to_closest_leaf = ref_node.get_closest_leaf()
+            evol_speed_coef = min(1, dist_to_closest_leaf / self.max_dist)
 
-            if cur_node.name not in discovered_nodes:
-                discovered_nodes.add(cur_node.name)
-                if cur_node.name not in self.nodes:
-                    continue
-                alt_node = cur_node
-                ref_node = node_parent(alt_node)
+            genome_nucl_freqs = {lbl: defaultdict(int) for lbl in self.MUT_LABELS}
+            genome_cxt_freqs = {lbl: defaultdict(int) for lbl in self.MUT_LABELS}
+            genome_mutations = []
+            genes_mutations = []
+            for gene in ref_genome:
+                ref_seq = ref_genome[gene]
+                alt_seq = alt_genome[gene]
 
-                # main process starts here
-                logger.debug(f"extracting mutations from {ref_node.name} to {alt_node.name}")
-                parent_genome = self.get_genome(ref_node.name)
-                child_genome  = self.get_genome(alt_node.name)
-                _, dist_to_closest_leaf = ref_node.get_closest_leaf()
+                gene_mut_df = self.extract_mutations(ref_seq, alt_seq)
+                gene_mut_df["RefNode"] = ref_node.name
+                gene_mut_df["AltNode"] = alt_node.name
+                gene_mut_df["Gene"] = gene
+                gene_mut_df["DistToLeaf"] = dist_to_closest_leaf
+                gene_mut_df["EvolSpeedCoef"] = evol_speed_coef
 
-                genome_nucl_freqs = {lbl: defaultdict(int) for lbl in self.MUT_LABELS}
-                genome_cxt_freqs = {lbl: defaultdict(int) for lbl in self.MUT_LABELS}
-                genome_mutations = []
-                genes_mutations = []
-                for gene in parent_genome:
-                    ref_seq = parent_genome[gene]
-                    alt_seq = child_genome[gene]
-                    gene_mut_df = self.extract_mutations(ref_seq, alt_seq)
-                    gene_mut_df["RefNode"] = ref_node.name
-                    gene_mut_df["AltNode"] = alt_node.name
-                    gene_mut_df["Gene"] = gene
-                    gene_mut_df["DistToLeaf"] = dist_to_closest_leaf
-                    gene_nucl_freqs, gene_cxt_freqs = self.collect_freqs(ref_seq)
-                    for lbl in self.MUT_LABELS:
-                        for nucl, freq in gene_nucl_freqs[lbl].items():
-                            genome_nucl_freqs[lbl][nucl] += freq
-                        for trinucl, freq in gene_cxt_freqs[lbl].items():
-                            genome_cxt_freqs[lbl][trinucl] += freq
-
-                    if len(gene_mut_df) > 0:
-                        genome_mutations.append(gene_mut_df)
-                    if len(gene_mut_df) > 200:
-                        genes_mutations.append(gene_mut_df)
-                
-                if len(genome_mutations) == 0:
-                    continue
-
-                genome_mutations_df = pd.concat(genome_mutations)
-                full_tree_mutations.append(genome_mutations_df)
-                
-                # TODO add mutspec calculation
-
-                cur_nucl_freqs = {"node": ref_node.name}
+                gene_nucl_freqs, gene_cxt_freqs = self.collect_state_freqs(ref_seq)
                 for lbl in self.MUT_LABELS:
-                    for _nucl in "ACGT":
-                        cur_nucl_freqs[f"{_nucl}_{lbl}"] = genome_nucl_freqs[lbl][_nucl]
-                    if lbl == "syn":
-                        # TODO add syn support
-                        raise NotImplementedError
+                    for nucl, freq in gene_nucl_freqs[lbl].items():
+                        genome_nucl_freqs[lbl][nucl] += freq
+                    for trinucl, freq in gene_cxt_freqs[lbl].items():
+                        genome_cxt_freqs[lbl][trinucl] += freq
 
-                    mutspec12 = self.calculate_mutspec12(genome_mutations_df, genome_nucl_freqs[lbl], label=lbl)
-                    mutspec12["RefNode"] = ref_node.name
-                    mutspec12["AltNode"] = alt_node.name
-                    mutspec192 = self.calculate_mutspec192(genome_mutations_df, genome_cxt_freqs[lbl], label=lbl)
-                    mutspec192["RefNode"] = ref_node.name
-                    mutspec192["AltNode"] = alt_node.name
+                if len(gene_mut_df) > 0:
+                    genome_mutations.append(gene_mut_df)
+                if len(gene_mut_df) > 200:
+                    genes_mutations.append(gene_mut_df)  # TODO remove this line and 
+            
+            if len(genome_mutations) == 0:
+                continue
 
-                    edge_mutspec12[lbl].append(mutspec12)
-                    edge_mutspec192[lbl].append(mutspec192)
+            genome_mutations_df = pd.concat(genome_mutations)
+            # full_tree_mutations.append(genome_mutations_df)
+            
+            # TODO add mutspec calculation
 
-                total_nucl_freqs.append(cur_nucl_freqs)
-            # if len(full_tree_mutations) == 10:
-            #     break  # TODO remove line
+            cur_nucl_freqs = {"node": ref_node.name}
+            for lbl in self.MUT_LABELS:
+                for _nucl in "ACGT":
+                    cur_nucl_freqs[f"{_nucl}_{lbl}"] = genome_nucl_freqs[lbl][_nucl]
+                if lbl == "syn":
+                    # TODO add syn support
+                    raise NotImplementedError
 
-        full_tree_mutations_df = pd.concat(full_tree_mutations)
-        return full_tree_mutations_df
+                mutspec12 = self.calculate_mutspec12(genome_mutations_df, genome_nucl_freqs[lbl], label=lbl)
+                mutspec12["RefNode"] = ref_node.name
+                mutspec12["AltNode"] = alt_node.name
+                mutspec192 = self.calculate_mutspec192(genome_mutations_df, genome_cxt_freqs[lbl], label=lbl)
+                mutspec192["RefNode"] = ref_node.name
+                mutspec192["AltNode"] = alt_node.name
+
+                edge_mutspec12[lbl].append(mutspec12)
+                edge_mutspec192[lbl].append(mutspec192)
+
+            # total_nucl_freqs.append(cur_nucl_freqs)
+        # if len(full_tree_mutations) == 10:
+        #     break  # TODO remove line
+
+        # full_tree_mutations_df = pd.concat(full_tree_mutations)
+        # return full_tree_mutations_df
         # total_nucl_freqs_df = pd.DataFrame(total_nucl_freqs).drop_duplicates()  # TODO rewrite to normal optimal decision
         # edge_mutspec12_df = {lbl: pd.concat(x) for lbl, x in edge_mutspec12.items()}
         # edge_mutspec192_df = {lbl: pd.concat(x) for lbl, x in edge_mutspec192.items()}
@@ -254,7 +211,7 @@ class MutSpec(CodonAnnotation):
         mut_df = pd.DataFrame(mutations)
         return mut_df
 
-    def collect_freqs(self, genome: np.ndarray):
+    def collect_state_freqs(self, genome: np.ndarray):
         n = len(genome)
         assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
 
@@ -396,7 +353,7 @@ def main():
     path_to_leaves = "./data/example_birds/leaves_birds_states.tsv"
     out_dir = "./data/processed/birds"
     out_dir = out_dir + "_" + datetime.now().strftime("%d-%m-%y-%H-%M-%S")
-    MutSpec(path_to_tree, path_to_states, path_to_leaves, out_dir, run=False)
+    MutSpec(path_to_tree, path_to_states, path_to_leaves, out_dir, run=True)
 
 
 if __name__ == "__main__":
