@@ -203,17 +203,17 @@ class GenomeStates:
     """
     tips:
     - use mode="dict" if your tree is small (~1500 nodes require ~350MB of RAM); 
-    big trees with 100000 nodes require tens GB of RAM, therefore use mode="sqlite"
+    big trees with 100000 nodes require tens GB of RAM, therefore use mode="db"
     """
-    def __init__(self, path_to_anc, path_to_leaves, mode="dict") -> None:
+    def __init__(self, path_to_anc, path_to_leaves, path_to_db=None, mode="dict") -> None:
         if mode not in {"dict", "db"}:
             raise ValueError("mode must be 'dict' or 'db'")
         self.mode = mode
         if mode == "dict":
             self.node2genome = self.precalc_node2genome(path_to_anc, path_to_leaves)
         elif mode == "db":
-            self.prepare_db(path_to_anc, path_to_leaves)
-            raise NotImplementedError
+            if path_to_db is not None:
+                self.prepare_db(path_to_anc, path_to_leaves, path_to_db)
     
     def get_genome(self, node: str):
         if self.mode == "dict":
@@ -223,10 +223,10 @@ class GenomeStates:
         else:
             raise ValueError("mode must be 'dict' or 'db'")
 
-    def prepare_db(self, path_to_anc, path_to_leaves):
+    def prepare_db(self, path_to_anc, path_to_leaves, path_to_db):
         """sequentially read tsv and write to db"""
-        path_to_db = '/tmp/example.db'
-        os.remove(path_to_db)
+        if os.path.exists(path_to_db):
+            os.remove(path_to_db)
         con = sqlite3.connect(path_to_db)
         cur = con.cursor()
         cur.execute('''CREATE TABLE states
@@ -245,8 +245,8 @@ class GenomeStates:
                 row = line.strip().split()
                 query = "INSERT INTO states VALUES ('{}',{},{},'{}',{},{},{},{})".format(*row)
                 cur.execute(query)
-            con.commit()
 
+            con.commit()
             handle.close()
         con.close()
 
@@ -356,4 +356,5 @@ if __name__ == "__main__":
 
     path_to_anc = "./data/example_birds/anc_kg_states_birds.tsv"
     path_to_leaves = "./data/example_birds/leaves_birds_states.tsv"
-    gs = GenomeStates(path_to_anc, path_to_leaves, mode="db")
+    path_to_db = './data/states.db'
+    gs = GenomeStates(path_to_anc, path_to_leaves, path_to_db, mode="db")

@@ -49,7 +49,8 @@ def main(path_to_states, path_to_leaves, out):
 
     anc["Part"] = np.tile(one_leaf.Part.values, replication_factor)
     anc["Site"] = np.tile(one_leaf.Site.values, replication_factor)
-    print("modifications done; start writing", file=sys.stderr)
+    anc = anc[["Node", "Part", "Site", "State", "p_A", "p_C", "p_G", "p_T"]]
+    print("Modifications done\nwriting...", file=sys.stderr)
     anc.to_csv(out, sep="\t", index=None)
 
 
