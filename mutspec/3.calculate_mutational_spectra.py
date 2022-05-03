@@ -27,6 +27,8 @@ from utils import (
 )
 
 EPS = 1e-5
+possible_sbs192_set = set(possible_sbs192)
+possible_sbs12_set = set(possible_sbs12)
 
 
 class MutSpec:
@@ -305,7 +307,7 @@ class MutSpec:
         mutspec.columns = ["Mut", "ObsFr"]
 
         mutspec_appendix = []
-        unobserved_sbs = possible_sbs12.difference(mutspec.Mut.values)
+        unobserved_sbs = possible_sbs12_set.difference(mutspec.Mut.values)
         for usbs in unobserved_sbs:
             mutspec_appendix.append({"Mut": usbs, "ObsFr": 0})
         mutspec = pd.concat(
@@ -343,7 +345,7 @@ class MutSpec:
         mutspec.columns = ["Mut", "ObsFr"]
 
         mutspec_appendix = []
-        unobserved_sbs = possible_sbs192.difference(mutspec.Mut.values)
+        unobserved_sbs = possible_sbs192_set.difference(mutspec.Mut.values)
         for usbs in unobserved_sbs:
             mutspec_appendix.append({"Mut": usbs, "ObsFr": 0})
         mutspec = pd.concat(

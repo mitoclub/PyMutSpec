@@ -359,14 +359,14 @@ def profiler(_func=None, *, nlines=10):
         return decorator_profiler(_func)
 
 
-possible_sbs12 = {
+possible_sbs12 = [
     'A>C', 'A>G', 'A>T',
     'C>A', 'C>G', 'C>T',
     'G>A', 'G>C', 'G>T',
     'T>A', 'T>C', 'T>G'
-}
+]
 
-possible_sbs192 = {
+possible_sbs192 = [
     "A[A>C]A", "A[A>C]C", "A[A>C]G", "A[A>C]T", "C[A>C]A", "C[A>C]C", "C[A>C]G", "C[A>C]T", 
     "G[A>C]A", "G[A>C]C", "G[A>C]G", "G[A>C]T", "T[A>C]A", "T[A>C]C", "T[A>C]G", "T[A>C]T", 
     "A[A>G]A", "A[A>G]C", "A[A>G]G", "A[A>G]T", "C[A>G]A", "C[A>G]C", "C[A>G]G", "C[A>G]T", 
@@ -391,9 +391,9 @@ possible_sbs192 = {
     "G[T>C]A", "G[T>C]C", "G[T>C]G", "G[T>C]T", "T[T>C]A", "T[T>C]C", "T[T>C]G", "T[T>C]T", 
     "A[T>G]A", "A[T>G]C", "A[T>G]G", "A[T>G]T", "C[T>G]A", "C[T>G]C", "C[T>G]G", "C[T>G]T", 
     "G[T>G]A", "G[T>G]C", "G[T>G]G", "G[T>G]T", "T[T>G]A", "T[T>G]C", "T[T>G]G", "T[T>G]T", 
-}
+]
 
-possible_codons = {
+possible_codons = [
     "AAA", "AAC", "AAG", "AAT", "ACA", "ACC", "ACG", "ACT", 
     "AGA", "AGC", "AGG", "AGT", "ATA", "ATC", "ATG", "ATT", 
     "CAA", "CAC", "CAG", "CAT", "CCA", "CCC", "CCG", "CCT", 
@@ -402,7 +402,7 @@ possible_codons = {
     "GGA", "GGC", "GGG", "GGT", "GTA", "GTC", "GTG", "GTT", 
     "TAA", "TAC", "TAG", "TAT", "TCA", "TCC", "TCG", "TCT", 
     "TGA", "TGC", "TGG", "TGT", "TTA", "TTC", "TTG", "TTT", 
-}
+]
 
 
 if __name__ == "__main__":
