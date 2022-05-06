@@ -12,12 +12,42 @@ source env_birds/bin/activate
 pip install -r requirements.txt
 ```
 
+### Installing newick-utils-1.6
+
+```bash
+wget http://bioinfodbs.kantiana.ru/newick-utils-1.6.tar.gz
+tar -xvzf newick-utils-1.6.tar.gz
+cd newick-utils-1.6
+./configure --prefix=/opt/newick-utils-1.6/build
+make install
+cd build/bin
+ls
+```
+
 ## Workflow
 
 6.1 Prepare appropriate format of leaves states
 
 ```bash
-code...
+python scripts/6.1.terminal_genomes2iqtree_format.py --aln data/interim/alignments_birds_clean_clean --scheme data/interim/scheme_birds_genes.nex --out data/interim/leaves_birds_states.tsv
+```
+
+6.2 Prepare appropriate format of internal states from iqtree
+
+```bash
+python scripts/6.2.states2iqtree_format.py --anc data/interim/iqtree_runs/brun3/anc_kg/anc_kg.state --leaves data/interim/leaves_birds_states.tsv --out data/interim/anc_kg_states_birds.tsv
+```
+
+6.3 Caclulate MutSpec on most probable states
+
+```bash
+python scripts/6.3.calculate_mutational_spectra.py
+```
+
+6.4 Caclulate MutSpec using state probabilities
+
+```bash
+python scripts/6.4.calculate_mutational_spectra_proba.py
 ```
 
 ## Stuff
