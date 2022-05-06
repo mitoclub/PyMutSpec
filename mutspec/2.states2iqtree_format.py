@@ -16,8 +16,8 @@ import pandas as pd
 
 adtype = {
     "Site": np.int32,
-    "p_A":  np.float16, "p_C":  np.float16,
-    "p_G":  np.float16, "p_T":  np.float16
+    "p_A":  np.float32, "p_C":  np.float32,
+    "p_G":  np.float32, "p_T":  np.float32,
 }
 
 

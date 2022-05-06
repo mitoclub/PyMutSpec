@@ -16,7 +16,7 @@ import sys
 from collections import defaultdict
 from datetime import datetime
 from queue import Queue
-from typing import Iterable
+from typing import Dict, Iterable
 
 import numpy as np
 import pandas as pd
@@ -24,14 +24,10 @@ from Bio.Data import CodonTable
 from ete3 import PhyloTree
 
 from utils import (
-    iter_tree_edges, node_parent, profiler, get_farthest_leaf, 
-    CodonAnnotation, GenomeStates,
-    possible_codons, possible_sbs12, possible_sbs192
+    iter_tree_edges, profiler, get_farthest_leaf, calculate_mutspec,
+    CodonAnnotation, GenomeStates, possible_codons
 )
 from custom_logging import logger
-
-possible_sbs192_set = set(possible_sbs192)
-possible_sbs12_set = set(possible_sbs12)
 
 
 class MutSpec(CodonAnnotation, GenomeStates):
@@ -41,7 +37,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
     def __init__(
             self, path_to_tree, path_to_anc, path_to_leaves, out_dir, 
             path_to_db="data/states.db", gcode=2, run=True, db_mode="db", 
-            rewrite_db=False, proba_cutoff=0.01,
+            rewrite_db=None, proba_cutoff=0.01,
         ):
         for path in (path_to_tree, path_to_anc, path_to_leaves):
             if not os.path.exists(path):
@@ -55,8 +51,9 @@ class MutSpec(CodonAnnotation, GenomeStates):
         self.gcode = gcode
         self.proba_cutoff = proba_cutoff
         self.MUT_LABELS = ["all", "ff"]  # TODO add syn
+        self.fp_format = np.float32
         self.tree = PhyloTree(path_to_tree, format=1)
-        self.max_dist = get_farthest_leaf(self.tree)
+        self.max_dist = self.fp_format(get_farthest_leaf(self.tree))
         logger.info(
             f"tree loaded, number of leaf nodes: {len(self.tree)}, "
             f"total number of nodes: {len(self.tree.get_cached_content())}, "
@@ -100,11 +97,12 @@ class MutSpec(CodonAnnotation, GenomeStates):
             edge_mutspec12[label].to_csv(fp_mutspec12, index=None)
             edge_mutspec192[label].to_csv(fp_mutspec192, index=None)
 
-
+    @profiler
     def extract_mutspec_from_tree(self):
         logger.info("Start mutation extraction from tree")
         # edge_mutspec12 = defaultdict(list)  # all, syn, ff
         # edge_mutspec192 = defaultdict(list)
+        add_header = defaultdict(lambda: True)
         for ei, (ref_node, alt_node) in enumerate(iter_tree_edges(self.tree)):
             if ref_node.name not in self.nodes or alt_node.name not in self.nodes:
                 continue
@@ -116,23 +114,25 @@ class MutSpec(CodonAnnotation, GenomeStates):
 
             # calculate phylogenetic uncertainty correction
             _, dist_to_closest_leaf = ref_node.get_closest_leaf()
-            evol_speed_coef = 1 - min(1, dist_to_closest_leaf / self.max_dist)
+            dist_to_closest_leaf = self.fp_format(dist_to_closest_leaf)
+            evol_speed_coef = self.fp_format(1 - min(1, dist_to_closest_leaf / self.max_dist))
 
-            genome_nucl_freqs = {lbl: defaultdict(np.float16) for lbl in self.MUT_LABELS}
-            genome_cxt_freqs = {lbl: defaultdict(np.float16) for lbl in self.MUT_LABELS}
+            genome_nucl_freqs = {lbl: defaultdict(self.fp_format) for lbl in self.MUT_LABELS}
+            genome_cxt_freqs = {lbl: defaultdict(self.fp_format) for lbl in self.MUT_LABELS}
             genome_mutations = []
             for gene in ref_genome:
                 ref_seq = ref_genome[gene]
                 alt_seq = alt_genome[gene]
+                gene = np.int16(gene)
                 
                 # extract mutations and put in order columns
                 gene_mut_df = self.extract_mutations(ref_seq, alt_seq)
-                gene_mut_df["RefNode"] = ref_node.name
-                gene_mut_df["AltNode"] = alt_node.name
-                gene_mut_df["Gene"] = gene
                 gene_mut_df["DistToClosestLeaf"] = dist_to_closest_leaf
                 gene_mut_df["EvolSpeedCoef"] = evol_speed_coef
                 gene_mut_df["ProbaFull"] = gene_mut_df["EvolSpeedCoef"] * gene_mut_df["ProbaMut"]
+                gene_mut_df["RefNode"] = ref_node.name
+                gene_mut_df["AltNode"] = alt_node.name
+                gene_mut_df["Gene"] = gene
 
                 # collect state frequencies
                 gene_nucl_freqs, gene_cxt_freqs = self.collect_state_freqs(ref_seq, evol_speed_coef)
@@ -140,8 +140,9 @@ class MutSpec(CodonAnnotation, GenomeStates):
                 # dump state frequencies
                 self.dump_freqs(
                     gene_nucl_freqs, gene_cxt_freqs, ref_node.name, 
-                    gene, self.handle_freq, ei == 0 and gene == 1,
+                    gene, self.handle_freq, add_header["freqs"],
                 )
+                add_header["freqs"] = False
                 # summarize state frequencies over genome
                 for lbl in self.MUT_LABELS:
                     for nucl, freq in gene_nucl_freqs[lbl].items():
@@ -153,22 +154,27 @@ class MutSpec(CodonAnnotation, GenomeStates):
                     genome_mutations.append(gene_mut_df)
                 
                 # calculate gene mutational spectra for all labels
-                if len(gene_mut_df) > 200:  # TODO number of mutations is implicit ??
+                if len(gene_mut_df) > 50:  # TODO number of mutations is implicit ??
                     for lbl in self.MUT_LABELS:
-                        mutspec12 = self.calculate_mutspec(gene_mut_df, gene_nucl_freqs[lbl], label=lbl, msl=12)
+                        mutspec12 = calculate_mutspec(gene_mut_df, gene_nucl_freqs[lbl], label=lbl, msl=12)
                         mutspec12["RefNode"] = ref_node.name
                         mutspec12["AltNode"] = alt_node.name
-                        mutspec12["Effect"] = lbl
+                        mutspec12["Label"] = lbl
                         mutspec12["Gene"] = gene
-                        mutspec192 = self.calculate_mutspec(gene_mut_df, gene_cxt_freqs[lbl], label=lbl, msl=192)
+                        # Dump gene mutspecs 
+                        self.dump_table(mutspec12,  self.handle_mutspec_genes12,  add_header["ms12g"])
+                        add_header["ms12g"] = False
+
+                if len(gene_mut_df) > 200:  # TODO number of mutations is implicit ??
+                    for lbl in self.MUT_LABELS:
+                        mutspec192 = calculate_mutspec(gene_mut_df, gene_cxt_freqs[lbl], label=lbl, msl=192)
                         mutspec192["RefNode"] = ref_node.name
                         mutspec192["AltNode"] = alt_node.name
-                        mutspec192["Effect"] = lbl
+                        mutspec192["Label"] = lbl
                         mutspec192["Gene"] = gene
-
                         # Dump gene mutspecs 
-                        self.dump_table(mutspec12,  self.handle_mutspec_genes12,  ei == 0 and gene == 1)
-                        self.dump_table(mutspec192, self.handle_mutspec_genes192, ei == 0 and gene == 1)
+                        self.dump_table(mutspec192, self.handle_mutspec_genes192, add_header["ms192g"])
+                        add_header["ms192g"] = False
             
             if len(genome_mutations) == 0:
                 continue
@@ -177,24 +183,26 @@ class MutSpec(CodonAnnotation, GenomeStates):
             del genome_mutations
 
             # dump mutations
-            self.dump_table(genome_mutations_df, self.handle_mut, ei == 0)
+            self.dump_table(genome_mutations_df, self.handle_mut, add_header["mut"])
+            add_header["mut"] = False
             
             # calculate full genome mutational spectra for all labels
             for lbl in self.MUT_LABELS:
-                mutspec12 = self.calculate_mutspec(genome_mutations_df, genome_nucl_freqs[lbl], label=lbl, msl=12)
+                mutspec12 = calculate_mutspec(genome_mutations_df, genome_nucl_freqs[lbl], label=lbl, msl=12)
                 mutspec12["RefNode"] = ref_node.name
                 mutspec12["AltNode"] = alt_node.name
-                mutspec12["Effect"] = lbl
-                mutspec192 = self.calculate_mutspec(genome_mutations_df, genome_cxt_freqs[lbl], label=lbl, msl=192)
+                mutspec12["Label"] = lbl
+                mutspec192 = calculate_mutspec(genome_mutations_df, genome_cxt_freqs[lbl], label=lbl, msl=192)
                 mutspec192["RefNode"] = ref_node.name
                 mutspec192["AltNode"] = alt_node.name
-                mutspec192["Effect"] = lbl
+                mutspec192["Label"] = lbl
 
                 # Dump genome mutspecs
-                self.dump_table(mutspec12,  self.handle_mutspec12,  ei == 0)
-                self.dump_table(mutspec192, self.handle_mutspec192, ei == 0)
+                self.dump_table(mutspec12,  self.handle_mutspec12,  add_header["ms"])
+                self.dump_table(mutspec192, self.handle_mutspec192, add_header["ms"])
+                add_header["ms"] = True
 
-            if ei == 5:
+            if ei == 3:
                 break  # TODO remove lines
 
     def extract_mutations(self, g1: np.ndarray, g2: np.ndarray):
@@ -235,12 +243,12 @@ class MutSpec(CodonAnnotation, GenomeStates):
                     if sum([cdn1[_] == cdn2[_] for _ in range(3)]) != 2:
                         continue
                     
-                    label, aa1, aa2 = self.get_mut_effect(cdn1_str, cdn2_str, pic)
+                    label, aa1, aa2 = self.get_mut_type(cdn1_str, cdn2_str, pic)
                     sbs = {
                         "Mut": f"{up_nuc1}[{nuc1}>{nuc2}]{down_nuc1}",                        
-                        "Effect": label,
-                        "PosInGene": pos + 1,
-                        "PosInCodon": pic + 1,
+                        "Label": np.int8(label),
+                        "PosInGene": np.int32(pos + 1),
+                        "PosInCodon": np.int8(pic + 1),
                         "RefCodon": cdn1_str,
                         "AltCodon": cdn2_str,
                         "RefAa": aa1,
@@ -257,8 +265,8 @@ class MutSpec(CodonAnnotation, GenomeStates):
         n = len(genome)
         assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
 
-        nucl_freqs = {lbl: defaultdict(np.float16) for lbl in ("all", "syn", "ff")}
-        cxt_freqs = {lbl: defaultdict(np.float16) for lbl in ("all", "syn", "ff")}
+        nucl_freqs = {lbl: defaultdict(self.fp_format) for lbl in ("all", "syn", "ff")}
+        cxt_freqs = {lbl: defaultdict(self.fp_format) for lbl in ("all", "syn", "ff")}
 
         for pos in range(1, n - 1):
             pic = pos % 3  # 0-based
@@ -280,59 +288,6 @@ class MutSpec(CodonAnnotation, GenomeStates):
                         cxt_freqs["ff"][cxt_str]  += proba
 
         return nucl_freqs, cxt_freqs
-
-    @staticmethod
-    def calculate_mutspec(mut: pd.DataFrame, freqs, label: str, msl=192):
-        mut = mut.copy()
-        cols = ["Effect", "Mut", "ProbaFull"]
-        for c in cols:
-            assert c in mut.columns, f"Column {c} is not in mut df"
-
-        labels = {"syn", "ff", "all"}
-        if isinstance(label, str):
-            label = label.lower()
-            if label not in labels:
-                raise ValueError(f"pass the appropriate label: {labels}")
-            if label == "syn":
-                label = 1
-            elif label == "ff":
-                label = 2
-            elif label == "all":
-                label = 0
-        else:
-            raise ValueError(f"pass the appropriate label: {labels}")
-
-        if msl == 12:
-            mut["MutBase"] = mut["Mut"].str.slice(2, 5)
-            col_mut = "MutBase"
-            full_sbs = possible_sbs12_set
-        elif msl == 192:
-            col_mut = "Mut"
-            full_sbs = possible_sbs192_set
-        else:
-            raise ValueError(f"Inappropriate value for mutspec type: {msl}; must be 12 or 192")
-
-        mutspec = mut[mut["Effect"] >= label].groupby(col_mut)["ProbaFull"].sum().reset_index()
-        mutspec.columns = ["Mut", "ObsFr"]
-
-        # fill unobserved mutations by zeros
-        mutspec_appendix = []
-        unobserved_sbs = full_sbs.difference(mutspec["Mut"].values)
-        for usbs in unobserved_sbs:
-            mutspec_appendix.append({"Mut": usbs, "ObsFr": 0})
-        mutspec = pd.concat([mutspec, pd.DataFrame(mutspec_appendix)], ignore_index=True)
-
-        if msl == 12:
-            mutspec["Context"] = mutspec["Mut"].str.get(0)
-        else:
-            sbs = mutspec["Mut"]
-            mutspec["Context"] = sbs.str.get(0) + sbs.str.get(2) + sbs.str.get(-1)
-
-        mutspec["ExpFr"] = mutspec["Context"].map(freqs)
-        mutspec["RawMutSpec"] = (mutspec["ObsFr"] / mutspec["ExpFr"]).fillna(0)
-        mutspec["MutSpec"] = mutspec["RawMutSpec"] / mutspec["RawMutSpec"].sum()
-        mutspec.drop("Context", axis=1, inplace=True)
-        return mutspec
 
     def sample_context_fast(self, pos, pic, genome: np.ndarray, cutoff=0.01):
         codon_states = genome[pos - pic: pos - pic + 3]        
@@ -376,13 +331,13 @@ class MutSpec(CodonAnnotation, GenomeStates):
         if header:
             nucls  = "\t".join(self.nucl_order)
             codons = "\t".join(possible_codons)
-            header = f"Node\tGene\tEffect\t{nucls}\t{codons}\n"
+            header = f"Node\tGene\tLabel\t{nucls}\t{codons}\n"
             handle.write(header)
         
-        for effect in self.MUT_LABELS:
-            nucls  = "\t".join([str(gene_nuc_freqs[effect][x]) for x in self.nucl_order])
-            codons = "\t".join([str(gene_cxt_freqs[effect][x]) for x in possible_codons])
-            row = f"{node}\t{gene}\t{effect}\t{nucls}\t{codons}\n"
+        for lbl in self.MUT_LABELS:
+            nucls  = "\t".join([str(gene_nuc_freqs[lbl][x]) for x in self.nucl_order])
+            codons = "\t".join([str(gene_cxt_freqs[lbl][x]) for x in possible_codons])
+            row = f"{node}\t{gene}\t{lbl}\t{nucls}\t{codons}\n"
             handle.write(row)
     
 

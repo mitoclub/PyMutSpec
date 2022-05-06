@@ -6,7 +6,7 @@ import sys
 import sqlite3
 from collections import defaultdict
 from queue import Queue
-from typing import List, Set, Tuple, Union
+from typing import Dict, List, Set, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -16,6 +16,7 @@ from ete3 import PhyloTree
 import tqdm
 
 from custom_logging import logger
+
 
 #################
 ## CODON FUNC  ##
@@ -43,7 +44,7 @@ class CodonAnnotation:
         assert 0 <= pic <= 2, "pic must be 0-based and less than 3"
         return self._syn_codons.get((cdn, pic), 0)
         
-    def get_mut_effect(self, codon1: str, codon2: str, pic: int):
+    def get_mut_type(self, codon1: str, codon2: str, pic: int):
         """
         returned labels:
         - -1 - stopcodon loss or gain
@@ -215,6 +216,68 @@ def get_farthest_leaf(tree: PhyloTree, quantile=None):
     return md
 
 
+##################
+## MUTSPEC FUNC ##
+##################
+
+
+def calculate_mutspec(mutations: pd.DataFrame, freqs: Dict[str, float], label: str, msl=192):
+    """
+    mutations dataframe must contain 3 columns:
+    - Label
+    """
+    mut = mutations.copy()
+    cols = ["Label", "Mut", "ProbaFull"]
+    for c in cols:
+        assert c in mut.columns, f"Column {c} is not in mut df"
+
+    labels = {"syn", "ff", "all"}
+    if isinstance(label, str):
+        label = label.lower()
+        if label not in labels:
+            raise ValueError(f"pass the appropriate label: {labels}")
+        if label == "syn":
+            label = 1
+        elif label == "ff":
+            label = 2
+        elif label == "all":
+            label = 0
+    else:
+        raise ValueError(f"pass the appropriate label: {labels}")
+
+    if msl == 12:
+        mut["MutBase"] = mut["Mut"].str.slice(2, 5)
+        col_mut = "MutBase"
+        full_sbs = possible_sbs12_set
+    elif msl == 192:
+        col_mut = "Mut"
+        full_sbs = possible_sbs192_set
+    else:
+        raise ValueError(f"Inappropriate value for mutspec type: {msl}; must be 12 or 192")
+
+    mutspec = mut[mut["Label"] >= label].groupby(col_mut)["ProbaFull"].sum().reset_index()
+    mutspec.columns = ["Mut", "ObsFr"]
+
+    # fill unobserved mutations by zeros
+    mutspec_appendix = []
+    unobserved_sbs = full_sbs.difference(mutspec["Mut"].values)
+    for usbs in unobserved_sbs:
+        mutspec_appendix.append({"Mut": usbs, "ObsFr": 0})
+    mutspec = pd.concat([mutspec, pd.DataFrame(mutspec_appendix)], ignore_index=True)
+
+    if msl == 12:
+        mutspec["Context"] = mutspec["Mut"].str.get(0)
+    else:
+        sbs = mutspec["Mut"]
+        mutspec["Context"] = sbs.str.get(0) + sbs.str.get(2) + sbs.str.get(-1)
+
+    mutspec["ExpFr"] = mutspec["Context"].map(freqs)
+    mutspec["RawMutSpec"] = (mutspec["ObsFr"] / mutspec["ExpFr"]).fillna(0)
+    mutspec["MutSpec"] = mutspec["RawMutSpec"] / mutspec["RawMutSpec"].sum()
+    mutspec.drop("Context", axis=1, inplace=True)
+    return mutspec
+
+
 #################
 ## OTHER FUNC  ##
 #################
@@ -246,17 +309,28 @@ class GenomeStates:
     def get_genome(self, node: str):
         if self.mode == "dict":
             return self.node2genome[node]
+            
         elif self.mode == "db":
-            genome = defaultdict(list)
+            genome_raw = defaultdict(list)
             cur = self.con.cursor()
-            for row in cur.execute(f"""SELECT Part, p_A, p_C, p_G, p_T FROM states 
-                WHERE Node='{node}'
-                ORDER by Part, Site"""):
+            for row in cur.execute(f"""SELECT Part, Site, p_A, p_C, p_G, p_T FROM states 
+                WHERE Node='{node}' """):  
                 part = row[0]
                 state = row[1:]
-                genome[part].append(state)
-            genome = {k: np.array(v, dtype=np.float16) for k, v in genome.items()}
+                genome_raw[part].append(state)
+            dtype = [
+                ("Site", np.int32),
+                ("p_A", np.float32), ("p_C", np.float32), 
+                ("p_G", np.float32), ("p_T", np.float32),
+            ]
+            genome = {}
+            for part, state_tup in genome_raw.items():
+                state = np.array(state_tup, dtype=dtype)
+                state_sorted = np.sort(state, order="Site")
+                state_sorted_devoid = list(map(list, state_sorted))
+                genome[part] = np.array(state_sorted_devoid)[:, 1:]
             return genome
+
         else:
             raise ValueError("mode must be 'dict' or 'db'")
 
@@ -313,7 +387,7 @@ class GenomeStates:
             nodes.add(node[0])
         return nodes
 
-    def _prepare_node2genome(self, path_to_anc, path_to_leaves, states_dtype=np.float16):
+    def _prepare_node2genome(self, path_to_anc, path_to_leaves, states_dtype=np.float32):
         dtypes = {
             "p_A":  states_dtype, "p_C": states_dtype, 
             "p_G":  states_dtype, "p_T": states_dtype,
@@ -337,9 +411,12 @@ class GenomeStates:
 
         self.node2genome = node2genome
         self.nodes = set(node2genome.keys())
+    
+    def close(self):
+        self.con.close()
 
 
-def profiler(_func=None, *, nlines=10):
+def profiler(_func=None, *, nlines=20):
     def decorator_profiler(func):
         def wrapper_profiler(*args, **kwargs):
             profile = cProfile.Profile()
@@ -348,7 +425,7 @@ def profiler(_func=None, *, nlines=10):
             profile.disable()
             ps = pstats.Stats(profile, stream=sys.stderr)
             print(f"{'-' * 30}\nFunction: {func.__name__}\n{'-' * 30}", file=sys.stderr)
-            ps.sort_stats('cumtime', 'calls')
+            ps.sort_stats('cumtime', 'tottime')
             ps.print_stats(nlines)
             return value
         return wrapper_profiler
@@ -392,6 +469,8 @@ possible_sbs192 = [
     "A[T>G]A", "A[T>G]C", "A[T>G]G", "A[T>G]T", "C[T>G]A", "C[T>G]C", "C[T>G]G", "C[T>G]T", 
     "G[T>G]A", "G[T>G]C", "G[T>G]G", "G[T>G]T", "T[T>G]A", "T[T>G]C", "T[T>G]G", "T[T>G]T", 
 ]
+possible_sbs192_set = set(possible_sbs192)
+possible_sbs12_set = set(possible_sbs12)
 
 possible_codons = [
     "AAA", "AAC", "AAG", "AAT", "ACA", "ACC", "ACG", "ACT", 
