@@ -156,7 +156,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
                 # calculate gene mutational spectra for all labels
                 if len(gene_mut_df) > 50:  # TODO number of mutations is implicit ??
                     for lbl in self.MUT_LABELS:
-                        mutspec12 = calculate_mutspec(gene_mut_df, gene_nucl_freqs[lbl], label=lbl, msl=12)
+                        mutspec12 = calculate_mutspec(gene_mut_df, gene_nucl_freqs[lbl], label=lbl, use_context=False)
                         mutspec12["RefNode"] = ref_node.name
                         mutspec12["AltNode"] = alt_node.name
                         mutspec12["Label"] = lbl
@@ -167,7 +167,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
 
                 if len(gene_mut_df) > 200:  # TODO number of mutations is implicit ??
                     for lbl in self.MUT_LABELS:
-                        mutspec192 = calculate_mutspec(gene_mut_df, gene_cxt_freqs[lbl], label=lbl, msl=192)
+                        mutspec192 = calculate_mutspec(gene_mut_df, gene_cxt_freqs[lbl], label=lbl, use_context=True)
                         mutspec192["RefNode"] = ref_node.name
                         mutspec192["AltNode"] = alt_node.name
                         mutspec192["Label"] = lbl
@@ -188,11 +188,11 @@ class MutSpec(CodonAnnotation, GenomeStates):
             
             # calculate full genome mutational spectra for all labels
             for lbl in self.MUT_LABELS:
-                mutspec12 = calculate_mutspec(genome_mutations_df, genome_nucl_freqs[lbl], label=lbl, msl=12)
+                mutspec12 = calculate_mutspec(genome_mutations_df, genome_nucl_freqs[lbl], label=lbl, use_context=False)
                 mutspec12["RefNode"] = ref_node.name
                 mutspec12["AltNode"] = alt_node.name
                 mutspec12["Label"] = lbl
-                mutspec192 = calculate_mutspec(genome_mutations_df, genome_cxt_freqs[lbl], label=lbl, msl=192)
+                mutspec192 = calculate_mutspec(genome_mutations_df, genome_cxt_freqs[lbl], label=lbl, use_context=True)
                 mutspec192["RefNode"] = ref_node.name
                 mutspec192["AltNode"] = alt_node.name
                 mutspec192["Label"] = lbl
