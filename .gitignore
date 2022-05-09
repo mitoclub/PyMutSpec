@@ -21,3 +21,4 @@ _data_mr
 env*
 evn*
 *.Rhistory
+mutspec.egg-info
