@@ -10,7 +10,7 @@ from .constants import *
 
 
 class CodonAnnotation:
-    nucl_order = ["A", "C", "G", "T"]
+    nucl_order = possible_nucls
 
     def __init__(self, codontable: Union[NCBICodonTableDNA, int], *args, **kwargs):
         self.codontable = self._prepare_codontable(codontable)
@@ -32,11 +32,13 @@ class CodonAnnotation:
         
     def get_mut_type(self, codon1: str, codon2: str, pic: int):
         """
-        returned labels:
+        returned label variants:
         - -1 - stopcodon loss or gain
         -  0 - usual sbs
         -  1 - synonimous sbs
         -  2 - fourfold sbs
+
+        return (label, aa1, aa2)
         """
         assert codon1 != codon2, "codons must be different"
         assert 0 <= pic <= 2, "pic must be 0-based and less than 3"
