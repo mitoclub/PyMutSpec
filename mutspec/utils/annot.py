@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Union, Dict
+from typing import Set, Union, Dict
 
 import numpy as np
 import pandas as pd
@@ -15,6 +15,7 @@ class CodonAnnotation:
     def __init__(self, codontable: Union[NCBICodonTableDNA, int], *args, **kwargs):
         self.codontable = self._prepare_codontable(codontable)
         self._syn_codons, self._ff_codons = self.__extract_syn_codons()
+        self.possible_ff_contexts = self.__extract_possible_ff_contexts()
 
     def is_four_fold(self, codon):
         return codon in self._ff_codons
@@ -86,6 +87,15 @@ class CodonAnnotation:
             if num == 3 and pic == 2:
                 ff_codons.add(cdn)
         return dict(syn_codons), ff_codons
+    
+    def __extract_possible_ff_contexts(self) -> Set[str]:
+        possible_ff_contexts = set()
+        for cdn in self._ff_codons:
+            stump = cdn[1:]
+            for nucl in self.nucl_order:
+                cxt = stump + nucl
+                possible_ff_contexts.add(cxt)
+        return possible_ff_contexts
 
     @staticmethod
     def _prepare_codontable(codontable: Union[NCBICodonTableDNA, int]):
