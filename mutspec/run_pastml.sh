@@ -1,5 +1,8 @@
 # example
-pastml --tree data/example_pastml/Albanian.tree.152tax.tre --data data/example_pastml/data.txt --columns Country --html_compressed data/example_pastml/Albanian_map.html --data_sep ,
+pastml -t data/example_pastml/Albanian.tree.152tax.tre -d data/example_pastml/data.txt --html data/example_pastml/tree.html --html_compressed data/example_pastml/map.html --data_sep ,
 
 # birds
-pastml --tree data/example_birds/anc_kg.treefile --data data/leaves_birds.pastml.tsv --html_compressed data/example_birds/birds_map.html -v --threads 20
+pastml -t data/example_birds/anc_kg.treefile -d data/leaves_birds.pastml.tsv --html_compressed data/example_birds/map.html --html data/example_birds/tree.html -v --threads 20 -m HKY
+
+
+# -o gives combined_ancestral_states.tab

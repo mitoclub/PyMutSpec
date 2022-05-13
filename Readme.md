@@ -54,6 +54,12 @@ python scripts/6.4.calculate_mutational_spectra_proba.py
 
 ...
 
+## PastML
+
+Used for calc mutspec without using custom phylo score
+
+model подобрать
+
 ## Bottleneck
 
 mode='db'
