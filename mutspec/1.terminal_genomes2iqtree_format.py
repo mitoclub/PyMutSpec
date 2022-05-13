@@ -75,17 +75,18 @@ def parse_alignment(files: list, scheme: dict, aln_dir, out) -> Tuple[str, int]:
                 handle.write("\t".join(pos_data) + "\n")
         aln_lens.append(len(seq))
 
-    _pass = False
+    # get max set of parts
     for node, parts in history.items():
         if len(parts) == NGENES:
-            if _pass:
-                continue
             full_parts = parts.copy()
-            _pass = False
-        else:
+            break
+    
+    # fill missing genes by '-'
+    for node, parts in history.items():
+        if len(parts) != NGENES:
             unseen_parts = set(full_parts).difference(parts)
             for unp in unseen_parts:
-                print(f"Gap filling of part {unp} for node {node}...", file=sys.stderr)
+                print(f"Gap filling for node {node}, part {unp}...", file=sys.stderr)
                 for site in range(1, aln_lens[unp - 1] + 1):
                     pos_data = [node, str(unp), str(site), "-", "0", "0", "0", "0"]
                     handle.write("\t".join(pos_data) + "\n")
