@@ -16,6 +16,7 @@ class CodonAnnotation:
         self.codontable = self._prepare_codontable(codontable)
         self._syn_codons, self._ff_codons = self.__extract_syn_codons()
         self.possible_ff_contexts = self.__extract_possible_ff_contexts()
+        self.startcodons, self.stopcodons = self.read_start_stop_codons(codontable)
 
     def is_four_fold(self, codon):
         return codon in self._ff_codons
@@ -160,21 +161,20 @@ class CodonAnnotation:
                             yield codon, mut_context, full_proba
                     else:
                         yield codon, codon, codon_proba
-
-
-def read_start_stop_codons(codontable: Union[NCBICodonTableDNA, int]):
-    codontable = CodonAnnotation._prepare_codontable(codontable)
-    return set(codontable.start_codons), set(codontable.stop_codons)
+    
+    @staticmethod
+    def read_start_stop_codons(codontable: Union[NCBICodonTableDNA, int]):
+        codontable = CodonAnnotation._prepare_codontable(codontable)
+        return set(codontable.start_codons), set(codontable.stop_codons)
 
 
 def calculate_mutspec(mutations: pd.DataFrame, freqs: Dict[str, float], label: str, use_context=True, use_proba=True):
     """
     mutations dataframe must contain 2 columns:
-    - Mut
-    - Label
+    - Mut (X[N1>N2]Y)
+    - Label (-1, 0, 1, 2)
     - ProbaFull (optional, only for use_proba=True)
-
-
+    
     """
     mut = mutations.copy()
     _cols = ["Label", "Mut", "ProbaFull"] if use_proba else ["Label", "Mut"]

@@ -18,9 +18,6 @@ import click
 import tqdm
 from Bio import SeqIO
 
-# PATH_TO_ALN_DIR = "./data/interim/trimed_aln_devilworm_clean"
-# PATH_TO_SCHEME = "./data/interim/iqtree_runs/drun1/anc.best_scheme.nex"  # nexus
-# PATH_TO_OUT_STATES = "./data/interim/leaves_states.tsv"
 NGENES = 12
 
 
@@ -41,8 +38,8 @@ def load_scheme(path: str) -> Dict[str, str]:
     """
     with open(path) as handle:
         raw_file = handle.read()
-    charsets = re.findall("charset\s(\w+)\s?=\s?([\w_\.]+)\s?:.+;", raw_file)
-    scheme = {i: os.path.basename(fp) for i, (gn, fp) in enumerate(charsets, 1)}
+    charsets = re.findall("charset\s(\w+)\s?=\s?([\w_\.]+)(\s?:.+)?;", raw_file)
+    scheme = {i: os.path.basename(fp) for i, (_, fp, _) in enumerate(charsets, 1)}
     return scheme
 
 
@@ -103,6 +100,7 @@ def parse_alignment(files: list, scheme: dict, aln_dir, out) -> Tuple[str, int]:
 def main(aln_dir, scheme_path, out):
     aln_files = get_aln_files(aln_dir)
     scheme = load_scheme(scheme_path)
+    assert len(scheme) > 0
     print(scheme)
     aln_len = parse_alignment(aln_files, scheme, aln_dir, out)
 
