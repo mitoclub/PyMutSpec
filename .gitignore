@@ -22,3 +22,4 @@ env*
 evn*
 *.Rhistory
 mutspec.egg-info
+*.tar*
