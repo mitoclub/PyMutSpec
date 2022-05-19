@@ -264,6 +264,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
     def collect_state_freqs(self, genome: np.ndarray, evol_speed_coef: float,  proba_cutoff=0.001):
         n = len(genome)
         assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
+        assert 0 <= evol_speed_coef <= 1, "Evol coefficient must be between 0 and 1"
 
         nucl_freqs = {lbl: defaultdict(self.fp_format) for lbl in ("all", "syn", "ff")}
         cxt_freqs = {lbl: defaultdict(self.fp_format) for lbl in ("all", "syn", "ff")}

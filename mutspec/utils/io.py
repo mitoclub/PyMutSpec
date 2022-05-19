@@ -17,9 +17,10 @@ class GenomeStates:
     """
     def __init__(self, 
             path_to_anc=None, path_to_leaves=None, path_to_db=None, 
-            mode="dict", rewrite=False, *args, **kwargs
+            mode="dict", rewrite=False, proba_mode=True, *args, **kwargs
         ):
         self.mode = mode
+        self.proba_mode = proba_mode
         print(f"Genome states storage mode = '{mode}'", file=sys.stderr)
         self.path_to_db = path_to_db
         if mode == "dict":
@@ -39,22 +40,29 @@ class GenomeStates:
         elif self.mode == "db":
             genome_raw = defaultdict(list)
             cur = self.con.cursor()
-            for row in cur.execute(f"""SELECT Part, Site, p_A, p_C, p_G, p_T FROM states 
-                WHERE Node='{node}' """):  
+            if self.proba_mode:
+                query = f"""SELECT Part, Site, p_A, p_C, p_G, p_T FROM states WHERE Node='{node}'"""
+                dtype = [
+                    ("Site", np.int32),
+                    ("p_A", np.float32), ("p_C", np.float32), 
+                    ("p_G", np.float32), ("p_T", np.float32),
+                ]
+            else:
+                query = f"""SELECT Part, Site, State FROM states WHERE Node='{node}'"""
+                dtype = [("Site", np.int32), ("State", np.object_)]
+
+            for row in cur.execute(query):
                 part = row[0]
                 state = row[1:]
                 genome_raw[part].append(state)
-            dtype = [
-                ("Site", np.int32),
-                ("p_A", np.float32), ("p_C", np.float32), 
-                ("p_G", np.float32), ("p_T", np.float32),
-            ]
+            
             genome = {}
             for part, state_tup in genome_raw.items():
                 state = np.array(state_tup, dtype=dtype)
                 state_sorted = np.sort(state, order="Site")
-                state_sorted_devoid = list(map(list, state_sorted))
-                genome[part] = np.array(state_sorted_devoid)[:, 1:]
+                state_sorted_devoid = np.array(list(map(list, state_sorted)))
+                state = state_sorted_devoid[:, 1:] if self.proba_mode else state_sorted_devoid[:, 1]
+                genome[part] = state
             return genome
 
         else:
@@ -119,7 +127,10 @@ class GenomeStates:
             "p_G":  states_dtype, "p_T": states_dtype,
             "Site": np.int32,     "Part": np.int8,
         }
-        usecols = ["Node", "Part", "Site", "p_A", "p_C", "p_G", "p_T"]
+        if self.proba_mode:
+            usecols = ["Node", "Part", "Site", "p_A", "p_C", "p_G", "p_T"]
+        else:
+            usecols = ["Node", "Part", "Site", "State"]
         node2genome = defaultdict(dict)
         for path in [path_to_anc, path_to_leaves]:
             if path is None:
@@ -132,7 +143,10 @@ class GenomeStates:
             gr = states.groupby(["Node", "Part"])
             for (node, part), gene_pos_ids in gr.groups.items():
                 gene_df = states.loc[gene_pos_ids]
-                gene_states = gene_df[["p_A", "p_C", "p_G", "p_T"]].values
+                if self.proba_mode:
+                    gene_states = gene_df[["p_A", "p_C", "p_G", "p_T"]].values
+                else:
+                    gene_states = gene_df.State.values
                 node2genome[node][part] = gene_states
 
         self.node2genome = node2genome
