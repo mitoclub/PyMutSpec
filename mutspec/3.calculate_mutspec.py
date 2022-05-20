@@ -9,6 +9,7 @@ from datetime import datetime
 from queue import Queue
 from typing import Dict, Iterable
 
+import click
 import numpy as np
 import pandas as pd
 from Bio.Data import CodonTable
@@ -42,7 +43,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
         )
         self.gcode = gcode
         self.proba_cutoff = proba_cutoff
-        self.MUT_LABELS = ["all"]  # TODO add syn
+        self.MUT_LABELS = ["all", "syn", "ff"]  # TODO add syn
         self.fp_format = np.float32
         self.tree = PhyloTree(path_to_tree, format=1)
         # self.max_dist = self.fp_format(get_farthest_leaf(self.tree))
@@ -342,15 +343,20 @@ class MutSpec(CodonAnnotation, GenomeStates):
             handle.write(row)
     
 
-def main():
-    path_to_tree =   "./data/example_nematoda/anc.treefile"
-    path_to_states = "./data/example_nematoda/genes_states.tsv"
-    path_to_leaves = "./data/example_nematoda/leaves_states_nematoda.tsv"
+@click.command("MutSpec calculator", help="")
+@click.option("--tree", "path_to_tree", required=True, type=click.Path(True), help="")
+@click.option("--anc", "path_to_anc", required=True, type=click.Path(True), help="")
+@click.option("--leaves", "path_to_leaves", required=True, type=click.Path(True), help="path to leaves table of custom format")
+# @click.option("--out", "out_dir", required=True, type=click.Path(writable=True), help="")
+def main(path_to_tree, path_to_anc, path_to_leaves):
+    # path_to_tree =   "./data/example_nematoda/anc.treefile"
+    # path_to_anc = "./data/example_nematoda/genes_states.tsv"
+    # path_to_leaves = "./data/example_nematoda/leaves_states_nematoda.tsv"
     path_to_db     = "./data/example_nematoda/states.db"
     out_dir = "./data/processed/nematoda"
     # out_dir = "/tmp"
     out_dir = os.path.join(out_dir, datetime.now().strftime("%d-%m-%y-%H-%M-%S"))
-    MutSpec(path_to_tree, path_to_states, path_to_leaves, out_dir, path_to_db=path_to_db, run=True)
+    MutSpec(path_to_tree, path_to_anc, path_to_leaves, out_dir, path_to_db=path_to_db, run=True)
 
 
 if __name__ == "__main__":

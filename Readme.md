@@ -50,6 +50,15 @@ python scripts/6.3.calculate_mutational_spectra.py
 python scripts/6.4.calculate_mutational_spectra_proba.py
 ```
 
+## Nematoda workflow
+
+```bash
+python mutspec/1.terminal_genomes2iqtree_format.py --aln data/example_nematoda/alignments_nematoda_clean --scheme data/example_nematoda/scheme_devilworm.nex --out data/example_nematoda/leaves_states_nematoda.tsv
+python mutspec/2.states2iqtree_format.py --anc data/example_nematoda/anc_kg.state --leaves data/example_nematoda/leaves_states_nematoda.tsv --out data/example_nematoda/genes_states.tsv
+# simple mutspec without probabilities
+python mutspec/3.calculate_mutspec.py --tree data/example_nematoda/anc.treefile --anc data/example_nematoda/genes_states.tsv --leaves data/example_nematoda/leaves_states_nematoda.tsv
+```
+
 ## Stuff
 
 ...

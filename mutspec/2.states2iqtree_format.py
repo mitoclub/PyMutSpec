@@ -40,9 +40,9 @@ def read_anc_states(path_to_states):
 @click.option("--out", required=True, type=click.Path(writable=True), help="path to output reformatted states file (tsv)")
 def main(path_to_states, path_to_leaves, out):
     anc = read_anc_states(path_to_states)
-    print("anc read", file=sys.stderr)
+    print("Ancestors read", file=sys.stderr)
     one_leaf = read_one_leaf(path_to_leaves)
-    print("one leaf read", file=sys.stderr)
+    print("One leaf read", file=sys.stderr)
     replication_factor = anc.shape[0] / one_leaf.shape[0]
     assert replication_factor == int(replication_factor)
     replication_factor = int(replication_factor)
@@ -50,7 +50,7 @@ def main(path_to_states, path_to_leaves, out):
     anc["Part"] = np.tile(one_leaf.Part.values, replication_factor)
     anc["Site"] = np.tile(one_leaf.Site.values, replication_factor)
     anc = anc[["Node", "Part", "Site", "State", "p_A", "p_C", "p_G", "p_T"]]
-    print("Modifications done\nwriting...", file=sys.stderr)
+    print("Modifications done\nWriting...", file=sys.stderr)
     anc.to_csv(out, sep="\t", index=None)
 
 
