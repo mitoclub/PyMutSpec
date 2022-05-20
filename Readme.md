@@ -50,6 +50,16 @@ python scripts/6.3.calculate_mutational_spectra.py
 python scripts/6.4.calculate_mutational_spectra_proba.py
 ```
 
+## Birds workflow
+
+```bash
+python mutspec/1.terminal_genomes2iqtree_format.py --aln data/example_birds/aln --scheme data/example_birds/scheme_birds_genes.nex --out data/example_birds/leaves_birds_states.tsv
+python mutspec/2.states2iqtree_format.py --anc data/example_birds/anc_kg.state --leaves data/example_birds/leaves_birds_states.tsv --out data/example_birds/genes_states.tsv
+# simple mutspec without probabilities
+
+```
+
+
 ## Nematoda workflow
 
 ```bash

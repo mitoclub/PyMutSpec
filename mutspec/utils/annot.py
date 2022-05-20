@@ -174,7 +174,7 @@ def calculate_mutspec(mutations: pd.DataFrame, freqs: Dict[str, float], label: s
     - Mut (X[N1>N2]Y)
     - Label (-1, 0, 1, 2)
     - ProbaFull (optional, only for use_proba=True)
-    
+    TODO write tests - it's main function
     """
     mut = mutations.copy()
     _cols = ["Label", "Mut", "ProbaFull"] if use_proba else ["Label", "Mut"]

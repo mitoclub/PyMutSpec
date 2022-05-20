@@ -42,6 +42,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
             self, path_to_anc, path_to_leaves, path_to_db, db_mode, rewrite_db, proba_mode
         )
         self.gcode = gcode
+        logger.info(f"Using gencode {gcode}")
         self.proba_cutoff = proba_cutoff
         self.MUT_LABELS = ["all", "syn", "ff"]  # TODO add syn
         self.fp_format = np.float32
@@ -343,21 +344,21 @@ class MutSpec(CodonAnnotation, GenomeStates):
             handle.write(row)
     
 
-@click.command("MutSpec calculator", help="")
-@click.option("--tree", "path_to_tree", required=True, type=click.Path(True), help="")
-@click.option("--anc", "path_to_anc", required=True, type=click.Path(True), help="")
-@click.option("--leaves", "path_to_leaves", required=True, type=click.Path(True), help="path to leaves table of custom format")
 # @click.option("--out", "out_dir", required=True, type=click.Path(writable=True), help="")
+# @click.command("MutSpec calculator", help="")
+# @click.option("--tree", "path_to_tree", required=True, type=click.Path(True), help="")
+# @click.option("--anc", "path_to_anc", required=True, type=click.Path(True), help="")
+# @click.option("--leaves", "path_to_leaves", required=True, type=click.Path(True), help="path to leaves table of custom format")
 def main(path_to_tree, path_to_anc, path_to_leaves):
-    # path_to_tree =   "./data/example_nematoda/anc.treefile"
-    # path_to_anc = "./data/example_nematoda/genes_states.tsv"
-    # path_to_leaves = "./data/example_nematoda/leaves_states_nematoda.tsv"
     path_to_db     = "./data/example_nematoda/states.db"
     out_dir = "./data/processed/nematoda"
     # out_dir = "/tmp"
     out_dir = os.path.join(out_dir, datetime.now().strftime("%d-%m-%y-%H-%M-%S"))
-    MutSpec(path_to_tree, path_to_anc, path_to_leaves, out_dir, path_to_db=path_to_db, run=True)
+    MutSpec(path_to_tree, path_to_anc, path_to_leaves, out_dir, path_to_db=path_to_db, run=True, gcode=5)
 
 
 if __name__ == "__main__":
-    main()
+    path_to_tree =   "./data/example_nematoda/anc.treefile"
+    path_to_anc = "./data/example_nematoda/genes_states.tsv"
+    path_to_leaves = "./data/example_nematoda/leaves_states_nematoda.tsv"
+    main(path_to_tree, path_to_anc, path_to_leaves)
