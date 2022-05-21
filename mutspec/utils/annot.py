@@ -57,6 +57,92 @@ class CodonAnnotation:
 
         return label, aa1, aa2
 
+    def extract_mutations_simple(self, g1: np.ndarray, g2: np.ndarray):
+        """
+        Extract alterations of g2 comparing to g1
+
+        params:
+        - g1 - reference sequence (parent node)
+        - g2 - alternative sequence (child node)
+
+        conditions:
+        - in one codon could be only sbs
+        - in the context of one mutation couldn't be other sbs
+        - indels are not sbs and codons and contexts with sbs are not considered
+
+        return:
+        - dataframe of mutations
+        """
+        n, m = len(g1), len(g2)
+        assert n == m, f"genomes lengths are not equal: {n} != {m}"
+        assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
+
+        mutations = []
+        for pos in range(1, n - 1):
+            pic = pos % 3  # 0-based
+            cdn1 = g1[pos - pic: pos - pic + 3] 
+            cdn2 = g2[pos - pic: pos - pic + 3] 
+            mut_cxt1 = g1[pos - 1: pos + 2]
+            mut_cxt2 = g2[pos - 1: pos + 2]
+            cdn1_str = "".join(cdn1)
+            cdn2_str = "".join(cdn2)
+
+            up_nuc1, up_nuc2 = mut_cxt1[0], mut_cxt2[0]
+            nuc1, nuc2 = mut_cxt1[1], mut_cxt2[1]
+            down_nuc1, down_nuc2 = mut_cxt1[2], mut_cxt2[2]
+
+            if nuc1 == nuc2 or up_nuc1 != up_nuc2 or down_nuc1 != down_nuc2:
+                continue
+            if sum([cdn1[_] == cdn2[_] for _ in range(3)]) != 2:
+                continue
+            if len(set(g1[pos - 2: pos + 3]).union(g2[pos - 2: pos + 3]) - set(self.nucl_order)) != 0:
+                continue
+            
+            label, aa1, aa2 = self.get_mut_type(cdn1_str, cdn2_str, pic)
+            sbs = {
+                "Mut": f"{up_nuc1}[{nuc1}>{nuc2}]{down_nuc1}",                        
+                "Label": np.int8(label),
+                "PosInGene": np.int32(pos + 1),
+                "PosInCodon": np.int8(pic + 1),
+                "RefCodon": cdn1_str,
+                "AltCodon": cdn2_str,
+                "RefAa": aa1,
+                "AltAa": aa2,
+            }
+            mutations.append(sbs)
+
+        mut_df = pd.DataFrame(mutations)
+        return mut_df
+
+    def collect_state_freqs_simple(self, genome: np.ndarray):
+        n = len(genome)
+        assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
+
+        nucl_freqs = {lbl: defaultdict(int) for lbl in ("all", "syn", "ff")}
+        cxt_freqs  = {lbl: defaultdict(int) for lbl in ("all", "syn", "ff")}
+
+        for pos in range(1, n - 1):
+            pic = pos % 3
+            nuc = genome[pos]
+            cdn = genome[pos - pic: pos - pic + 3] 
+            cxt = genome[pos - 1: pos + 2]
+            cdn_str = "".join(cdn)
+            cxt_str = "".join(cxt)
+
+            nucl_freqs["all"][nuc] += 1
+            cxt_freqs["all"][cxt_str] += 1
+
+            _syn_scaler = self.get_syn_number(cdn_str, pic)
+            if _syn_scaler > 0:
+                nucl_freqs["syn"][nuc] += 1
+                cxt_freqs["syn"][cxt_str] += 1
+
+                if pic == 2 and self.is_four_fold(cdn_str):
+                    nucl_freqs["ff"][nuc] += 1
+                    cxt_freqs["ff"][cxt_str] += 1
+
+        return nucl_freqs, cxt_freqs
+
     def __extract_syn_codons(self):
         """ extract synonymous (codons that mutate without amino acid change) 
         and fourfold codons from codon table
