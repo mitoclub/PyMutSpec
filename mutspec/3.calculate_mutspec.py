@@ -129,7 +129,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
                 gene_mut_df["Gene"] = gene
 
                 # collect state frequencies
-                gene_nucl_freqs, gene_cxt_freqs = self.collect_state_freqs_simple(ref_seq)
+                gene_nucl_freqs, gene_cxt_freqs = self.collect_obs_mut_freqs(ref_seq)
 
                 # dump state frequencies
                 self.dump_freqs(

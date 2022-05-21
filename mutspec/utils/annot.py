@@ -114,7 +114,7 @@ class CodonAnnotation:
         mut_df = pd.DataFrame(mutations)
         return mut_df
 
-    def collect_state_freqs_simple(self, genome: np.ndarray):
+    def collect_obs_mut_freqs(self, genome: np.ndarray):
         n = len(genome)
         assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
 
@@ -134,8 +134,8 @@ class CodonAnnotation:
 
             _syn_scaler = self.get_syn_number(cdn_str, pic)
             if _syn_scaler > 0:
-                nucl_freqs["syn"][nuc] += 1
-                cxt_freqs["syn"][cxt_str] += 1
+                nucl_freqs["syn"][nuc] += _syn_scaler  # plus one was
+                cxt_freqs["syn"][cxt_str] += _syn_scaler
 
                 if pic == 2 and self.is_four_fold(cdn_str):
                     nucl_freqs["ff"][nuc] += 1
