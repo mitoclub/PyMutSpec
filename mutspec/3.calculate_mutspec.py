@@ -22,10 +22,7 @@ from utils import (
 from custom_logging import logger
 
 
-class MutSpec(CodonAnnotation, GenomeStates):
-    nucl_order = ["A", "C", "G", "T"]
-    # EPS = 1e-5
-    
+class MutSpec(CodonAnnotation, GenomeStates):    
     def __init__(
             self, path_to_tree, path_to_anc, path_to_leaves, out_dir, 
             path_to_db="data/states.db", gcode=2, run=True, db_mode="dict", 
@@ -54,48 +51,36 @@ class MutSpec(CodonAnnotation, GenomeStates):
             # f"max distance to leaf: {self.max_dist: .2f}"
         )
         if run:
-            self.calc(out_dir)
+            self.open_handles(out_dir)
+            self.extract_mutspec_from_tree()
+            self.close_handles()
 
-    def calc(self, out_dir):
+    def open_handles(self, out_dir):
         os.makedirs(out_dir)
         logger.info(f"Output directory '{out_dir}' created")
-        path_to_mutations = os.path.join(out_dir, "mutations.csv")
-        path_to_nucl_freqs = os.path.join(out_dir, "freqs.csv")
-        path_to_mutspec12 = os.path.join(out_dir, "mutspec12.csv")
-        path_to_mutspec192 = os.path.join(out_dir, "mutspec192.csv")
-        path_to_mutspec_genes12 = os.path.join(out_dir, "mutspec_genes12.csv")
-        path_to_mutspec_genes192 = os.path.join(out_dir, "mutspec_genes192.csv")
+        path_to_mutations  = os.path.join(out_dir, "mutations.tsv")
+        path_to_nucl_freqs = os.path.join(out_dir, "freqs.tsv")
+        path_to_mutspec12  = os.path.join(out_dir, "mutspec12.tsv")
+        path_to_mutspec192 = os.path.join(out_dir, "mutspec192.tsv")
+        path_to_mutspec_genes12  = os.path.join(out_dir, "mutspec12genes.tsv")
+        path_to_mutspec_genes192 = os.path.join(out_dir, "mutspec192genes.tsv")
+        self.handle = dict()
+        self.handle["mut"]  = open(path_to_mutations, "w")
+        self.handle["freq"] = open(path_to_nucl_freqs, "w")
+        self.handle["ms12"] = open(path_to_mutspec12, "w")
+        self.handle["ms192"] = open(path_to_mutspec192, "w")
+        self.handle["ms12s"] = open(path_to_mutspec_genes12, "w")
+        self.handle["ms192g"] = open(path_to_mutspec_genes192, "w")
+        logger.info("Handles opened")
 
-        self.handle_mut = open(path_to_mutations, "w")
-        self.handle_freq = open(path_to_nucl_freqs, "w")
-        self.handle_mutspec12 = open(path_to_mutspec12, "w")
-        self.handle_mutspec192 = open(path_to_mutspec192, "w")
-        self.handle_mutspec_genes12 = open(path_to_mutspec_genes12, "w")
-        self.handle_mutspec_genes192 = open(path_to_mutspec_genes192, "w")
-
-        self.extract_mutspec_from_tree()
-
-        self.handle_mut.close()
-        self.handle_freq.close()
-        self.handle_mutspec12.close()
-        self.handle_mutspec192.close()
-        self.handle_mutspec_genes12.close()
-        self.handle_mutspec_genes192.close()
-        exit(0)
-        
-        mutations.to_csv(path_to_mutations, index=None)
-        total_nucl_freqs.to_csv(path_to_nucl_freqs, index=None)
-        for label in self.MUT_LABELS:
-            fp_mutspec12 = path_to_mutspec.format(12, label)
-            fp_mutspec192 = path_to_mutspec.format(192, label)
-            edge_mutspec12[label].to_csv(fp_mutspec12, index=None)
-            edge_mutspec192[label].to_csv(fp_mutspec192, index=None)
+    def close_handles(self):
+        for x in self.handle:
+            self.handle[x].close()
+        logger.info("Handles closed")
 
     # @profiler
     def extract_mutspec_from_tree(self):
         logger.info("Start mutation extraction from tree")
-        # edge_mutspec12 = defaultdict(list)  # all, syn, ff
-        # edge_mutspec192 = defaultdict(list)
         add_header = defaultdict(lambda: True)
         for ei, (ref_node, alt_node) in enumerate(iter_tree_edges(self.tree), 1):
             if ref_node.name not in self.nodes or alt_node.name not in self.nodes:
@@ -134,7 +119,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
                 # dump state frequencies
                 self.dump_freqs(
                     gene_nucl_freqs, gene_cxt_freqs, ref_node.name, 
-                    gene, self.handle_freq, add_header["freqs"],
+                    gene, self.handle["freq"], add_header["freqs"],
                 )
                 add_header["freqs"] = False
 
@@ -157,7 +142,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
                         mutspec12["Label"] = lbl
                         mutspec12["Gene"]  = gene
                         # Dump gene mutspecs 
-                        self.dump_table(mutspec12, self.handle_mutspec_genes12, add_header["ms12g"])
+                        self.dump_table(mutspec12, self.handle["ms12s"], add_header["ms12g"])
                         add_header["ms12g"] = False
 
                 if len(gene_mut_df) > 200:
@@ -168,7 +153,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
                         mutspec192["Label"] = lbl
                         mutspec192["Gene"] = gene
                         # Dump gene mutspecs 
-                        self.dump_table(mutspec192, self.handle_mutspec_genes192, add_header["ms192g"])
+                        self.dump_table(mutspec192, self.handle["ms192g"], add_header["ms192g"])
                         add_header["ms192g"] = False
             
             if len(genome_mutations) == 0:
@@ -178,7 +163,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
             del genome_mutations
 
             # dump mutations
-            self.dump_table(genome_mutations_df, self.handle_mut, add_header["mut"])
+            self.dump_table(genome_mutations_df, self.handle["mut"], add_header["mut"])
             add_header["mut"] = False
             
             # calculate full genome mutational spectra for all labels
@@ -193,8 +178,8 @@ class MutSpec(CodonAnnotation, GenomeStates):
                 mutspec192["Label"] = lbl
 
                 # Dump genome mutspecs
-                self.dump_table(mutspec12,  self.handle_mutspec12,  add_header["ms"])
-                self.dump_table(mutspec192, self.handle_mutspec192, add_header["ms"])
+                self.dump_table(mutspec12,  self.handle["ms12"],  add_header["ms"])
+                self.dump_table(mutspec192, self.handle["ms192"], add_header["ms"])
                 add_header["ms"] = False
 
             # if ei == 3:
@@ -205,38 +190,6 @@ class MutSpec(CodonAnnotation, GenomeStates):
 
         logger.info(f"Processed {ei} tree edges")
         logger.info("MutSpec extraction done")
-
-    def sample_context_fast(self, pos, pic, genome: np.ndarray, cutoff=0.01):
-        codon_states = genome[pos - pic: pos - pic + 3]        
-        extra_codon_states = genome[pos + pic - 1]  # doesn't mean if pic == 1
-        # gaps are not appropriate
-        if np.any(codon_states.sum(1) == 0) or extra_codon_states.sum() == 0:
-            return
-
-        a, b, c = codon_states
-        probas = a * b[:, None] * c[:, None, None]
-        _ii = 0  # increment index if there are 4th context nucl
-        if pic != 1:
-            probas = probas * extra_codon_states[:, None, None, None]
-            _ii = 1
-
-        indexes = np.where(probas > cutoff)
-        for idx in range(len(indexes[0])):
-            i, j, k = indexes[2+_ii][idx], indexes[1+_ii][idx], indexes[0+_ii][idx]
-            m = indexes[0][idx]
-
-            codon = tuple(self.nucl_order[_] for _ in (i, j, k))
-            if pic == 0:
-                mut_context = tuple(self.nucl_order[_] for _ in (m, i, j))
-                full_proba = probas[m, k, j, i]
-            elif pic == 2:
-                mut_context = tuple(self.nucl_order[_] for _ in (j, k, m))
-                full_proba = probas[m, k, j, i]
-            elif pic == 1:
-                mut_context = codon
-                full_proba = probas[k, j, i]
-            
-            yield codon, mut_context, full_proba
 
     @staticmethod
     def dump_table(df: pd.DataFrame, handle, header=False):

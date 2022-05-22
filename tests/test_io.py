@@ -5,15 +5,15 @@ import pytest
 from mutspec import utils
 from mutspec.utils import GenomeStates
 
-path_to_states = "./data/states_sample.tsv"
-path_to_db = './data/states_sample.db'
+path_to_states = "./tests/data/states_sample.tsv"
+path_to_db = './tests/data/states_sample.db'
 
 
 @pytest.mark.parametrize(
     "proba_mode",
     [
         pytest.param(False, id='Without proba'),
-        pytest.param(True, id='With proba'),
+        pytest.param(True,  id='With proba'),
     ]
 )
 def test_get_genome_simple(proba_mode):

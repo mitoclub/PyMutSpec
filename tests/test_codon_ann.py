@@ -28,3 +28,6 @@ def test_collect_obs_mut_freqs(coda):
     assert cxt_freqs["ff"] =={"TCT": 1, "TGC": 1}
 
 
+def test_extract_mutations_simple():
+    # TODO
+    pass

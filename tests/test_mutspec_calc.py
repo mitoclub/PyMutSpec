@@ -43,55 +43,43 @@ def cxt_freqs():
     return fr
 
 
-@pytest.mark.parametrize(
-    "use_proba",
-    [
-        pytest.param(True , id='With proba'),
-        pytest.param(False, id='Without proba'),
-    ]
-)
-def test_ms12_calc(mut, nucl_freqs, use_proba):
-    for lbl_id, lbl in enumerate(("all", "syn", 'ff')):
-        ms = calculate_mutspec(
-            mut, nucl_freqs[lbl], lbl, 
-            use_context=False, use_proba=use_proba,
-        )
-        cur_mut = mut[(mut.Label >= lbl_id)]
-        for sbs in possible_sbs12:
-            divisor = nucl_freqs[lbl].get(sbs[0], 0)
-            if divisor <= 0:
-                continue
-            if use_proba:
-                expected = cur_mut[(cur_mut.Mut.str.contains(sbs))].ProbaFull.sum() / divisor
-            else:
-                expected = cur_mut[(cur_mut.Mut.str.contains(sbs))].shape[0] / divisor
-            observed = ms[ms.Mut == sbs].RawMutSpec.values[0]
-            assert observed == expected        
+@pytest.mark.parametrize("use_proba", [True, False])
+@pytest.mark.parametrize("lbl_id, lbl", [(0, "all"), (1, "syn"), (2, "ff")])
+def test_ms12_calc(mut, nucl_freqs, use_proba, lbl_id, lbl):
+    ms = calculate_mutspec(
+        mut, nucl_freqs[lbl], lbl, 
+        use_context=False, use_proba=use_proba,
+    )
+    cur_mut = mut[(mut.Label >= lbl_id)]
+    for sbs in possible_sbs12:
+        divisor = nucl_freqs[lbl].get(sbs[0], 0)
+        if divisor <= 0:
+            continue
+        if use_proba:
+            expected = cur_mut[(cur_mut.Mut.str.contains(sbs))].ProbaFull.sum() / divisor
+        else:
+            expected = cur_mut[(cur_mut.Mut.str.contains(sbs))].shape[0] / divisor
+        observed = ms[ms.Mut == sbs].RawMutSpec.values[0]
+        assert observed == expected        
 
 
-@pytest.mark.parametrize(
-    "use_proba",
-    [
-        pytest.param(True , id='With proba'),
-        pytest.param(False, id='Without proba'),
-    ]
-)
-def test_ms192_calc(mut, cxt_freqs, use_proba):
-    # TODO
-    for lbl_id, lbl in enumerate(("all", "syn", 'ff')):
-        ms = calculate_mutspec(
-            mut, cxt_freqs[lbl], lbl, 
-            use_context=False, use_proba=use_proba,
-        )
-        cur_mut = mut[(mut.Label >= lbl_id)]
-        for sbs in possible_sbs192:
-            cxt = sbs[0] + sbs[2] + sbs[-1]
-            divisor = cxt_freqs[lbl].get(cxt, 0)
-            if divisor <= 0:
-                continue
-            if use_proba:
-                expected = cur_mut[(cur_mut.Mut.str.contains(sbs))].ProbaFull.sum() / divisor
-            else:
-                expected = cur_mut[(cur_mut.Mut.str.contains(sbs))].shape[0] / divisor
-            observed = ms[ms.Mut == sbs].RawMutSpec.values[0]
-            assert observed == expected
+@pytest.mark.parametrize("use_proba", [True, False])
+@pytest.mark.parametrize("lbl_id, lbl", [(0, "all"), (1, "syn"), (2, "ff")])
+def test_ms192_calc(mut, cxt_freqs, use_proba, lbl_id, lbl):
+    ms = calculate_mutspec(
+        mut, cxt_freqs[lbl], lbl, 
+        use_context=True, use_proba=use_proba,
+    )
+    cur_mut = mut[(mut.Label >= lbl_id)]
+    for sbs in possible_sbs192:
+        cxt = sbs[0] + sbs[2] + sbs[-1]
+        divisor = cxt_freqs[lbl].get(cxt, 0)
+        if divisor == 0:
+            continue
+        cond = cur_mut.Mut.str.fullmatch(sbs.replace("[", "\[").replace("]", "\]"))
+        if use_proba:
+            expected = cur_mut[cond].ProbaFull.sum() / divisor
+        else:
+            expected = cur_mut[cond].shape[0] / divisor
+        observed = ms[ms.Mut == sbs].RawMutSpec.values[0]
+        assert observed == expected
