@@ -35,10 +35,12 @@ class CodonAnnotation:
     def get_mut_type(self, codon1: str, codon2: str, pic: int):
         """
         returned label variants:
-        - -1 - stopcodon loss or gain
+        - -3 - stopcodon to stopcodon
+        - -2 - stopcodon loss
+        - -1 - stopcodon gain
         -  0 - usual sbs
         -  1 - synonimous sbs
-        -  2 - fourfold sbs
+        -  2 - synonimous fourfold sbs
 
         return (label, aa1, aa2)
         """
@@ -46,7 +48,11 @@ class CodonAnnotation:
         assert 0 <= pic <= 2, "pic must be 0-based and less than 3"
         aa1 = self.codontable.forward_table.get(codon1, "*")
         aa2 = self.codontable.forward_table.get(codon2, "*")
-        if aa1 == "*" or aa2 == "*":
+        if aa1 == "*" and aa2 == "*":
+            label = -3
+        elif aa1 == "*" and aa2 != "*":
+            label = -2
+        elif aa1 != "*" and aa2 == "*":
             label = -1
         elif aa1 == aa2:
             label = 1
@@ -80,8 +86,9 @@ class CodonAnnotation:
         mutations = []
         for pos in range(1, n - 1):
             pic = pos % 3  # 0-based
-            cdn1 = g1[pos - pic: pos - pic + 3] 
-            cdn2 = g2[pos - pic: pos - pic + 3] 
+            cdn_start = pos - pic
+            cdn1 = g1[cdn_start: cdn_start + 3] 
+            cdn2 = g2[cdn_start: cdn_start + 3] 
             mut_cxt1 = g1[pos - 1: pos + 2]
             mut_cxt2 = g2[pos - 1: pos + 2]
             cdn1_str = "".join(cdn1)
@@ -132,14 +139,14 @@ class CodonAnnotation:
             nucl_freqs["all"][nuc] += 1
             cxt_freqs["all"][cxt_str] += 1
 
-            _syn_scaler = self.get_syn_number(cdn_str, pic)
-            if _syn_scaler > 0:
-                nucl_freqs["syn"][nuc] += _syn_scaler  # plus one was
-                cxt_freqs["syn"][cxt_str] += _syn_scaler
+            syn_num = self.get_syn_number(cdn_str, pic)
+            if syn_num > 0:
+                nucl_freqs["syn"][nuc] += syn_num
+                cxt_freqs["syn"][cxt_str] += syn_num
 
                 if pic == 2 and self.is_four_fold(cdn_str):
-                    nucl_freqs["ff"][nuc] += 1
-                    cxt_freqs["ff"][cxt_str] += 1
+                    nucl_freqs["ff"][nuc] += syn_num
+                    cxt_freqs["ff"][cxt_str] += syn_num
 
         return nucl_freqs, cxt_freqs
 
@@ -260,7 +267,6 @@ def calculate_mutspec(mutations: pd.DataFrame, freqs: Dict[str, float], label: s
     - Mut (X[N1>N2]Y)
     - Label (-1, 0, 1, 2)
     - ProbaFull (optional, only for use_proba=True)
-    TODO write tests - it's main function
     """
     mut = mutations.copy()
     _cols = ["Label", "Mut", "ProbaFull"] if use_proba else ["Label", "Mut"]

@@ -134,7 +134,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
                     genome_mutations.append(gene_mut_df)
                 
                 # calculate gene mutational spectra for all labels
-                if len(gene_mut_df) > 50:
+                if len(gene_mut_df) > 0:
                     for lbl in self.MUT_LABELS:
                         mutspec12 = calculate_mutspec(gene_mut_df, gene_nucl_freqs[lbl], label=lbl, use_context=False, use_proba=False)
                         mutspec12["RefNode"] = ref_node.name

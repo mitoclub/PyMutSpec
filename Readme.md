@@ -59,7 +59,6 @@ python mutspec/2.states2iqtree_format.py --anc data/example_birds/anc_kg.state -
 
 ```
 
-
 ## Nematoda workflow
 
 ```bash

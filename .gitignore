@@ -1,21 +1,10 @@
-data/*
-!data/external
-data/external/*
-!data/external/raw
+data/example*
+data/*.tsv
+data/processed/*
+!data/processed/nematoda
+data/processed/nematoda/*
+!data/processed/nematoda/22-05-22-15-51-30
 
-!data/raw
-data/raw/*
-!data/raw/final_birds_list_with_no_mistakes.tar.xz
-
-!data/interim
-data/interim/*
-!data/interim/taxonomy*
-!data/interim/*.tre
-!data/interim/species*.txt
-!data/interim/scheme_*.nex
-
-
-_data_mr
 *.ipynb_checkpoints
 *__pycache__
 env*
@@ -24,3 +13,5 @@ evn*
 mutspec.egg-info
 *.tar*
 tests/data/states_sample.db
+.vscode
+.pytest_cache
