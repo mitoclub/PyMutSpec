@@ -200,7 +200,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
                 # Dump genome mutspecs
                 self.dump_table(mutspec12,  self.handle_mutspec12,  add_header["ms"])
                 self.dump_table(mutspec192, self.handle_mutspec192, add_header["ms"])
-                add_header["ms"] = True
+                add_header["ms"] = False
 
             if ei == 3:
                 break  # TODO remove lines
