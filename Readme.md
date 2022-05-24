@@ -18,13 +18,19 @@ pip install -r requirements.txt
 wget http://bioinfodbs.kantiana.ru/newick-utils-1.6.tar.gz
 tar -xvzf newick-utils-1.6.tar.gz
 cd newick-utils-1.6
-./configure --prefix=/opt/newick-utils-1.6/build
+./configure --prefix=/opt/newick-utils-1.6
 make install
 cd build/bin
 ls
 ```
 
 ## Workflow
+
+6.0 Root tree
+
+```bash
+nw_reroot anc.treefile Node3 > anc.treefile.rooted
+```
 
 6.1 Prepare appropriate format of leaves states
 
