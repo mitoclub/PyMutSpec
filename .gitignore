@@ -1,3 +1,4 @@
+data/raw
 data/example*
 data/*.tsv
 data/processed/*
@@ -5,6 +6,7 @@ data/processed/*
 data/processed/nematoda/*
 !data/processed/nematoda/22-05-22-15-51-30
 
+*.db
 *.ipynb_checkpoints
 *__pycache__
 env*
