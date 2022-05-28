@@ -79,14 +79,18 @@ python mutspec/3.calculate_mutspec.py --tree data/example_nematoda/anc.treefile 
 Plot trees
 
 ```bash
-nw_display -s -S -v 30 -n -5 -b 'opacity:0' -i 'font-size:10px' -l 'font-family:serif;font-style:italic;font-size:small' -w 1500 anc.treefile.rooted > tree.svg
+nw_display -s -S -v 20 -b 'opacity:0' -i 'visibility:hidden' -l 'font-family:serif;font-style:italic;font-size:large' -d 'stroke-width:3' -w 1600 -R 30 anc.treefile.rooted > trees/tree_base.svg
 ```
 
 Plot trees
 
 ```bash
 cd data/share
-for fp in *.map; do sbs=`basename $fp .css.map`; nw_display -s -S -c $sbs.css.map -v 20 -b 'opacity:0' -i 'visibility:hidden' -l 'font-family:serif;font-style:italic;font-size:large' -d 'stroke-width:2' -w 1600 -R 30 anc.treefile.rooted > trees/tree_${sbs}.svg; done
+for fp in *.map
+do 
+sbs=`basename $fp .css.map`
+nw_display -s -S -c $sbs.css.map -v 20 -b 'opacity:0' -i 'visibility:hidden' -l 'font-family:serif;font-style:italic;font-size:large' -d 'stroke-width:2' -w 1600 -R 30 anc.treefile.rooted > trees/tree_${sbs}.svg
+done
 ```
 
 ## PastML
