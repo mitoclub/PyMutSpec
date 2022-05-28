@@ -4,8 +4,7 @@ pastml -t data/example_pastml/Albanian.tree.152tax.tre -d data/example_pastml/da
 # birds
 pastml -t data/example_birds/anc_kg.treefile -d data/leaves_birds.pastml.tsv --html_compressed data/example_birds/map.html --html data/example_birds/tree.html -v --threads 24 -m HKY # -m HKY
 
-# birds
-pastml -t data/example_nematoda/anc.treefile -d data/example_nematoda/leaves.pastml.tsv --html_compressed data/example_nematoda/map.html --html data/example_nematoda/tree.html -v --threads 24 # -m HKY
-
+# nematoda
+pastml -t data/example_nematoda/anc.treefile.rooted -d data/example_nematoda/leaves.pastml.tsv --work_dir data/pastml_n --html data/pastml_n/tree.html -v --threads 24
 
 # -o gives combined_ancestral_states.tab
