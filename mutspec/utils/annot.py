@@ -20,12 +20,14 @@ class CodonAnnotation:
 
     def is_four_fold(self, codon):
         return codon in self._ff_codons
+    
+    def get_aa(self, codon: str):
+        return self.codontable.forward_table.get(codon, "*")
 
     def is_syn_codons(self, codon1: str, codon2: str):
         if not isinstance(codon1, str) or not isinstance(codon2, str):
             return False
-        gc = self.codontable.forward_table
-        return gc.get(codon1, "*") == gc.get(codon2, "*")
+        return self.get_aa(codon1) == self.get_aa(codon2)
     
     def get_syn_number(self, cdn: str, pic: int):
         """return number of possible syn codons"""
@@ -46,8 +48,8 @@ class CodonAnnotation:
         """
         assert codon1 != codon2, "codons must be different"
         assert 0 <= pic <= 2, "pic must be 0-based and less than 3"
-        aa1 = self.codontable.forward_table.get(codon1, "*")
-        aa2 = self.codontable.forward_table.get(codon2, "*")
+        aa1 = self.get_aa(codon1)
+        aa2 = self.get_aa(codon2)
         if aa1 == "*" and aa2 == "*":
             label = -3
         elif aa1 == "*" and aa2 != "*":
