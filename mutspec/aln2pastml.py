@@ -1,13 +1,3 @@
-"""
-Leaves genomes must be written directly without partitioning - only positions in gene!!
-Only filenames need for this, but if there are preliminary aln concatenation it need additional step
-
-Internal States must be rewritten to similar format 
-
-TODO rewrite input - only aln-files(!!!) BUT WE'll LOOSE THE PARTS INDEXES
-
-"""
-
 import os
 from typing import Tuple
 

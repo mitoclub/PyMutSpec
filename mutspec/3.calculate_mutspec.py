@@ -129,12 +129,10 @@ class MutSpec(CodonAnnotation, GenomeStates):
                         genome_nucl_freqs[lbl][nucl] += freq
                     for trinucl, freq in gene_cxt_freqs[lbl].items():
                         genome_cxt_freqs[lbl][trinucl] += freq
-
-                if len(gene_mut_df) > 0:
-                    genome_mutations.append(gene_mut_df)
                 
                 # calculate gene mutational spectra for all labels
                 if len(gene_mut_df) > 0:
+                    genome_mutations.append(gene_mut_df)
                     for lbl in self.MUT_LABELS:
                         mutspec12 = calculate_mutspec(gene_mut_df, gene_nucl_freqs[lbl], label=lbl, use_context=False, use_proba=False)
                         mutspec12["RefNode"] = ref_node.name
@@ -145,7 +143,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
                         self.dump_table(mutspec12, self.handle["ms12s"], add_header["ms12g"])
                         add_header["ms12g"] = False
 
-                if len(gene_mut_df) > 200:
+                if len(gene_mut_df) > 100:
                     for lbl in self.MUT_LABELS:
                         mutspec192 = calculate_mutspec(gene_mut_df, gene_cxt_freqs[lbl], label=lbl, use_context=True, use_proba=False)
                         mutspec192["RefNode"] = ref_node.name
@@ -155,6 +153,8 @@ class MutSpec(CodonAnnotation, GenomeStates):
                         # Dump gene mutspecs 
                         self.dump_table(mutspec192, self.handle["ms192g"], add_header["ms192g"])
                         add_header["ms192g"] = False
+                else:
+                    logger.debug(f"({ref_node.name}, {alt_node.name}), {gene} cannot calculate 192 comp mutspec")
             
             if len(genome_mutations) == 0:
                 continue
