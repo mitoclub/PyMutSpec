@@ -76,14 +76,14 @@ python mutspec/3.calculate_mutspec.py --tree data/example_nematoda/anc.treefile 
 
 ## Plot trees
 
-Plot one simple tree
+- Plot one simple tree
 
 ```bash
 cd data/share/nematoda/trees
 nw_display -s -S -v 20 -b 'opacity:0' -i 'visibility:hidden' -l 'font-family:serif;font-style:italic;font-size:large' -d 'stroke-width:3' -w 1600 -R 30 ../anc.treefile.rooted > tree_base.svg
 ```
 
-Plot colored by mutspec trees
+- Plot colored by mutspec trees
 
 ```bash
 cd data/share/nematoda/trees
@@ -94,15 +94,36 @@ nw_display -s -S -c $map_fp -v 20 -b 'opacity:0' -i 'visibility:hidden' -l 'font
 done
 ```
 
-## Stuff
-
-nothing
-
 ## PastML
 
 Used for calc mutspec without using custom phylo score
 
 model подобрать
+
+1. Reformat alignment for input. Genes separating
+
+```bash
+python mutspec/aln2pastml.py --aln data/example_nematoda/alignments_nematoda_clean --scheme data/example_nematoda/scheme_devilworm.nex --outdir data/example_nematoda/leaves
+```
+
+2. Run pastml
+
+```bash
+# for inp in data/example_nematoda/leaves/*
+# do
+# wd=`basename $inp .pastml.tsv`
+# echo $wd
+# mkdir -p data/pastml_n/$wd
+# pastml -t data/example_nematoda/anc.treefile.rooted -d $inp --work_dir $wd --html $wd/tree.html --threads 24
+# done
+
+# parallel variant
+parallel  echo {/.} ';' mkdir -p data/pastml_n/{/.} ';' pastml -t data/example_nematoda/anc.treefile.rooted -d {} --work_dir data/pastml_n/{/.} --html data/pastml_n/{/.}/tree.html --threads 2 ::: data/example_nematoda/leaves/*
+```
+
+## Stuff
+
+nothing
 
 ## Bottleneck
 

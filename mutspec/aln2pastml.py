@@ -11,7 +11,7 @@ from mutspec.utils import load_scheme, get_aln_files
 NGENES = 12
 
 
-def parse_alignment(files: list, scheme: dict, aln_dir) -> Tuple[str, int]:
+def parse_alignment_all_genes(files: list, scheme: dict, aln_dir) -> Tuple[str, int]:
     """
     read fasta files from scheme with alignments and write states to table
 
@@ -52,18 +52,45 @@ def parse_alignment(files: list, scheme: dict, aln_dir) -> Tuple[str, int]:
     return pidf
 
 
+def parse_alignment_split_genes(files: list, scheme: dict, aln_dir, outdir) -> Tuple[str, int]:
+    """
+    read fasta files from scheme with alignments and write states to table
+
+    return states table and full alignment length
+    """
+    files = set(files)
+    for _, gene_fn in tqdm.tqdm(scheme.items(), "Reading parts"):
+        data = []
+        filepath = os.path.join(aln_dir, gene_fn)
+        assert filepath in files, f"cannot find file {filepath} from scheme"
+        fasta = SeqIO.parse(filepath, "fasta")
+        for rec in fasta:
+            node = rec.name
+            seq = str(rec.seq)
+            for site, state in enumerate(seq, 1):
+                pos_data = [node, site, state]
+                data.append(pos_data)
+
+        df = pd.DataFrame(data, columns="Node Site State".split()).sort_values(["Node", "Site"])
+        pidf = df.pivot("Node", "Site", "State").reset_index()
+        condition = (pidf == "-").sum(axis=0) < pidf.shape[0] * 0.05
+        pidf = pidf.loc[:, condition]
+        outpath = os.path.join(outdir, gene_fn.replace(".fna", "_pastml.tsv"))
+        pidf.to_csv(outpath, sep="\t", index=None)
+
+
 @click.command("formatter", help="reformat alignment to states table")
 @click.option("--aln", "aln_dir", required=True, type=click.Path(True), help="path to directory with gene alignment files")
 @click.option("--scheme", "scheme_path", required=True, type=click.Path(True), help="path to scheme that contain gene splitting info of alignment")
-@click.option("--out", required=True, type=click.Path(writable=True), help="path to output states file (tsv)")
-def main(aln_dir, scheme_path, out):
+@click.option("--outdir", required=True, type=click.Path(writable=True), help="path to output states file (tsv)")
+def main(aln_dir, scheme_path, outdir):
+    os.makedirs(outdir, exist_ok=True)
     aln_files = get_aln_files(aln_dir)
     scheme = load_scheme(scheme_path)
     print(scheme)
-    df = parse_alignment(aln_files, scheme, aln_dir)
-    df.to_csv(out, sep="\t")
+    parse_alignment_split_genes(aln_files, scheme, aln_dir, outdir)
 
 
 if __name__ == "__main__":
     main()
-    # main("data/example_birds/aln", "data/example_birds/scheme_birds_genes.nex", "data/leaves_birds.pastml.tsv")
+    # main("data/example_nematoda/alignments_nematoda_clean", "data/example_nematoda/scheme_devilworm.nex", "data/example_nematoda/leaves")
