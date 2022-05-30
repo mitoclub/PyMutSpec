@@ -26,10 +26,10 @@ ls
 
 ## Workflow
 
-6.0 Root tree
+6.0 Root tree. Set **Node4** as outgroup.
 
 ```bash
-nw_reroot anc.treefile Node3 > anc.treefile.rooted
+nw_reroot anc.treefile Node4 > anc.treefile.rooted
 ```
 
 6.1 Prepare appropriate format of leaves states
@@ -74,24 +74,29 @@ python mutspec/2.states2iqtree_format.py --anc data/example_nematoda/anc_kg.stat
 python mutspec/3.calculate_mutspec.py --tree data/example_nematoda/anc.treefile --anc data/example_nematoda/genes_states.tsv --leaves data/example_nematoda/leaves_states_nematoda.tsv
 ```
 
-## Stuff
+## Plot trees
 
-Plot trees
+Plot one simple tree
 
 ```bash
-nw_display -s -S -v 20 -b 'opacity:0' -i 'visibility:hidden' -l 'font-family:serif;font-style:italic;font-size:large' -d 'stroke-width:3' -w 1600 -R 30 anc.treefile.rooted > trees/tree_base.svg
+cd data/share/nematoda/trees
+nw_display -s -S -v 20 -b 'opacity:0' -i 'visibility:hidden' -l 'font-family:serif;font-style:italic;font-size:large' -d 'stroke-width:3' -w 1600 -R 30 ../anc.treefile.rooted > tree_base.svg
 ```
 
-Plot trees
+Plot colored by mutspec trees
 
 ```bash
-cd data/share
-for fp in *.map
+cd data/share/nematoda/trees
+for map_fp in style/*.map
 do 
-sbs=`basename $fp .css.map`
-nw_display -s -S -c $sbs.css.map -v 20 -b 'opacity:0' -i 'visibility:hidden' -l 'font-family:serif;font-style:italic;font-size:large' -d 'stroke-width:2' -w 1600 -R 30 anc.treefile.rooted > trees/tree_${sbs}.svg
+sbs=`basename $map_fp .css.map`
+nw_display -s -S -c $map_fp -v 20 -b 'opacity:0' -i 'visibility:hidden' -l 'font-family:serif;font-style:italic;font-size:large' -d 'stroke-width:2' -w 1600 ../anc.treefile.rooted > tree_${sbs}.svg
 done
 ```
+
+## Stuff
+
+nothing
 
 ## PastML
 

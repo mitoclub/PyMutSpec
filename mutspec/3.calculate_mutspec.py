@@ -85,7 +85,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
         for ei, (ref_node, alt_node) in enumerate(iter_tree_edges(self.tree), 1):
             if ref_node.name not in self.nodes or alt_node.name not in self.nodes:
                 continue
-            # logger.debug(f"Extracting mutations from {ref_node.name} to {alt_node.name}")
+            logger.debug(f"Extracting mutations from {ref_node.name} to {alt_node.name}")
 
             # get genomes from storage
             ref_genome  = self.get_genome(ref_node.name)
@@ -153,9 +153,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
                         # Dump gene mutspecs 
                         self.dump_table(mutspec192, self.handle["ms192g"], add_header["ms192g"])
                         add_header["ms192g"] = False
-                else:
-                    logger.debug(f"({ref_node.name}, {alt_node.name}), {gene} cannot calculate 192 comp mutspec")
-            
+
             if len(genome_mutations) == 0:
                 continue
 
@@ -225,7 +223,7 @@ def main(path_to_tree, path_to_anc, path_to_leaves):
 
 
 if __name__ == "__main__":
-    path_to_tree =   "./data/example_nematoda/anc.treefile"
+    path_to_tree =   "./data/example_nematoda/anc.treefile.rooted"
     path_to_anc = "./data/example_nematoda/genes_states.tsv"
     path_to_leaves = "./data/example_nematoda/leaves_states_nematoda.tsv"
     main(path_to_tree, path_to_anc, path_to_leaves)
