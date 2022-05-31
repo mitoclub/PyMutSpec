@@ -12,15 +12,15 @@ from .constants import *
 class CodonAnnotation:
     nucl_order = possible_nucls
 
-    def __init__(self, codontable: Union[NCBICodonTableDNA, int], *args, **kwargs):
-        self.codontable = self._prepare_codontable(codontable)
+    def __init__(self, gencode: Union[NCBICodonTableDNA, int]):
+        self.codontable = self._prepare_codontable(gencode)
         self._syn_codons, self._ff_codons = self.__extract_syn_codons()
         self.possible_ff_contexts = self.__extract_possible_ff_contexts()
-        self.startcodons, self.stopcodons = self.read_start_stop_codons(codontable)
+        self.startcodons, self.stopcodons = self.read_start_stop_codons(gencode)
 
     def is_four_fold(self, codon):
         return codon in self._ff_codons
-    
+
     def get_aa(self, codon: str):
         return self.codontable.forward_table.get(codon, "*")
 
@@ -28,21 +28,21 @@ class CodonAnnotation:
         if not isinstance(codon1, str) or not isinstance(codon2, str):
             return False
         return self.get_aa(codon1) == self.get_aa(codon2)
-    
+
     def get_syn_number(self, cdn: str, pic: int):
         """return number of possible syn codons"""
         assert 0 <= pic <= 2, "pic must be 0-based and less than 3"
         return self._syn_codons.get((cdn, pic), 0)
-        
+
     def get_mut_type(self, codon1: str, codon2: str, pic: int):
         """
         returned label variants:
         - -3 - stopcodon to stopcodon
         - -2 - stopcodon loss
         - -1 - stopcodon gain
-        -  0 - usual sbs
-        -  1 - synonimous sbs
-        -  2 - synonimous fourfold sbs
+        -  0 - non synonymous sbs
+        -  1 - synonymous sbs
+        -  2 - synonymous fourfold sbs
 
         return (label, aa1, aa2)
         """
@@ -89,8 +89,8 @@ class CodonAnnotation:
         for pos in range(1, n - 1):
             pic = pos % 3  # 0-based
             cdn_start = pos - pic
-            cdn1 = g1[cdn_start: cdn_start + 3] 
-            cdn2 = g2[cdn_start: cdn_start + 3] 
+            cdn1 = g1[cdn_start: cdn_start + 3]
+            cdn2 = g2[cdn_start: cdn_start + 3]
             mut_cxt1 = g1[pos - 1: pos + 2]
             mut_cxt2 = g2[pos - 1: pos + 2]
             cdn1_str = "".join(cdn1)
@@ -106,10 +106,10 @@ class CodonAnnotation:
                 continue
             if len(set(g1[pos - 2: pos + 3]).union(g2[pos - 2: pos + 3]) - set(self.nucl_order)) != 0:
                 continue
-            
+
             label, aa1, aa2 = self.get_mut_type(cdn1_str, cdn2_str, pic)
             sbs = {
-                "Mut": f"{up_nuc1}[{nuc1}>{nuc2}]{down_nuc1}",                        
+                "Mut": f"{up_nuc1}[{nuc1}>{nuc2}]{down_nuc1}",
                 "Label": np.int8(label),
                 "PosInGene": np.int32(pos + 1),
                 "PosInCodon": np.int8(pic + 1),
@@ -128,12 +128,12 @@ class CodonAnnotation:
         assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
 
         nucl_freqs = {lbl: defaultdict(int) for lbl in ("all", "syn", "ff")}
-        cxt_freqs  = {lbl: defaultdict(int) for lbl in ("all", "syn", "ff")}
+        cxt_freqs = {lbl: defaultdict(int) for lbl in ("all", "syn", "ff")}
 
         for pos in range(1, n - 1):
             pic = pos % 3
             nuc = genome[pos]
-            cdn = genome[pos - pic: pos - pic + 3] 
+            cdn = genome[pos - pic: pos - pic + 3]
             cxt = genome[pos - 1: pos + 2]
             cdn_str = "".join(cdn)
             cxt_str = "".join(cxt)
@@ -183,7 +183,7 @@ class CodonAnnotation:
             if num == 3 and pic == 2:
                 ff_codons.add(cdn)
         return dict(syn_codons), ff_codons
-    
+
     def __extract_possible_ff_contexts(self) -> Set[str]:
         possible_ff_contexts = set()
         for cdn in self._ff_codons:
@@ -222,12 +222,12 @@ class CodonAnnotation:
 
     def _sample_context(self, pos, pic, genome: np.ndarray, cutoff=0.01):
         nuc_cutoff = cutoff * 5
-        codon_states = genome[pos - pic: pos - pic + 3]        
+        codon_states = genome[pos - pic: pos - pic + 3]
         extra_codon_states = genome[pos + pic - 1]  # doesn't mean if pic == 1
         # gaps are not appropriate
         if np.any(codon_states.sum(1) == 0) or extra_codon_states.sum() == 0:
             return
-        
+
         for i, p1 in enumerate(codon_states[0]):
             if p1 < nuc_cutoff:
                 continue
@@ -241,7 +241,7 @@ class CodonAnnotation:
                     if codon_proba < cutoff:
                         continue
                     codon = tuple(self.nucl_order[_] for _ in (i, j, k))
-                    
+
                     if pic != 1:
                         for m, p4 in enumerate(extra_codon_states):
                             if p4 < nuc_cutoff:
@@ -256,7 +256,7 @@ class CodonAnnotation:
                             yield codon, mut_context, full_proba
                     else:
                         yield codon, codon, codon_proba
-    
+
     @staticmethod
     def read_start_stop_codons(codontable: Union[NCBICodonTableDNA, int]):
         codontable = CodonAnnotation._prepare_codontable(codontable)
@@ -321,3 +321,53 @@ def calculate_mutspec(mutations: pd.DataFrame, freqs: Dict[str, float], label: s
     mutspec["MutSpec"] = mutspec["RawMutSpec"] / mutspec["RawMutSpec"].sum()
     mutspec.drop("Context", axis=1, inplace=True)
     return mutspec
+
+
+def mutations_summary(mutations: pd.DataFrame, gene_col=None, gene_name_mapper: dict = None):
+    """
+    form mutations annotation: how many synonymous, fourfold or stop loss/gain observed in the table
+
+    Args:
+        mutations: pd.DataFrame table must contain at least 3 columns:
+        - Mut, str. Pattern: '[ACGT]\[[ACGT]>[ACGT]\][ACGT]'
+        - Label, int. [-3, 2]. See CodonAnnotation.get_mut_type
+        - $gene_col, optional. If None annotation will be formed on full mutations without genes splitting
+
+        gene_col: str - Column containing gene name in that mutation was observed
+        gene_name_mapper: dict - mapping for gene names. Use when gene_col contains indexses of genes
+
+    Returns:
+        pd.DataFrame with annotations
+    """
+    mut_pattern = "[ACGT]\[[ACGT]>[ACGT]\][ACGT]"
+    label_mapper = {
+        -3: "6Stop to stop",
+        -2: "4Stop loss",
+        -1: "5Stop gain",
+        0: "1non-syn",
+        1: "2syn",
+        2: "3syn4f",
+    }
+    grp = ["Label"]
+    if gene_col is not None:
+        grp.append(gene_col)
+
+    mutations_descr = mutations[
+        (mutations.Mut.str.fullmatch(mut_pattern))
+    ].groupby(grp).Mut.count().reset_index()
+
+    mutations_descr["Label"] = mutations_descr.Label.map(label_mapper)
+    pivot_mutations = mutations_descr.pivot_table("Mut", gene_col, "Label", fill_value=0)
+    pivot_mutations.columns = [x[1:] for x in pivot_mutations.columns]
+
+    if gene_name_mapper is not None:
+        pivot_mutations.index = pivot_mutations.index.map(gene_name_mapper)
+    return pivot_mutations
+
+
+translator = str.maketrans("ACGT", "TGCA")
+
+def rev_comp(mut: str):
+    new_mut = mut[-1] + mut[1:-1] + mut[0]
+    new_mut = new_mut.translate(translator)
+    return new_mut

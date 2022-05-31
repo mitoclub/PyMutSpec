@@ -1,0 +1,217 @@
+(env_ms) kpotoh:~/mutspec$ parallel  echo {/.} ';' mkdir -p data/pastml_n/{/.} ';' pastml -t data/example_nematoda/anc.treefile.rooted -d {} --work_dir data/pastml_n/{/.} --html data/pastml_n/{/.}/tree.html --threads 2 ::: data/example_nematoda/leaves/*
+ND4L_pastml
+ND3_pastml
+ND6_pastml
+ATP6_pastml
+COX2_pastml
+Traceback (most recent call last):
+  File "/home/kpotoh/mutspec/env_ms/bin/pastml", line 8, in <module>
+    sys.exit(main())
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/acr.py", line 1224, in main
+    pastml_pipeline(**vars(params))
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/acr.py", line 658, in pastml_pipeline
+    acr_results = acr(forest=roots, columns=columns, column2states=column2states,
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/acr.py", line 378, in acr
+    pool.map(func=_work, iterable=character2settings.keys())
+  File "/usr/lib/python3.9/multiprocessing/pool.py", line 364, in map
+    return self._map_async(func, iterable, mapstar, chunksize).get()
+  File "/usr/lib/python3.9/multiprocessing/pool.py", line 771, in get
+    raise self._value
+  File "/usr/lib/python3.9/multiprocessing/pool.py", line 125, in worker
+    result = (True, func(*args, **kwds))
+  File "/usr/lib/python3.9/multiprocessing/pool.py", line 48, in mapstar
+    return list(map(*args))
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/acr.py", line 362, in _work
+    return ml_acr(forest=forest, character=character, prediction_method=prediction_method, model=model,
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/ml.py", line 757, in ml_acr
+    optimise_likelihood(forest=forest, avg_br_len=avg_br_len, tree_len=tree_len, num_edges=num_nodes - 1,
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/ml.py", line 1067, in optimise_likelihood
+    optimize_likelihood_params(forest=forest, character=character, frequencies=frequencies,
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/ml.py", line 303, in optimize_likelihood_params
+    fres = minimize(get_v, x0=vs, method='L-BFGS-B', bounds=bounds)
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_minimize.py", line 681, in minimize
+    res = _minimize_lbfgsb(fun, x0, args, jac, bounds,
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_lbfgsb_py.py", line 362, in _minimize_lbfgsb
+    f, g = func_and_grad(x)
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_differentiable_functions.py", line 286, in fun_and_grad
+    self._update_grad()
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_differentiable_functions.py", line 256, in _update_grad
+    self._update_grad_impl()
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_differentiable_functions.py", line 173, in update_grad
+    self.g = approx_derivative(fun_wrapped, self.x, f0=self.f,
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_numdiff.py", line 470, in approx_derivative
+    raise ValueError("`x0` violates bound constraints.")
+ValueError: `x0` violates bound constraints.
+COX3_pastml
+ND1_pastml
+Traceback (most recent call last):
+  File "/home/kpotoh/mutspec/env_ms/bin/pastml", line 8, in <module>
+    sys.exit(main())
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/acr.py", line 1224, in main
+    pastml_pipeline(**vars(params))
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/acr.py", line 658, in pastml_pipeline
+    acr_results = acr(forest=roots, columns=columns, column2states=column2states,
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/acr.py", line 378, in acr
+    pool.map(func=_work, iterable=character2settings.keys())
+  File "/usr/lib/python3.9/multiprocessing/pool.py", line 364, in map
+    return self._map_async(func, iterable, mapstar, chunksize).get()
+  File "/usr/lib/python3.9/multiprocessing/pool.py", line 771, in get
+    raise self._value
+  File "/usr/lib/python3.9/multiprocessing/pool.py", line 125, in worker
+    result = (True, func(*args, **kwds))
+  File "/usr/lib/python3.9/multiprocessing/pool.py", line 48, in mapstar
+    return list(map(*args))
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/acr.py", line 362, in _work
+    return ml_acr(forest=forest, character=character, prediction_method=prediction_method, model=model,
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/ml.py", line 757, in ml_acr
+    optimise_likelihood(forest=forest, avg_br_len=avg_br_len, tree_len=tree_len, num_edges=num_nodes - 1,
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/ml.py", line 1067, in optimise_likelihood
+    optimize_likelihood_params(forest=forest, character=character, frequencies=frequencies,
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/ml.py", line 303, in optimize_likelihood_params
+    fres = minimize(get_v, x0=vs, method='L-BFGS-B', bounds=bounds)
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_minimize.py", line 681, in minimize
+    res = _minimize_lbfgsb(fun, x0, args, jac, bounds,
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_lbfgsb_py.py", line 362, in _minimize_lbfgsb
+    f, g = func_and_grad(x)
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_differentiable_functions.py", line 286, in fun_and_grad
+    self._update_grad()
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_differentiable_functions.py", line 256, in _update_grad
+    self._update_grad_impl()
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_differentiable_functions.py", line 173, in update_grad
+    self.g = approx_derivative(fun_wrapped, self.x, f0=self.f,
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_numdiff.py", line 470, in approx_derivative
+    raise ValueError("`x0` violates bound constraints.")
+ValueError: `x0` violates bound constraints.
+CYTB_pastml
+Traceback (most recent call last):
+  File "/home/kpotoh/mutspec/env_ms/bin/pastml", line 8, in <module>
+    sys.exit(main())
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/acr.py", line 1224, in main
+    pastml_pipeline(**vars(params))
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/acr.py", line 658, in pastml_pipeline
+    acr_results = acr(forest=roots, columns=columns, column2states=column2states,
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/acr.py", line 378, in acr
+    pool.map(func=_work, iterable=character2settings.keys())
+  File "/usr/lib/python3.9/multiprocessing/pool.py", line 364, in map
+    return self._map_async(func, iterable, mapstar, chunksize).get()
+  File "/usr/lib/python3.9/multiprocessing/pool.py", line 771, in get
+    raise self._value
+  File "/usr/lib/python3.9/multiprocessing/pool.py", line 125, in worker
+    result = (True, func(*args, **kwds))
+  File "/usr/lib/python3.9/multiprocessing/pool.py", line 48, in mapstar
+    return list(map(*args))
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/acr.py", line 362, in _work
+    return ml_acr(forest=forest, character=character, prediction_method=prediction_method, model=model,
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/ml.py", line 757, in ml_acr
+    optimise_likelihood(forest=forest, avg_br_len=avg_br_len, tree_len=tree_len, num_edges=num_nodes - 1,
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/ml.py", line 1067, in optimise_likelihood
+    optimize_likelihood_params(forest=forest, character=character, frequencies=frequencies,
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/ml.py", line 303, in optimize_likelihood_params
+    fres = minimize(get_v, x0=vs, method='L-BFGS-B', bounds=bounds)
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_minimize.py", line 681, in minimize
+    res = _minimize_lbfgsb(fun, x0, args, jac, bounds,
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_lbfgsb_py.py", line 362, in _minimize_lbfgsb
+    f, g = func_and_grad(x)
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_differentiable_functions.py", line 286, in fun_and_grad
+    self._update_grad()
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_differentiable_functions.py", line 256, in _update_grad
+    self._update_grad_impl()
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_differentiable_functions.py", line 173, in update_grad
+    self.g = approx_derivative(fun_wrapped, self.x, f0=self.f,
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_numdiff.py", line 470, in approx_derivative
+    raise ValueError("`x0` violates bound constraints.")
+ValueError: `x0` violates bound constraints.
+ND2_pastml
+ND4_pastml
+Traceback (most recent call last):
+  File "/home/kpotoh/mutspec/env_ms/bin/pastml", line 8, in <module>
+    sys.exit(main())
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/acr.py", line 1224, in main
+    pastml_pipeline(**vars(params))
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/acr.py", line 658, in pastml_pipeline
+    acr_results = acr(forest=roots, columns=columns, column2states=column2states,
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/acr.py", line 378, in acr
+    pool.map(func=_work, iterable=character2settings.keys())
+  File "/usr/lib/python3.9/multiprocessing/pool.py", line 364, in map
+    return self._map_async(func, iterable, mapstar, chunksize).get()
+  File "/usr/lib/python3.9/multiprocessing/pool.py", line 771, in get
+    raise self._value
+  File "/usr/lib/python3.9/multiprocessing/pool.py", line 125, in worker
+    result = (True, func(*args, **kwds))
+  File "/usr/lib/python3.9/multiprocessing/pool.py", line 48, in mapstar
+    return list(map(*args))
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/acr.py", line 362, in _work
+    return ml_acr(forest=forest, character=character, prediction_method=prediction_method, model=model,
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/ml.py", line 757, in ml_acr
+    optimise_likelihood(forest=forest, avg_br_len=avg_br_len, tree_len=tree_len, num_edges=num_nodes - 1,
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/ml.py", line 1067, in optimise_likelihood
+    optimize_likelihood_params(forest=forest, character=character, frequencies=frequencies,
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/ml.py", line 303, in optimize_likelihood_params
+    fres = minimize(get_v, x0=vs, method='L-BFGS-B', bounds=bounds)
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_minimize.py", line 681, in minimize
+    res = _minimize_lbfgsb(fun, x0, args, jac, bounds,
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_lbfgsb_py.py", line 362, in _minimize_lbfgsb
+    f, g = func_and_grad(x)
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_differentiable_functions.py", line 286, in fun_and_grad
+    self._update_grad()
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_differentiable_functions.py", line 256, in _update_grad
+    self._update_grad_impl()
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_differentiable_functions.py", line 173, in update_grad
+    self.g = approx_derivative(fun_wrapped, self.x, f0=self.f,
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_numdiff.py", line 470, in approx_derivative
+    raise ValueError("`x0` violates bound constraints.")
+ValueError: `x0` violates bound constraints.
+COX1_pastml
+ND5_pastml
+
+
+
+
+
+
+(env_ms) kpotoh:~/mutspec$ pastml -t data/example_nematoda/anc.treefile.rooted -d data/example_nematoda/leaves/ND1_pastml.tsv --work_dir data/pastml_n/ND1 --html data/pastml_n/ND1/tree.html --threads 24
+Traceback (most recent call last):
+  File "/home/kpotoh/mutspec/env_ms/bin/pastml", line 8, in <module>
+    sys.exit(main())
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/acr.py", line 1224, in main
+    pastml_pipeline(**vars(params))
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/acr.py", line 658, in pastml_pipeline
+    acr_results = acr(forest=roots, columns=columns, column2states=column2states,
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/acr.py", line 378, in acr
+    pool.map(func=_work, iterable=character2settings.keys())
+  File "/usr/lib/python3.9/multiprocessing/pool.py", line 364, in map
+    return self._map_async(func, iterable, mapstar, chunksize).get()
+  File "/usr/lib/python3.9/multiprocessing/pool.py", line 771, in get
+    raise self._value
+  File "/usr/lib/python3.9/multiprocessing/pool.py", line 125, in worker
+    result = (True, func(*args, **kwds))
+  File "/usr/lib/python3.9/multiprocessing/pool.py", line 48, in mapstar
+    return list(map(*args))
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/acr.py", line 362, in _work
+    return ml_acr(forest=forest, character=character, prediction_method=prediction_method, model=model,
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/ml.py", line 756, in ml_acr
+    optimise_likelihood(forest=forest, avg_br_len=avg_br_len, tree_len=tree_len, num_edges=num_nodes - 1,
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/ml.py", line 1066, in optimise_likelihood
+    optimize_likelihood_params(forest=forest, character=character, frequencies=frequencies,
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/pastml/ml.py", line 302, in optimize_likelihood_params
+    fres = minimize(get_v, x0=vs, method='L-BFGS-B', bounds=bounds)
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_minimize.py", line 692, in minimize
+    res = _minimize_lbfgsb(fun, x0, args, jac, bounds,
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_lbfgsb_py.py", line 362, in _minimize_lbfgsb
+    f, g = func_and_grad(x)
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_differentiable_functions.py", line 286, in fun_and_grad
+    self._update_grad()
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_differentiable_functions.py", line 256, in _update_grad
+    self._update_grad_impl()
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_differentiable_functions.py", line 173, in update_grad
+    self.g = approx_derivative(fun_wrapped, self.x, f0=self.f,
+  File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_numdiff.py", line 472, in approx_derivative
+    raise ValueError("`x0` violates bound constraints. x0={}, lb={}, ub={}, (x0 < lb)={}, (x0 > ub)={}".format(x0, lb, ub, x0 < lb, x0 > lb))
+ValueError: `x0` violates bound constraints. 
+
+lb=[1.00000000e-06 1.00000000e-06 6.77066995e-03], 
+x0=[1.0000000e-06  1.0000000e-06  5.3291415e-02], 
+ub=[1.00000000e+07 1.00000000e+07 6.77066995e+01], 
+
+(x0 < lb)=[False  True False], 
+(x0 > ub)=[False False  True]
