@@ -119,6 +119,7 @@ python mutspec/aln2pastml.py --aln data/example_nematoda/alignments_nematoda_cle
 
 # parallel variant
 parallel  echo {/.} ';' mkdir -p data/pastml_n/{/.} ';' pastml -t data/example_nematoda/anc.treefile.rooted -d {} --work_dir data/pastml_n/{/.} --html data/pastml_n/{/.}/tree.html --threads 2 ::: data/example_nematoda/leaves/*
+# parallel  echo {/.} ';' mkdir -p data/pastml_n/{/.} ';' pastml -t data/example_nematoda/anc.treefile.rooted -d {} --work_dir data/pastml_n/{/.} --html data/pastml_n/{/.}/tree.html --threads 8 ::: data/example_nematoda/leaves/ND4_pastml.tsv data/example_nematoda/leaves/CYTB_pastml.tsv data/example_nematoda/leaves/COX2_pastml.tsv
 ```
 
 ## Stuff

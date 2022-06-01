@@ -63,7 +63,7 @@ def fill_gaps(states: pd.DataFrame, aln_dir, inplace=False):
     for gene in tqdm.tqdm(states.Part.unique(), "Filling genes gaps"):
         gl = gene_lens[gene]
         for node in states.Node.unique():
-            ungapped_sites = states[states[(states.Node == node) & (states.Part == gene)]].Site
+            ungapped_sites = states[(states.Node == node) & (states.Part == gene)].Site.values
             gapped_sites = set(range(1, gl + 1)) - set(ungapped_sites)
             for site in gapped_sites:
                 gaps.append({
