@@ -3,6 +3,7 @@ import re
 import glob
 import sys
 
+import click
 import tqdm
 import numpy as np
 import pandas as pd
@@ -32,18 +33,6 @@ def extract_genename(indir):
     return gn
 
 
-def read_data(indir):
-    gene = []
-    gene_name = extract_genename(indir)
-    for path in glob.glob(os.path.join(indir, "*")):
-        if not "marginal_probabilities" in path:
-            continue
-        df = read_marginal_probabilities(path, gene_name)
-        gene.append(df)
-    gene_df = pd.concat(gene)
-    return gene_df
-
-
 def read_gene_lens(dirpath):
     gene_lens = dict()
     for filepath in glob.glob(os.path.join(dirpath, "*")):
@@ -55,42 +44,73 @@ def read_gene_lens(dirpath):
     return gene_lens
 
 
-def fill_gaps(states: pd.DataFrame, aln_dir, inplace=False):
-    if not inplace:
-        states = states.copy()
-    gene_lens = read_gene_lens(aln_dir)
+def fill_gaps(states: pd.DataFrame, gene_lens):
+    """
+    Params
+    ------
+    states: pd.DataFrame
+        all characters states for one gene
+    """
+    assert states.Part.nunique() == 1
     gaps = []
-    for gene in tqdm.tqdm(states.Part.unique(), "Filling genes gaps"):
-        gl = gene_lens[gene]
-        for node in states.Node.unique():
-            ungapped_sites = states[(states.Node == node) & (states.Part == gene)].Site.values
-            gapped_sites = set(range(1, gl + 1)) - set(ungapped_sites)
-            for site in gapped_sites:
-                gaps.append({
-                    "Node": node,
-                    "Part": gene,
-                    "Site": site,
-                    "State": "-",
-                    "p_A": 0.0,
-                    "p_C": 0.0,
-                    "p_G": 0.0,
-                    "p_T": 0.0,
-                })
+    gene = states.iloc[0, 1]
+    gl = gene_lens[gene]
+    character_sites = set(states.Site.values)
+    gap_sites = set(range(1, gl + 1)) - set(character_sites)
+    for node in states.Part.unique():
+        for site in gap_sites:
+            gaps.append({
+                "Node": node,
+                "Part": gene,
+                "Site": site,
+                "State": "-",
+                "p_A": 0.0,
+                "p_C": 0.0,
+                "p_G": 0.0,
+                "p_T": 0.0,
+            })
     gaps_df = pd.DataFrame(gaps)
-    states = pd.concat(states, gaps_df)
+    states = pd.concat([states, gaps_df])
     cur_gene_lens = states.groupby("Part").Site.max().to_dict()
-    assert gene_lens == cur_gene_lens
+    for gene in cur_gene_lens:
+        if gene_lens[gene] != cur_gene_lens[gene]:
+            raise RuntimeError(
+                f"Len of gene are not equal to alignment length: {gene_lens[gene]} != {cur_gene_lens[gene]}"
+            )
     return states
 
 
-def main(dirs, outpath, aln_dir):
+def read_data(indir, gene_lens: dict):
+    """
+    Params
+    ------
+    indir: str
+        path to dir, containing states files for each separated character
+    """
+    gene = []
+    gene_name = extract_genename(indir)
+    for path in glob.glob(os.path.join(indir, "*")):
+        if not "marginal_probabilities" in path:
+            continue
+        df = read_marginal_probabilities(path, gene_name)
+        gene.append(df)
+    gene_df = pd.concat(gene)
+    gene_df_full = fill_gaps(gene_df, gene_lens)
+    return gene_df_full
+
+
+@click.command("formatter", help="reformat pastml output to usual states table")
+@click.argument("dirs", nargs=-1, type=click.Path(True, False), required=True)
+@click.option("--aln", "aln_dir", required=True, type=click.Path(True), help="path to directory with gene alignment files")
+@click.option("--outpath", required=True, type=click.Path(writable=True), help="path to output states file (tsv)")
+def main(dirs, aln_dir, outpath):
+    gene_lens = read_gene_lens(aln_dir)
     genome_states = []
     for data_dir in tqdm.tqdm(dirs, "Reading genes"):
-        gene_states = read_data(data_dir)
+        gene_states = read_data(data_dir, gene_lens)
         genome_states.append(gene_states)
     
     genome_df = pd.concat(genome_states)
-    fill_gaps(genome_df, aln_dir, inplace=True)
     print("Sorting...", file=sys.stderr)
     genome_df = genome_df.sort_values(["Node", "Part", "Site"])
     genome_df.to_csv(outpath, index=None, sep="\t")
@@ -98,4 +118,5 @@ def main(dirs, outpath, aln_dir):
 
 
 if __name__ == "__main__":
-    main(["./data/pastml_n/ATP6_pastml",], "/tmp/states.tsv", "./data/example_nematoda/alignments_nematoda_clean")
+    main()
+    # main(["./data/pastml_n/ATP6_pastml",], "./data/example_nematoda/alignments_nematoda_clean", "/tmp/states.tsv")
