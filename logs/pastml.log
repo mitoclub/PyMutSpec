@@ -208,10 +208,11 @@ Traceback (most recent call last):
   File "/home/kpotoh/mutspec/env_ms/lib/python3.9/site-packages/scipy/optimize/_numdiff.py", line 472, in approx_derivative
     raise ValueError("`x0` violates bound constraints. x0={}, lb={}, ub={}, (x0 < lb)={}, (x0 > ub)={}".format(x0, lb, ub, x0 < lb, x0 > lb))
 ValueError: `x0` violates bound constraints. 
-
+x0=[1.0000000e-06 1.0000000e-06 5.3291415e-02], 
 lb=[1.00000000e-06 1.00000000e-06 6.77066995e-03], 
-x0=[1.0000000e-06  1.0000000e-06  5.3291415e-02], 
 ub=[1.00000000e+07 1.00000000e+07 6.77066995e+01], 
-
 (x0 < lb)=[False  True False], 
-(x0 > ub)=[False False  True]
+(x0 > ub)=[False False  True], 
+x0 type=float64, 
+lb type=float64, 
+ub type=float64,
