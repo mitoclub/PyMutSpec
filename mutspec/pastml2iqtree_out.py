@@ -28,7 +28,7 @@ def read_marginal_probabilities(filepath, gene_name, model="F81"):
 
 
 def extract_genename(indir):
-    gn = indir.split('/')[-1]
+    gn = indir.strip("/").split("/")[-1]
     gn = gn.removesuffix("_pastml")
     return gn
 
@@ -51,13 +51,15 @@ def fill_gaps(states: pd.DataFrame, gene_lens):
     states: pd.DataFrame
         all characters states for one gene
     """
+    # return states
+
     assert states.Part.nunique() == 1
     gaps = []
     gene = states.iloc[0, 1]
     gl = gene_lens[gene]
     character_sites = set(states.Site.values)
     gap_sites = set(range(1, gl + 1)) - set(character_sites)
-    for node in states.Part.unique():
+    for node in states.Node.unique():
         for site in gap_sites:
             gaps.append({
                 "Node": node,
@@ -70,14 +72,16 @@ def fill_gaps(states: pd.DataFrame, gene_lens):
                 "p_T": 0.0,
             })
     gaps_df = pd.DataFrame(gaps)
-    states = pd.concat([states, gaps_df])
-    cur_gene_lens = states.groupby("Part").Site.max().to_dict()
+    states_full = pd.concat([states, gaps_df])
+
+    cur_gene_lens = states_full.groupby("Part").Site.max().to_dict()
     for gene in cur_gene_lens:
         if gene_lens[gene] != cur_gene_lens[gene]:
             raise RuntimeError(
-                f"Len of gene are not equal to alignment length: {gene_lens[gene]} != {cur_gene_lens[gene]}"
+                f"Len of gene are not equal to alignment length: "
+                f"{gene_lens[gene]} != {cur_gene_lens[gene]}"
             )
-    return states
+    return states_full
 
 
 def read_data(indir, gene_lens: dict):
@@ -85,7 +89,7 @@ def read_data(indir, gene_lens: dict):
     Params
     ------
     indir: str
-        path to dir, containing states files for each separated character
+        path to dir, containing files with states for each separated character
     """
     gene = []
     gene_name = extract_genename(indir)
@@ -104,6 +108,7 @@ def read_data(indir, gene_lens: dict):
 @click.option("--aln", "aln_dir", required=True, type=click.Path(True), help="path to directory with gene alignment files")
 @click.option("--outpath", required=True, type=click.Path(writable=True), help="path to output states file (tsv)")
 def main(dirs, aln_dir, outpath):
+    print(f"Input dirs:\n{dirs}")
     gene_lens = read_gene_lens(aln_dir)
     genome_states = []
     for data_dir in tqdm.tqdm(dirs, "Reading genes"):
@@ -112,11 +117,15 @@ def main(dirs, aln_dir, outpath):
     
     genome_df = pd.concat(genome_states)
     print("Sorting...", file=sys.stderr)
-    genome_df = genome_df.sort_values(["Node", "Part", "Site"])
-    genome_df.to_csv(outpath, index=None, sep="\t")
-    print("Done.", file=sys.stderr)
+    genome_df: pd.DataFrame = genome_df.sort_values(["Node", "Part", "Site"])
+    print("Writing...", file=sys.stderr)
+    genome_df.to_csv(outpath, index=None, sep="\t", float_format="%.5f")
 
 
 if __name__ == "__main__":
     main()
-    # main(["./data/pastml_n/ATP6_pastml",], "./data/example_nematoda/alignments_nematoda_clean", "/tmp/states.tsv")
+    # main(
+    #     ["./data/pastml_n/ATP6_pastml",], 
+    #     "./data/example_nematoda/alignments_nematoda_clean", 
+    #     "./data/example_nematoda/genes_states.pastml.tsv"
+    # )

@@ -74,6 +74,46 @@ python mutspec/2.states2iqtree_format.py --anc data/example_nematoda/anc_kg.stat
 python mutspec/3.calculate_mutspec.py --tree data/example_nematoda/anc.treefile --anc data/example_nematoda/genes_states.tsv --leaves data/example_nematoda/leaves_states_nematoda.tsv
 ```
 
+## PastML
+
+Used for calc mutspec without using custom phylo score
+
+model подобрать
+
+1. Reformat alignment for input. Genes separating
+
+```bash
+python mutspec/aln2pastml.py --aln data/example_nematoda/alignments_nematoda_clean --scheme data/example_nematoda/scheme_devilworm.nex --outdir data/example_nematoda/leaves
+```
+
+2. Run pastml
+
+There are error ([log](./logs/pastml.log)) while minimizing some function during pastml run. Origin is scipy function in 
+file `env_ms/lib/python3.9/site-packages/scipy/optimize/_numdiff.py`.
+
+Lines 469-470 (`approx_derivative` func) replaced by
+
+```python
+    # if np.any((x0 < lb) | (x0 > ub)):
+        # raise ValueError("`x0` violates bound constraints.")
+    if np.any(((x0 < lb) | (x0 > ub)) & ~np.isclose(x0, lb) & ~np.isclose(x0, ub)):
+        raise ValueError(
+            "`x0` violates bound constraints. \nx0={}, \nlb={}, \nub={}, \n(x0 < lb)={}, \n(x0 > ub)={}, \nx0 type={}, \nlb type={}, \nub type={},"
+            .format(x0, lb, ub, x0 < lb, x0 > ub, x0.dtype, lb.dtype, ub.dtype)
+        )
+```
+
+```bash
+parallel  echo {/.} ';' mkdir -p data/pastml_n/{/.} ';' pastml -t data/example_nematoda/anc.treefile.rooted -d {} --work_dir data/pastml_n/{/.} --html data/pastml_n/{/.}/tree.html --threads 2 ::: data/example_nematoda/leaves/*
+# parallel  echo {/.} ';' mkdir -p data/pastml_n/{/.} ';' pastml -t data/example_nematoda/anc.treefile.rooted -d {} --work_dir data/pastml_n/{/.} --html data/pastml_n/{/.}/tree.html --threads 8 ::: data/example_nematoda/leaves/ND4_pastml.tsv data/example_nematoda/leaves/CYTB_pastml.tsv data/example_nematoda/leaves/COX2_pastml.tsv
+```
+
+3. Reformat pastml output to usual states style
+
+```bash
+python mutspec/pastml2iqtree_out.py --aln data/example_nematoda/alignments_nematoda_clean/ --outpath data/example_nematoda/genes_states.pastml.tsv data/pastml_n/*
+```
+
 ## Plot trees
 
 - Plot one simple tree
@@ -92,34 +132,6 @@ do
 sbs=`basename $map_fp .css.map`
 nw_display -s -S -c $map_fp -v 20 -b 'opacity:0' -i 'visibility:hidden' -l 'font-family:serif;font-style:italic;font-size:large' -d 'stroke-width:2' -w 1600 ../anc.treefile.rooted > tree_${sbs}.svg
 done
-```
-
-## PastML
-
-Used for calc mutspec without using custom phylo score
-
-model подобрать
-
-1. Reformat alignment for input. Genes separating
-
-```bash
-python mutspec/aln2pastml.py --aln data/example_nematoda/alignments_nematoda_clean --scheme data/example_nematoda/scheme_devilworm.nex --outdir data/example_nematoda/leaves
-```
-
-2. Run pastml
-
-```bash
-# for inp in data/example_nematoda/leaves/*
-# do
-# wd=`basename $inp .pastml.tsv`
-# echo $wd
-# mkdir -p data/pastml_n/$wd
-# pastml -t data/example_nematoda/anc.treefile.rooted -d $inp --work_dir $wd --html $wd/tree.html --threads 24
-# done
-
-# parallel variant
-parallel  echo {/.} ';' mkdir -p data/pastml_n/{/.} ';' pastml -t data/example_nematoda/anc.treefile.rooted -d {} --work_dir data/pastml_n/{/.} --html data/pastml_n/{/.}/tree.html --threads 2 ::: data/example_nematoda/leaves/*
-# parallel  echo {/.} ';' mkdir -p data/pastml_n/{/.} ';' pastml -t data/example_nematoda/anc.treefile.rooted -d {} --work_dir data/pastml_n/{/.} --html data/pastml_n/{/.}/tree.html --threads 8 ::: data/example_nematoda/leaves/ND4_pastml.tsv data/example_nematoda/leaves/CYTB_pastml.tsv data/example_nematoda/leaves/COX2_pastml.tsv
 ```
 
 ## Stuff

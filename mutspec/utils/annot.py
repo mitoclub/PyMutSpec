@@ -355,6 +355,7 @@ def mutations_summary(mutations: pd.DataFrame, gene_col=None, gene_name_mapper: 
     mutations_descr = mutations[
         (mutations.Mut.str.fullmatch(mut_pattern))
     ].groupby(grp).Mut.count().reset_index()
+    # TODO add support of ProbaFull approach
 
     mutations_descr["Label"] = mutations_descr.Label.map(label_mapper)
     pivot_mutations = mutations_descr.pivot_table("Mut", gene_col, "Label", fill_value=0)

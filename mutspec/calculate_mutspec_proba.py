@@ -3,11 +3,11 @@ pic is position in codon
 
 TODO:
 + optimal states reading
-- optimal mutations and spectra writing to files
-- syn support
++ optimal mutations and spectra writing to files
++ syn support
 + minimal sequence is gene (Part), not genome
 + 192 comp
-- probability approach
++ probability approach
 - 
 """
 
@@ -36,21 +36,21 @@ class MutSpec(CodonAnnotation, GenomeStates):
     
     def __init__(
             self, path_to_tree, path_to_anc, path_to_leaves, out_dir, 
-            path_to_db="data/states.db", gcode=2, run=True, db_mode="db", 
+            path_to_db="data/states.db", gcode=2, run=True, db_mode="dict", 
             rewrite_db=None, proba_cutoff=0.01,
         ):
         for path in (path_to_tree, path_to_anc, path_to_leaves):
             if not os.path.exists(path):
-                raise ValueError(f"Path doesn't exist: {path}")
-        if os.path.exists(out_dir):
-            raise ValueError(f"Out directory path exist: {path}")
+                raise ValueError(f"Path doesn't exist: '{path}'")
+        # if os.path.exists(out_dir):
+        #     raise ValueError(f"Out directory path exist: '{path}'")
 
         CodonAnnotation.__init__(self, gcode)
         GenomeStates.__init__(self, path_to_anc, path_to_leaves, path_to_db, db_mode, rewrite_db)
 
         self.gcode = gcode
         self.proba_cutoff = proba_cutoff
-        self.MUT_LABELS = ["all", "ff"]  # TODO add syn
+        self.MUT_LABELS = ["all", "syn", "ff"]
         self.fp_format = np.float32
         self.tree = PhyloTree(path_to_tree, format=1)
         self.max_dist = self.fp_format(get_farthest_leaf(self.tree))
@@ -63,7 +63,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
             self.calc(out_dir)
 
     def calc(self, out_dir):
-        os.makedirs(out_dir)
+        os.makedirs(out_dir, exist_ok=True)
         logger.info(f"Output directory '{out_dir}' created")
         path_to_mutations = os.path.join(out_dir, "mutations.csv")
         path_to_nucl_freqs = os.path.join(out_dir, "freqs.csv")
@@ -87,24 +87,16 @@ class MutSpec(CodonAnnotation, GenomeStates):
         self.handle_mutspec192.close()
         self.handle_mutspec_genes12.close()
         self.handle_mutspec_genes192.close()
-        exit(0)
-        
-        mutations.to_csv(path_to_mutations, index=None)
-        total_nucl_freqs.to_csv(path_to_nucl_freqs, index=None)
-        for label in self.MUT_LABELS:
-            fp_mutspec12 = path_to_mutspec.format(12, label)
-            fp_mutspec192 = path_to_mutspec.format(192, label)
-            edge_mutspec12[label].to_csv(fp_mutspec12, index=None)
-            edge_mutspec192[label].to_csv(fp_mutspec192, index=None)
 
-    @profiler
+    # @profiler
     def extract_mutspec_from_tree(self):
         logger.info("Start mutation extraction from tree")
-        # edge_mutspec12 = defaultdict(list)  # all, syn, ff
-        # edge_mutspec192 = defaultdict(list)
         add_header = defaultdict(lambda: True)
         for ei, (ref_node, alt_node) in enumerate(iter_tree_edges(self.tree)):
+            # if alt_node.name.startswith("Node"):
+            #     continue  # TODO drop line
             if ref_node.name not in self.nodes or alt_node.name not in self.nodes:
+                logger.debug(f"Pass edge '{ref_node.name}'-'{alt_node.name}' due to absence of genome")
                 continue
             logger.debug(f"extracting mutations from {ref_node.name} to {alt_node.name}")
 
@@ -127,6 +119,8 @@ class MutSpec(CodonAnnotation, GenomeStates):
                 
                 # extract mutations and put in order columns
                 gene_mut_df = self.extract_mutations(ref_seq, alt_seq)
+                if gene_mut_df.shape[0] == 0:
+                    continue
                 gene_mut_df["DistToClosestLeaf"] = dist_to_closest_leaf
                 gene_mut_df["EvolSpeedCoef"] = evol_speed_coef
                 gene_mut_df["ProbaFull"] = gene_mut_df["EvolSpeedCoef"] * gene_mut_df["ProbaMut"]
@@ -154,7 +148,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
                     genome_mutations.append(gene_mut_df)
                 
                 # calculate gene mutational spectra for all labels
-                if len(gene_mut_df) > 50:  # TODO number of mutations is implicit ??
+                if len(gene_mut_df) > 0:
                     for lbl in self.MUT_LABELS:
                         mutspec12 = calculate_mutspec(gene_mut_df, gene_nucl_freqs[lbl], label=lbl, use_context=False)
                         mutspec12["RefNode"] = ref_node.name
@@ -165,7 +159,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
                         self.dump_table(mutspec12,  self.handle_mutspec_genes12,  add_header["ms12g"])
                         add_header["ms12g"] = False
 
-                if len(gene_mut_df) > 200:  # TODO number of mutations is implicit ??
+                if len(gene_mut_df) > 100:  # TODO
                     for lbl in self.MUT_LABELS:
                         mutspec192 = calculate_mutspec(gene_mut_df, gene_cxt_freqs[lbl], label=lbl, use_context=True)
                         mutspec192["RefNode"] = ref_node.name
@@ -202,8 +196,8 @@ class MutSpec(CodonAnnotation, GenomeStates):
                 self.dump_table(mutspec192, self.handle_mutspec192, add_header["ms"])
                 add_header["ms"] = False
 
-            if ei == 3:
-                break  # TODO remove lines
+            # if ei > 10:
+            #     break  # TODO remove lines
 
     def extract_mutations(self, g1: np.ndarray, g2: np.ndarray):
         """
@@ -343,12 +337,15 @@ class MutSpec(CodonAnnotation, GenomeStates):
     
 
 def main():
-    path_to_tree =   "./data/example_birds/anc_kg.treefile"
-    path_to_states = "./data/example_birds/anc_kg_states_birds.tsv"
-    path_to_leaves = "./data/example_birds/leaves_birds_states.tsv"
-    out_dir = "./data/processed/birds"
-    out_dir = os.path.join(out_dir, datetime.now().strftime("%d-%m-%y-%H-%M-%S"))
-    MutSpec(path_to_tree, path_to_states, path_to_leaves, out_dir, run=True)
+    path_to_tree =   "./data/example_nematoda/anc.treefile.rooted"
+    path_to_anc = "./data/example_nematoda/genes_states.tsv"
+    path_to_leaves = "./data/example_nematoda/leaves_states_nematoda.tsv"
+    out_dir = "./data/processed/nematoda/proba"
+    # out_dir = os.path.join(out_dir, datetime.now().strftime("%d-%m-%y-%H-%M-%S") + "_proba")
+    MutSpec(
+        path_to_tree, path_to_anc, path_to_leaves, 
+        out_dir, run=True, db_mode="dict", gcode=5, 
+    )
 
 
 if __name__ == "__main__":

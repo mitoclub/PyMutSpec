@@ -20,12 +20,12 @@ def test_collect_obs_mut_freqs(coda):
     nucl_freqs, cxt_freqs = coda.collect_obs_mut_freqs(list(genome))
     assert nucl_freqs["all"] == Counter(genome[1: -1])
     assert nucl_freqs["syn"] == {"A": 2, "C": 5, "G": 3, "T": 1}
-    assert nucl_freqs["ff"] == {"C": 1, "G": 1}
+    assert nucl_freqs["ff"] == {"C": 3, "G": 3}
 
     cxts = [genome[i: i+3] for i in range(len(genome)-2)]
     assert cxt_freqs["all"] == Counter(cxts)
     assert cxt_freqs["syn"] == {"TAG": 1, "TCT": 3, "GCT": 1, "TGC": 3, "ATG": 1, "ACT": 1, "GAT": 1}
-    assert cxt_freqs["ff"] =={"TCT": 1, "TGC": 1}
+    assert cxt_freqs["ff"] =={"TCT": 3, "TGC": 3}
 
 
 def test_extract_mutations_simple():
