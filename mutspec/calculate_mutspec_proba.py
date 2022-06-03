@@ -23,7 +23,7 @@ import pandas as pd
 from Bio.Data import CodonTable
 from ete3 import PhyloTree
 
-from utils import (
+from mutspec.utils import (
     iter_tree_edges, profiler, get_farthest_leaf, calculate_mutspec,
     CodonAnnotation, GenomeStates, possible_codons
 )
@@ -35,18 +35,18 @@ class MutSpec(CodonAnnotation, GenomeStates):
     # EPS = 1e-5
     
     def __init__(
-            self, path_to_tree, path_to_anc, path_to_leaves, out_dir, 
+            self, path_to_tree, path_to_states, out_dir, 
             path_to_db="data/states.db", gcode=2, run=True, db_mode="dict", 
             rewrite_db=None, proba_cutoff=0.01,
         ):
-        for path in (path_to_tree, path_to_anc, path_to_leaves):
+        for path in path_to_states + [path_to_tree]:
             if not os.path.exists(path):
                 raise ValueError(f"Path doesn't exist: '{path}'")
         # if os.path.exists(out_dir):
         #     raise ValueError(f"Out directory path exist: '{path}'")
 
         CodonAnnotation.__init__(self, gcode)
-        GenomeStates.__init__(self, path_to_anc, path_to_leaves, path_to_db, db_mode, rewrite_db)
+        GenomeStates.__init__(self, path_to_states, path_to_db, db_mode, rewrite_db)
 
         self.gcode = gcode
         self.proba_cutoff = proba_cutoff
@@ -115,15 +115,16 @@ class MutSpec(CodonAnnotation, GenomeStates):
             for gene in ref_genome:
                 ref_seq = ref_genome[gene]
                 alt_seq = alt_genome[gene]
-                gene = np.int16(gene)
+                # gene = np.int16(gene)
                 
                 # extract mutations and put in order columns
                 gene_mut_df = self.extract_mutations(ref_seq, alt_seq)
                 if gene_mut_df.shape[0] == 0:
                     continue
-                gene_mut_df["DistToClosestLeaf"] = dist_to_closest_leaf
-                gene_mut_df["EvolSpeedCoef"] = evol_speed_coef
-                gene_mut_df["ProbaFull"] = gene_mut_df["EvolSpeedCoef"] * gene_mut_df["ProbaMut"]
+                # gene_mut_df["DistToClosestLeaf"] = dist_to_closest_leaf
+                # gene_mut_df["EvolSpeedCoef"] = evol_speed_coef
+                # gene_mut_df["ProbaFull"] = gene_mut_df["EvolSpeedCoef"] * gene_mut_df["ProbaMut"]
+                gene_mut_df["ProbaFull"] = gene_mut_df["ProbaMut"]
                 gene_mut_df["RefNode"] = ref_node.name
                 gene_mut_df["AltNode"] = alt_node.name
                 gene_mut_df["Gene"] = gene
@@ -338,12 +339,12 @@ class MutSpec(CodonAnnotation, GenomeStates):
 
 def main():
     path_to_tree =   "./data/example_nematoda/anc.treefile.rooted"
-    path_to_anc = "./data/example_nematoda/genes_states.tsv"
-    path_to_leaves = "./data/example_nematoda/leaves_states_nematoda.tsv"
-    out_dir = "./data/processed/nematoda/proba"
+    path_to_anc = "./data/example_nematoda/genes_states.pastml.tsv"
+    # path_to_leaves = "./data/example_nematoda/leaves_states_nematoda.tsv"
+    out_dir = "./data/processed/nematoda/pastml"
     # out_dir = os.path.join(out_dir, datetime.now().strftime("%d-%m-%y-%H-%M-%S") + "_proba")
     MutSpec(
-        path_to_tree, path_to_anc, path_to_leaves, 
+        path_to_tree, [path_to_anc], 
         out_dir, run=True, db_mode="dict", gcode=5, 
     )
 

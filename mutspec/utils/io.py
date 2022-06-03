@@ -3,7 +3,7 @@ import re
 import sys
 import sqlite3
 from collections import defaultdict
-from typing import Dict
+from typing import Dict, List
 
 import numpy as np
 import pandas as pd
@@ -39,21 +39,18 @@ class GenomeStates:
     - use mode="dict" if your mtDNA tree is small (~1500 nodes require ~350MB of RAM); 
     big trees with 100000 nodes require tens GB of RAM, therefore use mode="db"
     """
-    def __init__(self, 
-            path_to_anc=None, path_to_leaves=None, path_to_db=None, 
-            mode="dict", rewrite=False, proba_mode=True, *args, **kwargs
-        ):
+    def __init__(self, path_states: List[str], path_to_db=None, mode="dict", rewrite=False, proba_mode=True):
         self.mode = mode
         self.proba_mode = proba_mode
         print(f"Genome states storage mode = '{mode}'", file=sys.stderr)
         self.path_to_db = path_to_db
         if mode == "dict":
-            self._prepare_node2genome(path_to_anc, path_to_leaves)
+            self._prepare_node2genome(path_states)
         elif mode == "db":
             if path_to_db is None:
                 raise ValueError("Pass the path to database to use or write it")
             else:
-                self._prepare_db(path_to_anc, path_to_leaves, rewrite)
+                self._prepare_db(path_states, rewrite)
         else:
             raise ValueError("Mode must be 'dict' or 'db'")
     
@@ -92,7 +89,7 @@ class GenomeStates:
         else:
             raise ValueError("mode must be 'dict' or 'db'")
 
-    def _prepare_db(self, path_to_anc, path_to_leaves, rewrite=False):
+    def _prepare_db(self, path_states, rewrite=False):
         """sequentially read tsv and write to db"""
         done = False
         if os.path.exists(self.path_to_db):
@@ -116,7 +113,7 @@ class GenomeStates:
         cur.execute('''CREATE TABLE states
                (Node TEXT, Part INTEGER, Site INTEGER, State TEXT, p_A REAL, p_C REAL, p_G REAL, p_T REAL)'''
         )
-        for path in [path_to_leaves, path_to_anc]:
+        for path in path_states:
             if path is None:
                 continue
             print(f"Loading {path} ...", file=sys.stderr)
@@ -145,18 +142,18 @@ class GenomeStates:
             nodes.add(node[0])
         return nodes
 
-    def _prepare_node2genome(self, path_to_anc, path_to_leaves, states_dtype=np.float32):
+    def _prepare_node2genome(self, path_states, states_dtype=np.float32):
         dtypes = {
             "p_A":  states_dtype, "p_C": states_dtype, 
             "p_G":  states_dtype, "p_T": states_dtype,
-            "Site": np.int32,     "Part": np.int8,
+            "Site": np.int32,     #"Part": np.int8,
         }
         if self.proba_mode:
             usecols = ["Node", "Part", "Site", "p_A", "p_C", "p_G", "p_T"]
         else:
             usecols = ["Node", "Part", "Site", "State"]
         node2genome = defaultdict(dict)
-        for path in [path_to_anc, path_to_leaves]:
+        for path in path_states:
             if path is None:
                 continue
             print(f"Loading {path}...", file=sys.stderr)
