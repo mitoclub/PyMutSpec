@@ -323,22 +323,32 @@ def calculate_mutspec(mutations: pd.DataFrame, freqs: Dict[str, float], label: s
     return mutspec
 
 
-def mutations_summary(mutations: pd.DataFrame, gene_col=None, gene_name_mapper: dict = None):
+def mutations_summary(mutations: pd.DataFrame, gene_col=None, proba_col=None, gene_name_mapper: dict = None):
     """
     form mutations annotation: how many synonymous, fourfold or stop loss/gain observed in the table
 
-    Args:
-        mutations: pd.DataFrame table must contain at least 3 columns:
-        - Mut, str. Pattern: '[ACGT]\[[ACGT]>[ACGT]\][ACGT]'
-        - Label, int. [-3, 2]. See CodonAnnotation.get_mut_type
-        - $gene_col, optional. If None annotation will be formed on full mutations without genes splitting
+    Arguments
+    ---------
+    mutations: pd.DataFrame 
+        table must contain at least 2 columns:
+        - Mut: str; Pattern: '[ACGT]\[[ACGT]>[ACGT]\][ACGT]'
+        - Label: int; [-3, 2]. See CodonAnnotation.get_mut_type
+        - $gene_col, optional. If gene_col=None annotation will be formed on full mutations without genes splitting
+        - $proba_col, optional. If proba_col=None each row of table assumed to be mutation, else probabilities will be used
 
-        gene_col: str - Column containing gene name in that mutation was observed
-        gene_name_mapper: dict - mapping for gene names. Use when gene_col contains indexses of genes
+    gene_col: str
+        Column containing gene name in that mutation was observed
+    proba_col: str
+        Column containing probability of mutations
+    gene_name_mapper: dict
+        mapping for gene names. Use when gene_col contains indexses of genes
 
-    Returns:
-        pd.DataFrame with annotations
+    Returns
+    -------
+    pivot_mutations: pd.DataFrame 
+        table with mutations annotation
     """
+    mutations = mutations.copy()
     mut_pattern = "[ACGT]\[[ACGT]>[ACGT]\][ACGT]"
     label_mapper = {
         -3: "6Stop to stop",
@@ -352,13 +362,17 @@ def mutations_summary(mutations: pd.DataFrame, gene_col=None, gene_name_mapper: 
     if gene_col is not None:
         grp.append(gene_col)
 
+    if proba_col is None:
+        proba_col = "_ProbaFull"
+        mutations[proba_col] = 1
+    assert proba_col in mutations.columns
+
     mutations_descr = mutations[
         (mutations.Mut.str.fullmatch(mut_pattern))
-    ].groupby(grp).Mut.count().reset_index()
-    # TODO add support of ProbaFull approach
+    ].groupby(grp)[proba_col].sum().reset_index()
 
     mutations_descr["Label"] = mutations_descr.Label.map(label_mapper)
-    pivot_mutations = mutations_descr.pivot_table("Mut", gene_col, "Label", fill_value=0)
+    pivot_mutations = mutations_descr.pivot_table(proba_col, gene_col, "Label", fill_value=0)
     pivot_mutations.columns = [x[1:] for x in pivot_mutations.columns]
 
     if gene_name_mapper is not None:
