@@ -114,6 +114,8 @@ parallel  echo {/.} ';' mkdir -p data/pastml_n/{/.} ';' pastml -t data/example_n
 python mutspec/pastml2iqtree_out.py --aln data/example_nematoda/alignments_nematoda_clean/ --outpath data/example_nematoda/genes_states.pastml.tsv data/pastml_n/*
 ```
 
+4. 
+
 ## Plot trees
 
 - Plot one simple tree
