@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Set, Union, Dict
+from typing import Set, Union, Dict, Iterable
 
 import numpy as np
 import pandas as pd
@@ -123,18 +123,36 @@ class CodonAnnotation:
         mut_df = pd.DataFrame(mutations)
         return mut_df
 
-    def collect_obs_mut_freqs(self, genome: np.ndarray):
-        n = len(genome)
+    def collect_obs_mut_freqs(self, gene: Union[str, Iterable[str]], labels=["all", "syn", "ff"]):
+        """
+        Calculate potential observed mutation counts for nucleotides and trinucleotides (context) 
+        in gene
+        
+        Arguments
+        ---------
+        gene: string or iterable of strings, length must be divisible by 3
+            gene sequence with codon structure; 
+        labels: List of label string
+            label could be one of ["all", "syn", "ff"]
+        
+        Returns
+        -------
+            nucl_freqs: Dict[label, Dict[nucl, count]]
+                for each label collected custom nucleotide counts
+            context_freqs: Dict[label, Dict[context, count]]
+                for each label collected custom trinucleotide counts
+        """
+        n = len(gene)
         assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
 
-        nucl_freqs = {lbl: defaultdict(int) for lbl in ("all", "syn", "ff")}
-        cxt_freqs = {lbl: defaultdict(int) for lbl in ("all", "syn", "ff")}
+        nucl_freqs = {lbl: defaultdict(int) for lbl in labels}
+        cxt_freqs = {lbl: defaultdict(int) for lbl in labels}
 
         for pos in range(1, n - 1):
             pic = pos % 3
-            nuc = genome[pos]
-            cdn = genome[pos - pic: pos - pic + 3]
-            cxt = genome[pos - 1: pos + 2]
+            nuc = gene[pos]
+            cdn = gene[pos - pic: pos - pic + 3]
+            cxt = gene[pos - 1: pos + 2]
             cdn_str = "".join(cdn)
             cxt_str = "".join(cxt)
 
@@ -156,7 +174,7 @@ class CodonAnnotation:
         """ extract synonymous (codons that mutate without amino acid change) 
         and fourfold codons from codon table
 
-        usefull function for expected mutspec (filtration)
+        usefull function for expected mutspec calculation
 
         return mapping[(cdn, pic)] of syn codons and set of ff codons
         """

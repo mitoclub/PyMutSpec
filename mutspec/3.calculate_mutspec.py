@@ -24,11 +24,11 @@ from custom_logging import logger
 
 class MutSpec(CodonAnnotation, GenomeStates):    
     def __init__(
-            self, path_to_tree, path_to_anc, path_to_leaves, out_dir, 
+            self, path_to_tree, path_to_states, out_dir, 
             path_to_db="data/states.db", gcode=2, run=True, db_mode="dict", 
             rewrite_db=None, proba_cutoff=0.01, proba_mode=False,
         ):
-        for path in (path_to_tree, path_to_anc, path_to_leaves):
+        for path in path_to_states + [path_to_tree]:
             if not os.path.exists(path):
                 raise ValueError(f"Path doesn't exist: {path}")
         if os.path.exists(out_dir):
@@ -36,12 +36,12 @@ class MutSpec(CodonAnnotation, GenomeStates):
 
         CodonAnnotation.__init__(self, gcode)
         GenomeStates.__init__(
-            self, path_to_anc, path_to_leaves, path_to_db, db_mode, rewrite_db, proba_mode
+            self, path_to_states, path_to_db, db_mode, rewrite_db, proba_mode
         )
         self.gcode = gcode
         logger.info(f"Using gencode {gcode}")
         self.proba_cutoff = proba_cutoff
-        self.MUT_LABELS = ["all", "syn", "ff"]  # TODO add syn
+        self.MUT_LABELS = ["all", "syn", "ff"]
         self.fp_format = np.float32
         self.tree = PhyloTree(path_to_tree, format=1)
         # self.max_dist = self.fp_format(get_farthest_leaf(self.tree))
@@ -214,16 +214,15 @@ class MutSpec(CodonAnnotation, GenomeStates):
 # @click.option("--tree", "path_to_tree", required=True, type=click.Path(True), help="")
 # @click.option("--anc", "path_to_anc", required=True, type=click.Path(True), help="")
 # @click.option("--leaves", "path_to_leaves", required=True, type=click.Path(True), help="path to leaves table of custom format")
-def main(path_to_tree, path_to_anc, path_to_leaves):
-    path_to_db     = "./data/example_nematoda/states.db"
+def main(path_to_tree, path_to_anc, path_to_leaves, out_dir_lbl=""):
     out_dir = "./data/processed/nematoda"
-    # out_dir = "/tmp"
-    out_dir = os.path.join(out_dir, datetime.now().strftime("%d-%m-%y-%H-%M-%S"))
-    MutSpec(path_to_tree, path_to_anc, path_to_leaves, out_dir, path_to_db=path_to_db, run=True, gcode=5)
+    out_dir_lbl = datetime.now().strftime("%d-%m-%y-%H-%M-%S") + "_" + out_dir_lbl
+    out_dir = os.path.join(out_dir, out_dir_lbl)
+    MutSpec(path_to_tree, [path_to_anc, path_to_leaves], out_dir, run=True, gcode=5)
 
 
 if __name__ == "__main__":
     path_to_tree =   "./data/example_nematoda/anc.treefile.rooted"
-    path_to_anc = "./data/example_nematoda/genes_states.tsv"
     path_to_leaves = "./data/example_nematoda/leaves_states_nematoda.tsv"
-    main(path_to_tree, path_to_anc, path_to_leaves)
+    path_to_anc = "./data/example_nematoda/nematoda_anc_mf/genes_states.tsv"
+    main(path_to_tree, path_to_anc, path_to_leaves, "anc_mf")

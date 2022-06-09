@@ -46,7 +46,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
         #     raise ValueError(f"Out directory path exist: '{path}'")
 
         CodonAnnotation.__init__(self, gcode)
-        GenomeStates.__init__(self, path_to_states, path_to_db, db_mode, rewrite_db)
+        GenomeStates.__init__(self, path_to_states, path_to_db, db_mode, rewrite_db, True)
 
         self.gcode = gcode
         self.proba_cutoff = proba_cutoff
