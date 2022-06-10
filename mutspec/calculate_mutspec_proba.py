@@ -49,6 +49,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
         GenomeStates.__init__(self, path_to_states, path_to_db, db_mode, rewrite_db, True)
 
         self.gcode = gcode
+        logger.info(f"Using gencode {gcode}")
         self.proba_cutoff = proba_cutoff
         self.MUT_LABELS = ["all", "syn", "ff"]
         self.fp_format = np.float32
@@ -197,6 +198,8 @@ class MutSpec(CodonAnnotation, GenomeStates):
                 self.dump_table(mutspec192, self.handle_mutspec192, add_header["ms"])
                 add_header["ms"] = False
 
+            if ei % 100 == 0:
+                logger.info(f"Processed {ei} tree edges")
             # if ei > 10:
             #     break  # TODO remove lines
 

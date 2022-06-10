@@ -9,6 +9,7 @@ from Bio import SeqIO
 from mutspec.utils import load_scheme, get_aln_files
 
 NGENES = 12
+GAP_CUTOFF = 0.05
 
 
 def parse_alignment_all_genes(files: list, scheme: dict, aln_dir) -> Tuple[str, int]:
@@ -73,7 +74,7 @@ def parse_alignment_split_genes(files: list, scheme: dict, aln_dir, outdir) -> T
 
         df = pd.DataFrame(data, columns="Node Site State".split()).sort_values(["Node", "Site"])
         pidf = df.pivot("Node", "Site", "State").reset_index()
-        condition = (pidf == "-").sum(axis=0) < pidf.shape[0] * 0.05
+        condition = (pidf == "-").sum(axis=0) < pidf.shape[0] * GAP_CUTOFF
         pidf = pidf.loc[:, condition]
         outpath = os.path.join(outdir, gene_fn.replace(".fna", "_pastml.tsv"))
         pidf.to_csv(outpath, sep="\t", index=None)
