@@ -74,7 +74,7 @@ python mutspec/2.iqtree_states2custom_format.py --anc data/example_nematoda/anc_
 python mutspec/2.iqtree_states_parted2custom_format.py --anc ./data/example_nematoda/nematoda_anc_HKY_part/anc_HKY_part.state --scheme ./data/example_nematoda/scheme_devilworm.nex --leaves ./data/example_nematoda/leaves_states_nematoda.tsv --out data/example_nematoda/nematoda_anc_HKY_part/genes_states.tsv
 
 # simple mutspec without probabilities
-python mutspec/3.calculate_mutspec.py --tree data/example_nematoda/anc.treefile --anc data/example_nematoda/genes_states.tsv --leaves data/example_nematoda/leaves_states_nematoda.tsv
+python mutspec/3.calculate_mutspec.py --tree data/example_nematoda/anc.treefile --states data/example_nematoda/nematoda_anc_HKY_part/genes_states.tsv --states data/example_nematoda/leaves_states_nematoda.tsv --gencode 5 --outdir data/processed/nematoda/dif_approaches/simple
 ```
 
 ## PastML

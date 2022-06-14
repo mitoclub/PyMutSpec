@@ -27,7 +27,7 @@ from mutspec.utils import (
     iter_tree_edges, profiler, get_farthest_leaf, calculate_mutspec,
     CodonAnnotation, GenomeStates, possible_codons
 )
-from custom_logging import logger
+from _custom_logging import logger
 
 
 class MutSpec(CodonAnnotation, GenomeStates):

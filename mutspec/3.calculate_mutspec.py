@@ -1,9 +1,11 @@
 """
 pic is position in codon
+
 """
 
 import os
 from collections import defaultdict
+import sys
 
 import click
 import numpy as np
@@ -14,20 +16,21 @@ from utils import (
     iter_tree_edges, profiler, calculate_mutspec, get_farthest_leaf,
     CodonAnnotation, GenomeStates, possible_codons
 )
-from custom_logging import logger
+from mutspec.utils.logging import load_logger
+
+logger = None
 
 
 class MutSpec(CodonAnnotation, GenomeStates):    
     def __init__(
             self, path_to_tree, path_to_states, out_dir, 
             gcode=2, db_mode="dict", path_to_db="/tmp/states.db", 
-            rewrite_db=None, proba_mode=False, proba_cutoff=0.01, pastml_test=False,
+            rewrite_db=None, proba_mode=False, proba_cutoff=0.01, 
+            pastml_test=False,
         ):
-        for path in path_to_states + [path_to_tree]:
+        for path in list(path_to_states) + [path_to_tree]:
             if not os.path.exists(path):
                 raise ValueError(f"Path doesn't exist: {path}")
-        if os.path.exists(out_dir):
-            raise ValueError(f"Out directory path exist: {path}")
 
         CodonAnnotation.__init__(self, gcode)
         GenomeStates.__init__(
@@ -52,8 +55,6 @@ class MutSpec(CodonAnnotation, GenomeStates):
         self.close_handles()
 
     def open_handles(self, out_dir):
-        os.makedirs(out_dir)
-        logger.info(f"Output directory '{out_dir}' created")
         path_to_mutations  = os.path.join(out_dir, "mutations.tsv")
         path_to_nucl_freqs = os.path.join(out_dir, "freqs.tsv")
         path_to_mutspec12  = os.path.join(out_dir, "mutspec12.tsv")
@@ -74,7 +75,6 @@ class MutSpec(CodonAnnotation, GenomeStates):
             self.handle[x].close()
         logger.info("Handles closed")
 
-    # @profiler
     def extract_mutspec_from_tree(self):
         logger.info("Start mutation extraction from tree")
         add_header = defaultdict(lambda: True)
@@ -99,7 +99,6 @@ class MutSpec(CodonAnnotation, GenomeStates):
             for gene in ref_genome:
                 ref_seq = ref_genome[gene]
                 alt_seq = alt_genome[gene]
-                # gene = np.int16(gene)
                 
                 # extract mutations and put in order columns
                 if self.proba_mode:
@@ -338,7 +337,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
 @click.command("MutSpec calculator", help="")
 @click.option("--tree", "path_to_tree", required=True, type=click.Path(True), help="Path to phylogenetic tree to collect mutations from")
 @click.option("--states", "path_to_states", required=True, multiple=True, type=click.Path(True), help="Path to states of each node in the tree. Could be passed several states files, example: '--states file1 --states file2'")
-@click.option("--outdir", required=True, type=click.Path(writable=True), help="Directory which will contain output files with mutations and mutspecs")
+@click.option("--outdir", required=True, type=click.Path(exists=False, writable=True), help="Directory which will contain output files with mutations and mutspecs")
 @click.option("--gencode", required=True, type=int, help="Genetic code number to use in mutations annotation. Use 2 for vertebrate mitochondrial genes")
 @click.option("--proba", is_flag=True, required=False, default=False, help="Use states probabilities while mutations collecting")
 @click.option("--pcutoff", "proba_cutoff", required=False, default=0.01, show_default=True, type=float, help="Cutoff of tri/tetranucleotide state probability, states with lower values will not be used in mutation collecting")
@@ -346,12 +345,18 @@ class MutSpec(CodonAnnotation, GenomeStates):
 @click.option("--db_path", "path_to_db", required=False, type=click.Path(writable=True), default="/tmp/states.db", show_default=True, help="Path to database with states. Used only with --write_db")
 @click.option("--rewrite_db", is_flag=True, required=False, default=False, help="Rewrite existing states database. Used only with --write_db")
 @click.option("--pastml", is_flag=True, required=False, default=False, help="Run probability approach without phylogenetic uncertainty coefficient. Used for pastml run")
+@click.option('-v', '--verbose', "verbosity", count=True, help="Verbosity level = DEBUG")
 def main(
         path_to_tree, path_to_states, outdir, 
         gencode, write_db, path_to_db, rewrite_db, 
-        proba, proba_cutoff, pastml, 
+        proba, proba_cutoff, pastml, verbosity,
     ):
-    
+    global logger
+    os.makedirs(outdir)
+    _log_lvl = "DEBUG" if verbosity >= 1 else None
+    logger = load_logger(stream_level=_log_lvl, filename=os.path.join(outdir, "run.log"))
+    logger.info(f"Output directory '{outdir}' created")
+    logger.debug("Command: " + " ".join(sys.argv))
     MutSpec(
         path_to_tree, path_to_states, outdir, gcode=gencode, 
         db_mode=write_db, path_to_db=path_to_db, rewrite_db=rewrite_db, 

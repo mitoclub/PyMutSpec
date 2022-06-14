@@ -7,16 +7,21 @@ formatters:
     format: '%(asctime)s %(module)s %(funcName)s %(levelname)s %(message)s'
     datefmt: '%d-%m-%y %H:%M:%S'
 handlers:
-  console:
-    class: logging.StreamHandler
+  full_file_handler:
+    class: logging.FileHandler
+    filename: run.log
     level: DEBUG
+    formatter: extended_console_process
+  stream_handler:
+    class: logging.StreamHandler
+    level: INFO
     formatter: default_console_process
     stream: ext://sys.stderr
 loggers:
   custom:
     level: DEBUG
-    handlers: [console]
-    propagate: no
+    handlers: [full_file_handler]
+    propagate: yes
 root:
   level: DEBUG
-  handlers: [console]
+  handlers: [full_file_handler, stream_handler]
