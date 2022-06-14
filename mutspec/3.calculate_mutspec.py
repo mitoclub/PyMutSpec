@@ -112,9 +112,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
                     if self.pastml_test:
                         gene_mut_df["ProbaFull"] = gene_mut_df["ProbaMut"]
                     else:
-                        gene_mut_df["DistToClosestLeaf"] = dist_to_closest_leaf
-                        gene_mut_df["EvolSpeedCoef"] = evol_speed_coef
-                        gene_mut_df["ProbaFull"] = gene_mut_df["EvolSpeedCoef"] * gene_mut_df["ProbaMut"]
+                        gene_mut_df["ProbaFull"] = evol_speed_coef * gene_mut_df["ProbaMut"]
                 gene_mut_df["RefNode"] = ref_node.name
                 gene_mut_df["AltNode"] = alt_node.name
                 gene_mut_df["Gene"] = gene
