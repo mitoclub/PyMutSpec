@@ -69,7 +69,10 @@ python mutspec/2.states2iqtree_format.py --anc data/example_birds/anc_kg.state -
 
 ```bash
 python mutspec/1.terminal_genomes2iqtree_format.py --aln data/example_nematoda/alignments_nematoda_clean --out data/example_nematoda/leaves_states_nematoda.tsv
-python mutspec/2.states2iqtree_format.py --anc data/example_nematoda/anc_kg.state --leaves data/example_nematoda/leaves_states_nematoda.tsv --out data/example_nematoda/genes_states.tsv
+python mutspec/2.iqtree_states2custom_format.py --anc data/example_nematoda/anc_kg.state --leaves data/example_nematoda/leaves_states_nematoda.tsv --out data/example_nematoda/genes_states.tsv
+# or
+python mutspec/2.iqtree_states_parted2custom_format.py --anc ./data/example_nematoda/nematoda_anc_HKY_part/anc_HKY_part.state --scheme ./data/example_nematoda/scheme_devilworm.nex --leaves ./data/example_nematoda/leaves_states_nematoda.tsv --out data/example_nematoda/nematoda_anc_HKY_part/genes_states.tsv
+
 # simple mutspec without probabilities
 python mutspec/3.calculate_mutspec.py --tree data/example_nematoda/anc.treefile --anc data/example_nematoda/genes_states.tsv --leaves data/example_nematoda/leaves_states_nematoda.tsv
 ```
@@ -104,7 +107,7 @@ Lines 469-470 (`approx_derivative` func) replaced by
 ```
 
 ```bash
-parallel  echo {/.} ';' mkdir -p data/pastml_n/{/.} ';' pastml --prediction_method MPPA -m CUSTOM_RATES --rate_matrix TODO -t data/example_nematoda/anc.treefile.rooted -d {} --work_dir data/pastml_n/{/.} --html data/pastml_n/{/.}/tree.html --threads 2 ::: data/example_nematoda/leaves/*
+parallel  echo {/.} ';' mkdir -p data/pastml_n/{/.} ';' pastml --prediction_method MPPA -m HKY -t data/example_nematoda/anc.treefile.rooted -d {} --work_dir data/pastml_n/{/.} --html data/pastml_n/{/.}/tree.html --threads 2 ::: data/example_nematoda/leaves/*
 
 # parallel  echo {/.} ';' mkdir -p data/pastml_n/{/.} ';' pastml -t data/example_nematoda/anc.treefile.rooted -d {} --work_dir data/pastml_n/{/.} --html data/pastml_n/{/.}/tree.html --threads 8 ::: data/example_nematoda/leaves/ND4_pastml.tsv data/example_nematoda/leaves/CYTB_pastml.tsv data/example_nematoda/leaves/COX2_pastml.tsv
 ```
