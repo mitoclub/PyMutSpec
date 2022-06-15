@@ -17,10 +17,10 @@ def read_marginal_probabilities(filepath, gene_name, model="F81"):
     states["State"] = [states.columns[i] for i in (np.argmax(states.iloc[:, 1:].values, axis=1) + 1)]
     for nucl in nucleotides:
         if nucl in states.columns:
-            states["p_" + nucl] = states[nucl]
+            states["p_" + nucl] = states[nucl].astype(np.float16)
             states.drop(nucl, axis=1, inplace=True)
         else:
-            states["p_" + nucl] = 0.0
+            states["p_" + nucl] = np.float16(0.0)
     states["Site"] = int(character.groups()[0])
     states["Part"] = gene_name
     states = states[['Node', 'Part', 'Site', 'State', 'p_A', 'p_C', 'p_G', 'p_T']]
@@ -84,7 +84,7 @@ def fill_gaps(states: pd.DataFrame, gene_lens):
     return states_full
 
 
-def read_data(indir, gene_lens: dict):
+def read_data(indir, gene_lens: dict, model: str):
     """
     Params
     ------
@@ -96,30 +96,32 @@ def read_data(indir, gene_lens: dict):
     for path in glob.glob(os.path.join(indir, "*")):
         if not "marginal_probabilities" in path:
             continue
-        df = read_marginal_probabilities(path, gene_name)
+        df = read_marginal_probabilities(path, gene_name, model)
         gene.append(df)
     gene_df = pd.concat(gene)
     gene_df_full = fill_gaps(gene_df, gene_lens)
     return gene_df_full
 
 
-@click.command("formatter", help="reformat pastml output to usual states table")
+@click.command("formatter", help="Reformat pastml output to usual states table")
 @click.argument("dirs", nargs=-1, type=click.Path(True, False), required=True)
-@click.option("--aln", "aln_dir", required=True, type=click.Path(True), help="path to directory with gene alignment files")
-@click.option("--outpath", required=True, type=click.Path(writable=True), help="path to output states file (tsv)")
-def main(dirs, aln_dir, outpath):
-    print(f"Input dirs:\n{dirs}")
+@click.option("--aln", "aln_dir", required=True, type=click.Path(True), help="Path to directory with gene alignment files. Used for gap filling")
+@click.option("--outpath", required=True, type=click.Path(writable=True), help="Path to output states file (tsv)")
+@click.option("--model", type=str, default="F81", show_default=True, help="Model used to calculate ancestral states")
+def main(dirs, aln_dir, outpath, model):
+    print("Input dirs:\n\t" + "\n\t".join(dirs))
+    print(f"Used model: {model}")
     gene_lens = read_gene_lens(aln_dir)
     genome_states = []
     for data_dir in tqdm.tqdm(dirs, "Reading genes"):
-        gene_states = read_data(data_dir, gene_lens)
+        gene_states = read_data(data_dir, gene_lens, model)
         genome_states.append(gene_states)
     
     genome_df = pd.concat(genome_states)
     print("Sorting...", file=sys.stderr)
-    genome_df: pd.DataFrame = genome_df.sort_values(["Node", "Part", "Site"])
+    genome_df = genome_df.sort_values(["Node", "Part", "Site"])
     print("Writing...", file=sys.stderr)
-    genome_df.to_csv(outpath, index=None, sep="\t", float_format="%.5f")
+    genome_df.to_csv(outpath, index=None, sep="\t")  # float_format="%.5f"
 
 
 if __name__ == "__main__":
