@@ -74,11 +74,11 @@ python mutspec/2.iqtree_states2custom_format.py --anc data/example_nematoda/anc_
 python mutspec/2.iqtree_states_parted2custom_format.py --anc ./data/example_nematoda/nematoda_anc_HKY_part/anc_HKY_part.state --scheme ./data/example_nematoda/scheme_devilworm.nex --leaves ./data/example_nematoda/leaves_states_nematoda.tsv --out data/example_nematoda/nematoda_anc_HKY_part/genes_states.tsv
 
 # SIMPLE mutspec without probabilities without phylogenetic coefficient
-python mutspec/3.calculate_mutspec.py --tree data/example_nematoda/anc.treefile.rooted --states data/example_nematoda/nematoda_anc_HKY_part/genes_states.tsv --states data/example_nematoda/leaves_states_nematoda.tsv --gencode 5 --outdir data/processed/nematoda/dif_approaches/simple
+python mutspec/3.calculate_mutspec.py --tree data/example_nematoda/anc.treefile.rooted --states data/example_nematoda/nematoda_anc_HKY_part/genes_states.tsv --states data/example_nematoda/leaves_states_nematoda.tsv --gencode 5 --syn --syn4f --outdir data/processed/nematoda/dif_approaches/simple
 # mutspec using IQTREE probabilities WITH phylogenetic coefficient
-python mutspec/3.calculate_mutspec.py --tree data/example_nematoda/anc.treefile.rooted --states data/example_nematoda/nematoda_anc_HKY_part/genes_states.tsv --states data/example_nematoda/leaves_states_nematoda.tsv --gencode 5 --outdir data/processed/nematoda/dif_approaches/iqtree --proba
+python mutspec/3.calculate_mutspec.py --tree data/example_nematoda/anc.treefile.rooted --states data/example_nematoda/nematoda_anc_HKY_part/genes_states.tsv --states data/example_nematoda/leaves_states_nematoda.tsv --gencode 5 --syn --syn4f --outdir data/processed/nematoda/dif_approaches/iqtree --proba
 # mutspec using PASTML probabilitie without phylogenetic coefficient
-python mutspec/3.calculate_mutspec.py --tree data/example_nematoda/anc.treefile.rooted --states data/example_nematoda --gencode 5 --outdir data/processed/nematoda/dif_approaches/pastml --proba --pastml
+python mutspec/3.calculate_mutspec.py --tree data/example_nematoda/anc.treefile.rooted --states data/example_nematoda --gencode 5 --syn --syn4f --outdir data/processed/nematoda/dif_approaches/pastml --proba --pastml
 ```
 
 ## PastML

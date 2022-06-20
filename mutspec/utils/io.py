@@ -53,6 +53,8 @@ class GenomeStates:
                 self._prepare_db(path_states, rewrite)
         else:
             raise ValueError("Mode must be 'dict' or 'db'")
+        
+        self.genome_size = sum([len(part) for _, part in self.get_random_genome().items()])
     
     def get_genome(self, node: str):
         if self.mode == "dict":
@@ -88,6 +90,10 @@ class GenomeStates:
 
         else:
             raise ValueError("mode must be 'dict' or 'db'")
+    
+    def get_random_genome(self):
+        node = next(iter(self.nodes))
+        return self.get_genome(node)
 
     def _prepare_db(self, path_states, rewrite=False):
         """sequentially read tsv and write to db"""

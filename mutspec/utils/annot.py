@@ -86,7 +86,8 @@ class CodonAnnotation:
         assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
 
         mutations = []
-        for pos in range(1, n - 1):
+        # pass initial codon and last nucleotide without right context
+        for pos in range(3, n - 1):
             pic = pos % 3  # 0-based
             cdn_start = pos - pic
             cdn1 = g1[cdn_start: cdn_start + 3]
@@ -281,12 +282,33 @@ class CodonAnnotation:
         return set(codontable.start_codons), set(codontable.stop_codons)
 
 
-def calculate_mutspec(mutations: pd.DataFrame, freqs: Dict[str, float], label: str, use_context=True, use_proba=True):
+def calculate_mutspec(mutations: pd.DataFrame, refseq_freqs: Dict[str, float], label: str, use_context=False, use_proba=False):
     """
-    mutations dataframe must contain 2 columns:
-    - Mut (X[N1>N2]Y)
-    - Label (-1, 0, 1, 2)
-    - ProbaFull (optional, only for use_proba=True)
+    Calculate mutational spectra for mutations dataframe and states frequencies of reference genome
+
+    Arguments
+    ---------
+    mutations: pd.DataFrame
+        table containing mutations with annotation; table must contain 2 columns:
+        - Mut: str; Pattern: '[ACGT]\[[ACGT]>[ACGT]\][ACGT]'
+        - Label: int; [-3, 2]. See CodonAnnotation.get_mut_type
+        - ProbaFull (optional, only for use_proba=True) - probability of mutation
+    
+    refseq_freqs: dict[str, float]
+        dictionary that contains nucleotide freqs of reference genome if use_context=False, 
+        else trinucleotide freqs; if you want to calculate synonymous mutspec, pass synonymous positions freqs
+    label: str
+        kind of needed mutspec, coulb be one of ['all', 'syn', 'ff']
+    use_context: bool
+        To use trinucleotide context or not, in other words calculate 192 component mutspec
+    use_proba: bool
+        To use probabilities of mutations or not. Usefull if you have such probabiliies
+    
+    Returns
+    -------
+    mutspec: pd.DataFrame
+        table, containing extended mutspec values including observed mutations numbers. 
+        If use_context=True len(mutspec) = 192, else len(mutspec) = 12
     """
     mut = mutations.copy()
     _cols = ["Label", "Mut", "ProbaFull"] if use_proba else ["Label", "Mut"]
@@ -315,10 +337,10 @@ def calculate_mutspec(mutations: pd.DataFrame, freqs: Dict[str, float], label: s
         col_mut = "MutBase"
         full_sbs = possible_sbs12_set
 
-    if use_proba:
-        mutspec = mut[mut["Label"] >= label].groupby(col_mut)["ProbaFull"].sum().reset_index()
-    else:
-        mutspec = mut[mut["Label"] >= label][col_mut].value_counts().reset_index()
+    if not use_proba:
+        mut["ProbaFull"] = 1
+
+    mutspec = mut[mut["Label"] >= label].groupby(col_mut)["ProbaFull"].sum().reset_index()
     mutspec.columns = ["Mut", "ObsFr"]
 
     # fill unobserved mutations by zeros
@@ -334,10 +356,12 @@ def calculate_mutspec(mutations: pd.DataFrame, freqs: Dict[str, float], label: s
     else:
         mutspec["Context"] = mutspec["Mut"].str.get(0)
 
-    mutspec["ExpFr"] = mutspec["Context"].map(freqs)
+    mutspec["ExpFr"] = mutspec["Context"].map(refseq_freqs)
     mutspec["RawMutSpec"] = (mutspec["ObsFr"] / mutspec["ExpFr"]).fillna(0)
     mutspec["MutSpec"] = mutspec["RawMutSpec"] / mutspec["RawMutSpec"].sum()
     mutspec.drop("Context", axis=1, inplace=True)
+
+    assert np.isclose(mutspec.ObsFr.sum(), mut[mut["Label"] >= label].ProbaFull.sum())
     return mutspec
 
 

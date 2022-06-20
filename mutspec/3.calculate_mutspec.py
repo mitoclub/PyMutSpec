@@ -26,7 +26,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
             self, path_to_tree, path_to_states, out_dir, 
             gcode=2, db_mode="dict", path_to_db="/tmp/states.db", 
             rewrite_db=None, proba_mode=False, proba_cutoff=0.01, 
-            pastml_test=False,
+            pastml_test=False, syn=True, syn4f=False,
         ):
         for path in list(path_to_states) + [path_to_tree]:
             if not os.path.exists(path):
@@ -41,7 +41,12 @@ class MutSpec(CodonAnnotation, GenomeStates):
         self.proba_mode = proba_mode
         self.proba_cutoff = proba_cutoff
         self.pastml_test = pastml_test
-        self.MUT_LABELS = ["all", "syn", "ff"]
+        self.MUT_LABELS = ["all"]
+        if syn:
+            self.MUT_LABELS.append("syn")
+        if syn4f:
+            self.MUT_LABELS.append("ff")
+        logger.info(f"Will calculate such mutspecs: {self.MUT_LABELS}")
         self.fp_format = np.float32
         self.tree = PhyloTree(path_to_tree, format=1)
         self.max_dist = self.fp_format(get_farthest_leaf(self.tree))
@@ -78,6 +83,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
     def extract_mutspec_from_tree(self):
         logger.info("Start mutation extraction from tree")
         add_header = defaultdict(lambda: True)
+        aln_size = self.genome_size
         for ei, (ref_node, alt_node) in enumerate(iter_tree_edges(self.tree), 1):
             if ref_node.name not in self.nodes or alt_node.name not in self.nodes:
                 logger.debug(f"Pass edge '{ref_node.name}'-'{alt_node.name}' due to absence of genome")
@@ -85,8 +91,8 @@ class MutSpec(CodonAnnotation, GenomeStates):
             logger.debug(f"Extracting mutations from {ref_node.name} to {alt_node.name}")
 
             # get genomes from storage
-            ref_genome  = self.get_genome(ref_node.name)
-            alt_genome  = self.get_genome(alt_node.name)
+            ref_genome = self.get_genome(ref_node.name)
+            alt_genome = self.get_genome(alt_node.name)
 
             # calculate phylogenetic uncertainty correction
             _, dist_to_closest_leaf = ref_node.get_closest_leaf()
@@ -99,23 +105,6 @@ class MutSpec(CodonAnnotation, GenomeStates):
             for gene in ref_genome:
                 ref_seq = ref_genome[gene]
                 alt_seq = alt_genome[gene]
-                
-                # extract mutations and put in order columns
-                if self.proba_mode:
-                    gene_mut_df = self.extract_mutations_proba(ref_seq, alt_seq)
-                else:
-                    gene_mut_df = self.extract_mutations_simple(ref_seq, alt_seq)
-                if gene_mut_df.shape[0] == 0:
-                    continue
-                
-                if self.proba_mode:
-                    if self.pastml_test:
-                        gene_mut_df["ProbaFull"] = gene_mut_df["ProbaMut"]
-                    else:
-                        gene_mut_df["ProbaFull"] = evol_speed_coef * gene_mut_df["ProbaMut"]
-                gene_mut_df["RefNode"] = ref_node.name
-                gene_mut_df["AltNode"] = alt_node.name
-                gene_mut_df["Gene"] = gene
 
                 # collect state frequencies
                 if self.proba_mode:
@@ -129,27 +118,45 @@ class MutSpec(CodonAnnotation, GenomeStates):
                     gene, self.handle["freq"], add_header["freqs"],
                 )
                 add_header["freqs"] = False
-
+                
                 # summarize state frequencies over genome
                 for lbl in self.MUT_LABELS:
                     for nucl, freq in gene_nucl_freqs[lbl].items():
                         genome_nucl_freqs[lbl][nucl] += freq
                     for trinucl, freq in gene_cxt_freqs[lbl].items():
                         genome_cxt_freqs[lbl][trinucl] += freq
-                
-                # calculate gene mutational spectra for all labels
-                if len(gene_mut_df) > 0:
-                    genome_mutations.append(gene_mut_df)
 
-                    for lbl in self.MUT_LABELS:
-                        mutspec12 = calculate_mutspec(gene_mut_df, gene_nucl_freqs[lbl], label=lbl, use_context=False, use_proba=self.proba_mode)
-                        mutspec12["RefNode"] = ref_node.name
-                        mutspec12["AltNode"] = alt_node.name
-                        mutspec12["Label"] = lbl
-                        mutspec12["Gene"]  = gene
-                        # Dump gene mutspecs 
-                        self.dump_table(mutspec12, self.handle["ms12s"], add_header["ms12g"])
-                        add_header["ms12g"] = False
+                # extract mutations and put in order columns
+                if self.proba_mode:
+                    gene_mut_df = self.extract_mutations_proba(ref_seq, alt_seq)
+                else:
+                    gene_mut_df = self.extract_mutations_simple(ref_seq, alt_seq)
+
+                if gene_mut_df.shape[0] == 0:
+                    continue
+                
+                if self.proba_mode:
+                    if self.pastml_test:
+                        gene_mut_df["ProbaFull"] = gene_mut_df["ProbaMut"]
+                    else:
+                        gene_mut_df["ProbaFull"] = evol_speed_coef * gene_mut_df["ProbaMut"]
+                gene_mut_df["RefNode"] = ref_node.name
+                gene_mut_df["AltNode"] = alt_node.name
+                gene_mut_df["Gene"] = gene
+                
+                # collect mutations of full genome
+                genome_mutations.append(gene_mut_df)
+
+                # calculate gene mutational spectra for all labels
+                for lbl in self.MUT_LABELS:
+                    mutspec12 = calculate_mutspec(gene_mut_df, gene_nucl_freqs[lbl], label=lbl, use_context=False, use_proba=self.proba_mode)
+                    mutspec12["RefNode"] = ref_node.name
+                    mutspec12["AltNode"] = alt_node.name
+                    mutspec12["Label"] = lbl
+                    mutspec12["Gene"]  = gene
+                    # Dump gene mutspecs 
+                    self.dump_table(mutspec12, self.handle["ms12s"], add_header["ms12g"])
+                    add_header["ms12g"] = False
 
                 if len(gene_mut_df) > 100:
                     for lbl in self.MUT_LABELS:
@@ -163,10 +170,15 @@ class MutSpec(CodonAnnotation, GenomeStates):
                         add_header["ms192g"] = False
 
             if len(genome_mutations) == 0:
+                logger.warning(f"Observed 0 mutations for branch ({ref_node.name} - {alt_node.name})")
                 continue
 
             genome_mutations_df = pd.concat(genome_mutations)
             del genome_mutations
+            if self.proba_mode and genome_mutations_df.ProbaFull.sum() > aln_size * 0.1:
+                logger.warning(f"Observed too many mutations ({genome_mutations_df.ProbaFull.sum()} > {aln_size} * 0.1) for branch ({ref_node.name} - {alt_node.name})")
+            if not self.proba_mode and len(genome_mutations_df) > aln_size * 0.1:
+                logger.warning(f"Observed too many mutations ({len(genome_mutations_df)} > {aln_size} * 0.1) for branch ({ref_node.name} - {alt_node.name})")
 
             # dump mutations
             self.dump_table(genome_mutations_df, self.handle["mut"], add_header["mut"])
@@ -174,11 +186,11 @@ class MutSpec(CodonAnnotation, GenomeStates):
             
             # calculate full genome mutational spectra for all labels
             for lbl in self.MUT_LABELS:
-                mutspec12 = calculate_mutspec(genome_mutations_df, genome_nucl_freqs[lbl], label=lbl, use_context=False, use_proba=False)
+                mutspec12 = calculate_mutspec(genome_mutations_df, genome_nucl_freqs[lbl], label=lbl, use_context=False, use_proba=self.proba_mode)
                 mutspec12["RefNode"] = ref_node.name
                 mutspec12["AltNode"] = alt_node.name
                 mutspec12["Label"] = lbl
-                mutspec192 = calculate_mutspec(genome_mutations_df, genome_cxt_freqs[lbl], label=lbl, use_context=True, use_proba=False)
+                mutspec192 = calculate_mutspec(genome_mutations_df, genome_cxt_freqs[lbl], label=lbl, use_context=True, use_proba=self.proba_mode)
                 mutspec192["RefNode"] = ref_node.name
                 mutspec192["AltNode"] = alt_node.name
                 mutspec192["Label"] = lbl
@@ -217,7 +229,8 @@ class MutSpec(CodonAnnotation, GenomeStates):
         assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
 
         mutations = []
-        for pos in range(1, n - 1):
+        # pass initial codon and last nucleotide without right context
+        for pos in range(3, n - 1):
             pic = pos % 3  # 0-based
             for cdn1, mut_cxt1, proba1 in self.sample_context(pos, pic, g1, self.proba_cutoff):
                 cdn1_str = "".join(cdn1)
@@ -337,6 +350,8 @@ class MutSpec(CodonAnnotation, GenomeStates):
 @click.option("--states", "path_to_states", required=True, multiple=True, type=click.Path(True), help="Path to states of each node in the tree. Could be passed several states files, example: '--states file1 --states file2'")
 @click.option("--outdir", required=True, type=click.Path(exists=False, writable=True), help="Directory which will contain output files with mutations and mutspecs")
 @click.option("--gencode", required=True, type=int, help="Genetic code number to use in mutations annotation. Use 2 for vertebrate mitochondrial genes")
+@click.option("--syn", is_flag=True, required=False, default=False, help="Calculate synonymous mutspec")
+@click.option("--syn4f", is_flag=True, required=False, default=False, help="Calculate synonymous fourfold mutspec")
 @click.option("--proba", is_flag=True, required=False, default=False, help="Use states probabilities while mutations collecting")
 @click.option("--pcutoff", "proba_cutoff", required=False, default=0.01, show_default=True, type=float, help="Cutoff of tri/tetranucleotide state probability, states with lower values will not be used in mutation collecting")
 @click.option("--write_db", required=False, type=click.Choice(['dict', 'db'], case_sensitive=False), show_default=True, default="dict", help="Write sqlite3 database instead of using dictionary for states. Usefull if you have low RAM. Time expensive")
@@ -346,8 +361,9 @@ class MutSpec(CodonAnnotation, GenomeStates):
 @click.option('-v', '--verbose', "verbosity", count=True, help="Verbosity level = DEBUG")
 def main(
         path_to_tree, path_to_states, outdir, 
-        gencode, write_db, path_to_db, rewrite_db, 
-        proba, proba_cutoff, pastml, verbosity,
+        gencode, syn, syn4f, proba, proba_cutoff, 
+        write_db, path_to_db, rewrite_db, 
+        pastml, verbosity,
     ):
     global logger
     os.makedirs(outdir)
@@ -359,6 +375,7 @@ def main(
         path_to_tree, path_to_states, outdir, gcode=gencode, 
         db_mode=write_db, path_to_db=path_to_db, rewrite_db=rewrite_db, 
         proba_mode=proba, proba_cutoff=proba_cutoff, pastml_test=pastml,
+        syn=syn, syn4f=syn4f,
     )
 
 
