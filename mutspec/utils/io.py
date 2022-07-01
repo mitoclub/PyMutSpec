@@ -218,9 +218,9 @@ def read_genbank_ref(path: str):
         seq = gdf.Nuc.values
         for pos_in_gene, pos in enumerate(gdf.index):
             pic = pos_in_gene % 3
-            codon = seq[pos_in_gene - pic: pos_in_gene - pic + 3]
-            codon = "".join(codon) if len(set(codon).difference(full_nucls)) == 0 else None
-            df.at[pos, "Codon"] = codon
+            cdn = seq[pos_in_gene - pic: pos_in_gene - pic + 3]
+            cdn = "".join(cdn) if len(set(cdn).difference(full_nucls)) == 0 else None
+            df.at[pos, "Codon"] = cdn
             df.at[pos, "PosInGene"] = pos_in_gene + 1
             df.at[pos, "PosInCodon"] = pic + 1
 

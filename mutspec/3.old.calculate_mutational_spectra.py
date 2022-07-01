@@ -175,7 +175,7 @@ class MutSpec:
         """
         Extract alterations of g2 comparing to g1
 
-        params:
+        Arguments
         - g1 - reference sequence (parent node)
         - g2 - alternative sequence (child node)
         - name1 - node name of ref

@@ -18,38 +18,81 @@ class CodonAnnotation:
         self.possible_ff_contexts = self.__extract_possible_ff_contexts()
         self.startcodons, self.stopcodons = self.read_start_stop_codons(gencode)
 
-    def is_four_fold(self, codon):
-        return codon in self._ff_codons
+    def is_four_fold(self, cdn: str):
+        """Check if codon is neutral in 3rd position"""
+        return cdn in self._ff_codons
 
-    def get_aa(self, codon: str):
-        return self.codontable.forward_table.get(codon, "*")
+    def translate_codon(self, cdn: str) -> str:
+        """Translate codon to animo acid"""
+        return self.codontable.forward_table.get(cdn, "*")
 
-    def is_syn_codons(self, codon1: str, codon2: str):
-        if not isinstance(codon1, str) or not isinstance(codon2, str):
+    def is_syn_mut(self, cdn1: str, cdn2: str):
+        """
+        Check if mutation in the codon is synonymous
+
+        Arguments
+        ---------
+        cdn1: str
+            Mutating codon (reference)
+        cdn2: str
+            Codon with mutation (alternative)
+
+        Return
+            True if mutation is synonymous else False
+        """
+        if not isinstance(cdn1, str) or not isinstance(cdn2, str):
             return False
-        return self.get_aa(codon1) == self.get_aa(codon2)
+        return self.translate_codon(cdn1) == self.translate_codon(cdn2)
 
     def get_syn_number(self, cdn: str, pic: int):
-        """return number of possible syn codons"""
-        assert 0 <= pic <= 2, "pic must be 0-based and less than 3"
-        return self._syn_codons.get((cdn, pic), 0)
-
-    def get_mut_type(self, codon1: str, codon2: str, pic: int):
         """
-        returned label variants:
+        Get number of possible synonymous mutations in the codon
+
+        Arguments
+        ---------
+        cdn: str
+            Codon
+        pic: int, [0, 1, 2]
+            Position In Codon in that mutation occured
+
+        Return
+        -------
+        syn_num: int
+            number of possible synonymous mutations in the codon
+        """
+        assert 0 <= pic <= 2, "pic must be 0-based and less than 3"
+        syn_num = self._syn_codons.get((cdn, pic), 0)
+        return syn_num
+
+    def get_mut_type(self, cdn1: str, cdn2: str, pic: int):
+        """
+        Arguments
+        ---------
+        cdn1: str
+            Mutating codon (reference)
+        cdn2: str
+            Codon with mutation (alternative)
+        pic: int, [0, 1, 2]
+            Position In Codon in that mutation occured
+
+        Return
+        ------
+        (label, aa1, aa2)
+
+        aa - amino acid
+
+        label variants:
         - -3 - stopcodon to stopcodon
         - -2 - stopcodon loss
         - -1 - stopcodon gain
         -  0 - non synonymous sbs
         -  1 - synonymous sbs
         -  2 - synonymous fourfold sbs
-
-        return (label, aa1, aa2)
         """
-        assert codon1 != codon2, "codons must be different"
+        assert cdn1 != cdn2, "codons must be different"
         assert 0 <= pic <= 2, "pic must be 0-based and less than 3"
-        aa1 = self.get_aa(codon1)
-        aa2 = self.get_aa(codon2)
+        aa1 = self.translate_codon(cdn1)
+        aa2 = self.translate_codon(cdn2)
         if aa1 == "*" and aa2 == "*":
             label = -3
         elif aa1 == "*" and aa2 != "*":
@@ -58,7 +101,7 @@ class CodonAnnotation:
             label = -1
         elif aa1 == aa2:
             label = 1
-            if pic == 2 and self.is_four_fold(codon1):
+            if pic == 2 and self.is_four_fold(cdn1):
                 label = 2
         else:
             label = 0
@@ -67,19 +110,30 @@ class CodonAnnotation:
 
     def extract_mutations_simple(self, g1: np.ndarray, g2: np.ndarray):
         """
-        Extract alterations of g2 comparing to g1
+        Extract alterations of genome2 (g2) comparing to genome1 (g1)
 
-        params:
-        - g1 - reference sequence (parent node)
-        - g2 - alternative sequence (child node)
+        Conditions of mutation collecting:
+        - only sbs must be in one codon
+        - only sbs must be in one trinucleotide context of sbs
+        - pentanucleotide context must contain only explicit nucleotides
 
-        conditions:
-        - in one codon could be only sbs
-        - in the context of one mutation couldn't be other sbs
-        - indels are not sbs and codons and contexts with sbs are not considered
+        Arguments
+        g1: Iterable
+            reference sequence (parent node)
+        g2: Iterable
+            alternative sequence (child node)
 
-        return:
-        - dataframe of mutations
+        Return
+        mut_df: pd.DataFrame
+            table of mutations with columns:
+            - Mut
+            - Label
+            - PosInGene
+            - PosInCodon
+            - RefCodon
+            - AltCodon
+            - RefAa
+            - AltAa
         """
         n, m = len(g1), len(g2)
         assert n == m, f"genomes lengths are not equal: {n} != {m}"
@@ -106,7 +160,7 @@ class CodonAnnotation:
             if sum([cdn1[_] == cdn2[_] for _ in range(3)]) != 2:
                 continue
             if len(set(g1[pos - 2: pos + 3]).union(g2[pos - 2: pos + 3]) - set(self.nucl_order)) != 0:
-                continue
+                continue  # pentanucleotide context must contain only explicit nucleotides
 
             label, aa1, aa2 = self.get_mut_type(cdn1_str, cdn2_str, pic)
             sbs = {
@@ -133,10 +187,10 @@ class CodonAnnotation:
         ---------
         gene: string or iterable of strings, length must be divisible by 3
             gene sequence with codon structure; 
-        labels: List of label string
+        labels: List of label strings
             label could be one of ["all", "syn", "ff"]
         
-        Returns
+        Return
         -------
             nucl_freqs: Dict[label, Dict[nucl, count]]
                 for each label collected custom nucleotide counts
@@ -172,25 +226,31 @@ class CodonAnnotation:
         return nucl_freqs, cxt_freqs
 
     def __extract_syn_codons(self):
-        """ extract synonymous (codons that mutate without amino acid change) 
-        and fourfold codons from codon table
+        """
+        extract synonymous (codons that mutate without amino acid change) 
+        and fourfold codons from codon table  TODO rewrite
 
-        usefull function for expected mutspec calculation
+        Used in expected mutspec calculation
 
-        return mapping[(cdn, pic)] of syn codons and set of ff codons
+        Return
+        -------
+        syn_codons: dict[str, str]
+            mapping[(cdn, pic)] of syn codons
+        ff_codons: set[str]
+            set of ff codons (neutral on 3rd position)
         """
         aa2codons = defaultdict(set)
-        for codon, aa in self.codontable.forward_table.items():
-            aa2codons[aa].add(codon)
+        for cdn, aa in self.codontable.forward_table.items():
+            aa2codons[aa].add(cdn)
 
         syn_codons = defaultdict(int)
         for aa, codons in aa2codons.items():
             if len(codons) > 1:
                 interim_dct = defaultdict(set)
                 for i, slc in enumerate([slice(1, 3), slice(0, 3, 2), slice(0, 2)]):
-                    for codon in codons:
-                        cdn_stump = codon[slc]
-                        interim_dct[(cdn_stump, i)].add(codon)
+                    for cdn in codons:
+                        cdn_stump = cdn[slc]
+                        interim_dct[(cdn_stump, i)].add(cdn)
 
                 for key, aa_syn_codons in interim_dct.items():
                     if len(aa_syn_codons) > 1:
@@ -236,8 +296,8 @@ class CodonAnnotation:
                     codon_proba = p1 * p2 * p3
                     if codon_proba < cutoff:
                         continue
-                    codon = [self.nucl_order[x] for x in [i, j, k]]
-                    yield codon, codon_proba
+                    cdn = [self.nucl_order[x] for x in [i, j, k]]
+                    yield cdn, codon_proba
 
     def _sample_context(self, pos, pic, genome: np.ndarray, cutoff=0.01):
         nuc_cutoff = cutoff * 5
@@ -259,7 +319,7 @@ class CodonAnnotation:
                     codon_proba = p1 * p2 * p3
                     if codon_proba < cutoff:
                         continue
-                    codon = tuple(self.nucl_order[_] for _ in (i, j, k))
+                    cdn = tuple(self.nucl_order[_] for _ in (i, j, k))
 
                     if pic != 1:
                         for m, p4 in enumerate(extra_codon_states):
@@ -272,9 +332,9 @@ class CodonAnnotation:
                                 mut_context = tuple(self.nucl_order[_] for _ in (m, i, j))
                             elif pic == 2:
                                 mut_context = tuple(self.nucl_order[_] for _ in (j, k, m))
-                            yield codon, mut_context, full_proba
+                            yield cdn, mut_context, full_proba
                     else:
-                        yield codon, codon, codon_proba
+                        yield cdn, cdn, codon_proba
 
     @staticmethod
     def read_start_stop_codons(codontable: Union[NCBICodonTableDNA, int]):
@@ -304,7 +364,7 @@ def calculate_mutspec(mutations: pd.DataFrame, refseq_freqs: Dict[str, float], l
     use_proba: bool
         To use probabilities of mutations or not. Usefull if you have such probabiliies
     
-    Returns
+    Return
     -------
     mutspec: pd.DataFrame
         table, containing extended mutspec values including observed mutations numbers. 
@@ -385,7 +445,7 @@ def mutations_summary(mutations: pd.DataFrame, gene_col=None, proba_col=None, ge
     gene_name_mapper: dict
         mapping for gene names. Use when gene_col contains indexses of genes
 
-    Returns
+    Return
     -------
     pivot_mutations: pd.DataFrame 
         table with mutations annotation

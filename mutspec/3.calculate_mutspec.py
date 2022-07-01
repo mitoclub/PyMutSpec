@@ -216,7 +216,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
         - in the context of one mutation couldn't be other sbs
         - indels are not sbs and codons and contexts with sbs are not considered
 
-        params:
+        Arguments
         - g1 - reference sequence (parent node)
         - g2 - alternative sequence (child node)
 

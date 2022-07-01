@@ -46,7 +46,7 @@ def read_gene_lens(dirpath):
 
 def fill_gaps(states: pd.DataFrame, gene_lens):
     """
-    Params
+    Arguments
     ------
     states: pd.DataFrame
         all characters states for one gene
@@ -86,7 +86,7 @@ def fill_gaps(states: pd.DataFrame, gene_lens):
 
 def read_data(indir, gene_lens: dict, model: str):
     """
-    Params
+    Arguments
     ------
     indir: str
         path to dir, containing files with states for each separated character
