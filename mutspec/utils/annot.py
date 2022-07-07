@@ -38,6 +38,7 @@ class CodonAnnotation:
             Codon with mutation (alternative)
 
         Return
+        ---------
             True if mutation is synonymous else False
         """
         if not isinstance(cdn1, str) or not isinstance(cdn2, str):
@@ -118,12 +119,14 @@ class CodonAnnotation:
         - pentanucleotide context must contain only explicit nucleotides
 
         Arguments
+        ---------
         g1: Iterable
             reference sequence (parent node)
         g2: Iterable
             alternative sequence (child node)
 
         Return
+        ---------
         mut_df: pd.DataFrame
             table of mutations with columns:
             - Mut
@@ -191,7 +194,7 @@ class CodonAnnotation:
             label could be one of ["all", "syn", "ff"]
         
         Return
-        -------
+        ---------
             nucl_freqs: Dict[label, Dict[nucl, count]]
                 for each label collected custom nucleotide counts
             context_freqs: Dict[label, Dict[context, count]]
