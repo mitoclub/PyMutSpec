@@ -63,11 +63,11 @@ def _label_group_bar_table(ax, df):
         ypos -= .05
 
 
-def plot_mutspec192(edge_mutspec192, label="Mutational spectra", filepath=None):
-    df = edge_mutspec192.groupby(["MutBase", "Context"]).mean()
+def plot_mutspec192(mutspec192, label="Mutational spectra", filepath=None):
+    df = mutspec192.groupby(["MutBase", "Context"]).mean()
     fig = plt.figure(figsize=(24, 12))
     ax = fig.add_subplot(111)
-    sns.barplot(x="Mut", y="MutSpec", data=edge_mutspec192,
+    sns.barplot(x="Mut", y="MutSpec", data=mutspec192,
                 order=possible_sbs192, errwidth=1, ax=fig.gca())
 
     labels = ['' for item in ax.get_xticklabels()]
