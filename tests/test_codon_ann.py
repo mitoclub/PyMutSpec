@@ -13,6 +13,14 @@ def test_get_syn_codons(coda):
     assert len(coda.get_syn_codons("CGG", 2)) == 3
 
 
+def test_get_mut_type(coda):
+    pass
+
+
+def test_get_mut_type(coda):
+    pass
+
+
 def test_collect_exp_mut_freqs(coda):
     genome = "ATAGTCTAGCTGCATGACTGATCC"
     # genome = list("ATA GTC TAG CTG CAT GAC TGA TCC")
