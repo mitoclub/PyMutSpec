@@ -14,7 +14,7 @@ class CodonAnnotation:
 
     def __init__(self, gencode: Union[NCBICodonTableDNA, int]):
         self.codontable = self._prepare_codontable(gencode)
-        self._syn_codon_nums, self._ff_codons = self.__extract_syn_codons()
+        self._syn_codons, self._ff_codons = self.__extract_syn_codons()
         self.possible_ff_contexts = self.__extract_possible_ff_contexts()
         self.startcodons, self.stopcodons = self.read_start_stop_codons(gencode)
 
@@ -45,25 +45,25 @@ class CodonAnnotation:
             return False
         return self.translate_codon(cdn1) == self.translate_codon(cdn2)
 
-    # def get_syn_number(self, cdn: str, pic: int):
-    #     """
-    #     Get number of possible synonymous mutations in the codon
+    def get_syn_codons(self, cdn: str, pic: int) -> Set[str]:
+        """
+        Get all possible synonymous codons
 
-    #     Arguments
-    #     ---------
-    #     cdn: str
-    #         Codon
-    #     pic: int, [0, 1, 2]
-    #         Position In Codon in that mutation occured
+        Arguments
+        ---------
+        cdn: str
+            Codon
+        pic: int, [0, 1, 2]
+            Position In Codon in that mutation occured
 
-    #     Return
-    #     -------
-    #     syn_num: int
-    #         number of possible synonymous mutations in the codon
-    #     """
-    #     assert 0 <= pic <= 2, "pic must be 0-based and less than 3"
-    #     syn_num = self._syn_codons.get((cdn, pic), 0)
-    #     return syn_num
+        Return
+        -------
+        syn_codons: Set[str]
+            possible synonymous codons
+        """
+        assert 0 <= pic <= 2, "pic must be 0-based and less than 3"
+        syn_codons = self._syn_codons.get((cdn, pic), {})
+        return syn_codons
 
     def get_mut_type(self, cdn1: str, cdn2: str, pic: int):
         """
@@ -211,28 +211,41 @@ class CodonAnnotation:
             pic = pos % 3
             nuc = gene[pos]
             cdn = gene[pos - pic: pos - pic + 3]
+            cdn = cdn if isinstance(cdn, str) else "".join(cdn)
             cxt = gene[pos - 1: pos + 2]
-            cdn_str = "".join(cdn)
-            cxt_str = "".join(cxt)
+            cxt = cxt if isinstance(cxt, str) else "".join(cxt)
+            mut_base12 = nuc + ">" + "{}"
+            mut_base192 = cxt[0] + "[" + nuc + ">{}]" + cxt[-1]
 
             if "all" in labels:
-                nucl_freqs["all"][nuc] += 1
-                cxt_freqs["all"][cxt_str] += 1
+                for alt_nuc in self.nucl_order:
+                    if alt_nuc == nuc:
+                        continue
+                    nucl_freqs["all"][mut_base12.format(alt_nuc)] += 1
+                    cxt_freqs["all"][mut_base192.format(alt_nuc)] += 1
             
             if "pos3" in labels and pic == 2:
-                nucl_freqs["pos3"][nuc] += 1
-                cxt_freqs["pos3"][cxt_str] += 1
+                for alt_nuc in self.nucl_order:
+                    if alt_nuc == nuc:
+                        continue
+                    nucl_freqs["pos3"][mut_base12.format(alt_nuc)] += 1
+                    cxt_freqs["pos3"][mut_base192.format(alt_nuc)] += 1
 
             if "syn" in labels or "ff" in labels:
-                syn_num = self.get_syn_number(cdn_str, pic)
-                if syn_num > 0:
+                syn_codons = self.get_syn_codons(cdn, pic)
+                if len(syn_codons) > 0:
                     if "syn" in labels:
-                        nucl_freqs["syn"][nuc] += syn_num
-                        cxt_freqs["syn"][cxt_str] += syn_num
+                        for alt_cdn in syn_codons:
+                            assert self.get_mut_type(cdn, alt_cdn)[0] > 0  # TODO drop line
+                            assert cdn[0] == alt_cdn[0] and cdn[-1] == alt_cdn[-1]
+                            ...# TODO
+                            alt_nuc = alt_cdn[1]
+                            nucl_freqs["syn"][mut_base12.format(alt_nuc)] += 1
+                            cxt_freqs["syn"][mut_base192.format(alt_nuc)] += 1
 
-                    if "ff" in labels and pic == 2 and self.is_four_fold(cdn_str):
-                        nucl_freqs["ff"][nuc] += syn_num
-                        cxt_freqs["ff"][cxt_str] += syn_num
+                    if "ff" in labels and pic == 2 and self.is_four_fold(cdn):
+                        nucl_freqs["ff"][mut_base12.format(alt_nuc)] += 1
+                        cxt_freqs["ff"][mut_base192.format(alt_nuc)] += 1
 
         return dict(nucl_freqs), dict(cxt_freqs)
 
@@ -266,11 +279,10 @@ class CodonAnnotation:
                 for key, aa_syn_codons in interim_dct.items():
                     if len(aa_syn_codons) > 1:
                         pic = key[1]
-                        for cdn in aa_syn_codons:
-                            # syn_codon_nums[(cdn, pic)] += len(aa_syn_codons) - 1
+                        for cdn1 in aa_syn_codons:
                             for cdn2 in aa_syn_codons:
-                                if cdn != cdn2:
-                                    syn_codons[(cdn, pic)].add(cdn2)
+                                if cdn1 != cdn2:
+                                    syn_codons[(cdn1, pic)].add(cdn2)
         ff_codons = set()
         for (cdn, pic), codons in syn_codons.items():
             if len(codons) == 3 and pic == 2:

@@ -1,16 +1,16 @@
 from collections import Counter
 
 
-def test_get_syn_number(coda):
-    assert coda.get_syn_number("ATA", 1) == 0
-    assert coda.get_syn_number("ATA", 2) == 1
-    assert coda.get_syn_number("CTA", 0) == 1
-    assert coda.get_syn_number("CTA", 2) == 3
-    assert coda.get_syn_number("TAA", 2) == 0
-    assert coda.get_syn_number("AAA", 2) == 1
-    assert coda.get_syn_number("ACC", 2) == 3
-    assert coda.get_syn_number("CGG", 0) == 0
-    assert coda.get_syn_number("CGG", 2) == 3
+def test_get_syn_codons(coda):
+    assert len(coda.get_syn_codons("ATA", 1)) == 0
+    assert len(coda.get_syn_codons("ATA", 2)) == 1
+    assert len(coda.get_syn_codons("CTA", 0)) == 1
+    assert len(coda.get_syn_codons("CTA", 2)) == 3
+    assert len(coda.get_syn_codons("TAA", 2)) == 0
+    assert len(coda.get_syn_codons("AAA", 2)) == 1
+    assert len(coda.get_syn_codons("ACC", 2)) == 3
+    assert len(coda.get_syn_codons("CGG", 0)) == 0
+    assert len(coda.get_syn_codons("CGG", 2)) == 3
 
 
 def test_collect_exp_mut_freqs(coda):
