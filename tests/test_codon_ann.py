@@ -13,11 +13,11 @@ def test_get_syn_number(coda):
     assert coda.get_syn_number("CGG", 2) == 3
 
 
-def test_collect_obs_mut_freqs(coda):
+def test_collect_exp_mut_freqs(coda):
     genome = "ATAGTCTAGCTGCATGACTGATCC"
     # genome = list("ATA GTC TAG CTG CAT GAC TGA TCC")
     #                  s   f     s f   s   s   s 
-    nucl_freqs, cxt_freqs = coda.collect_obs_mut_freqs(list(genome))
+    nucl_freqs, cxt_freqs = coda.collect_exp_mut_freqs(list(genome))
     assert nucl_freqs["all"] == Counter(genome[1: -1])
     assert nucl_freqs["syn"] == {"A": 2, "C": 5, "G": 3, "T": 1}
     assert nucl_freqs["ff"] == {"C": 3, "G": 3}

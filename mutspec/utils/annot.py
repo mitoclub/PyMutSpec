@@ -38,6 +38,7 @@ class CodonAnnotation:
             Codon with mutation (alternative)
 
         Return
+        ---------
             True if mutation is synonymous else False
         """
         if not isinstance(cdn1, str) or not isinstance(cdn2, str):
@@ -118,12 +119,14 @@ class CodonAnnotation:
         - pentanucleotide context must contain only explicit nucleotides
 
         Arguments
+        ---------
         g1: Iterable
             reference sequence (parent node)
         g2: Iterable
             alternative sequence (child node)
 
         Return
+        ---------
         mut_df: pd.DataFrame
             table of mutations with columns:
             - Mut
@@ -178,9 +181,9 @@ class CodonAnnotation:
         mut_df = pd.DataFrame(mutations)
         return mut_df
 
-    def collect_obs_mut_freqs(self, gene: Union[str, Iterable[str]], labels=["all", "syn", "ff"]):
+    def collect_exp_mut_freqs(self, gene: Union[str, Iterable[str]], labels=["all", "syn", "ff"]):
         """
-        Calculate potential observed mutation counts for nucleotides and trinucleotides (context) 
+        Calculate potential expected mutation counts for nucleotides and trinucleotides (context) 
         in gene
         
         Arguments
@@ -188,10 +191,10 @@ class CodonAnnotation:
         gene: string or iterable of strings, length must be divisible by 3
             gene sequence with codon structure; 
         labels: List of label strings
-            label could be one of ["all", "syn", "ff"]
+            label could be one of ["all", "syn", "ff", "pos3"]
         
         Return
-        -------
+        ---------
             nucl_freqs: Dict[label, Dict[nucl, count]]
                 for each label collected custom nucleotide counts
             context_freqs: Dict[label, Dict[context, count]]
@@ -199,6 +202,7 @@ class CodonAnnotation:
         """
         n = len(gene)
         assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
+        labels = set(labels)
 
         nucl_freqs = {lbl: defaultdict(int) for lbl in labels}
         cxt_freqs = {lbl: defaultdict(int) for lbl in labels}
@@ -211,19 +215,26 @@ class CodonAnnotation:
             cdn_str = "".join(cdn)
             cxt_str = "".join(cxt)
 
-            nucl_freqs["all"][nuc] += 1
-            cxt_freqs["all"][cxt_str] += 1
+            if "all" in labels:
+                nucl_freqs["all"][nuc] += 1
+                cxt_freqs["all"][cxt_str] += 1
+            
+            if "pos3" in labels and pic == 2:
+                nucl_freqs["pos3"][nuc] += 1
+                cxt_freqs["pos3"][cxt_str] += 1
 
-            syn_num = self.get_syn_number(cdn_str, pic)
-            if syn_num > 0:
-                nucl_freqs["syn"][nuc] += syn_num
-                cxt_freqs["syn"][cxt_str] += syn_num
+            if "syn" in labels or "ff" in labels:
+                syn_num = self.get_syn_number(cdn_str, pic)
+                if syn_num > 0:
+                    if "syn" in labels:
+                        nucl_freqs["syn"][nuc] += syn_num
+                        cxt_freqs["syn"][cxt_str] += syn_num
 
-                if pic == 2 and self.is_four_fold(cdn_str):
-                    nucl_freqs["ff"][nuc] += syn_num
-                    cxt_freqs["ff"][cxt_str] += syn_num
+                    if "ff" in labels and pic == 2 and self.is_four_fold(cdn_str):
+                        nucl_freqs["ff"][nuc] += syn_num
+                        cxt_freqs["ff"][cxt_str] += syn_num
 
-        return nucl_freqs, cxt_freqs
+        return dict(nucl_freqs), dict(cxt_freqs)
 
     def __extract_syn_codons(self):
         """

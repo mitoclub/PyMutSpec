@@ -108,9 +108,9 @@ class MutSpec(CodonAnnotation, GenomeStates):
 
                 # collect state frequencies
                 if self.proba_mode:
-                    gene_nucl_freqs, gene_cxt_freqs = self.collect_obs_mut_freqs_ptoba(ref_seq, evol_speed_coef)
+                    gene_nucl_freqs, gene_cxt_freqs = self.collect_exp_mut_freqs_ptoba(ref_seq, evol_speed_coef)
                 else:
-                    gene_nucl_freqs, gene_cxt_freqs = self.collect_obs_mut_freqs(ref_seq)
+                    gene_nucl_freqs, gene_cxt_freqs = self.collect_exp_mut_freqs(ref_seq)
 
                 # dump state frequencies
                 self.dump_freqs(
@@ -264,7 +264,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
         mut_df = pd.DataFrame(mutations)
         return mut_df
 
-    def collect_obs_mut_freqs_ptoba(self, genome: np.ndarray, evol_speed_coef: float,  proba_cutoff=0.001):
+    def collect_exp_mut_freqs_ptoba(self, genome: np.ndarray, evol_speed_coef: float,  proba_cutoff=0.001):
         n = len(genome)
         assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
         assert 0 <= evol_speed_coef <= 1, "Evol coefficient must be between 0 and 1"
