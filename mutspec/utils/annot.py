@@ -14,7 +14,7 @@ class CodonAnnotation:
 
     def __init__(self, gencode: Union[NCBICodonTableDNA, int]):
         self.codontable = self._prepare_codontable(gencode)
-        self._syn_codons, self._ff_codons = self.__extract_syn_codons()
+        self._syn_codon_nums, self._ff_codons = self.__extract_syn_codons()
         self.possible_ff_contexts = self.__extract_possible_ff_contexts()
         self.startcodons, self.stopcodons = self.read_start_stop_codons(gencode)
 
@@ -45,25 +45,25 @@ class CodonAnnotation:
             return False
         return self.translate_codon(cdn1) == self.translate_codon(cdn2)
 
-    def get_syn_number(self, cdn: str, pic: int):
-        """
-        Get number of possible synonymous mutations in the codon
+    # def get_syn_number(self, cdn: str, pic: int):
+    #     """
+    #     Get number of possible synonymous mutations in the codon
 
-        Arguments
-        ---------
-        cdn: str
-            Codon
-        pic: int, [0, 1, 2]
-            Position In Codon in that mutation occured
+    #     Arguments
+    #     ---------
+    #     cdn: str
+    #         Codon
+    #     pic: int, [0, 1, 2]
+    #         Position In Codon in that mutation occured
 
-        Return
-        -------
-        syn_num: int
-            number of possible synonymous mutations in the codon
-        """
-        assert 0 <= pic <= 2, "pic must be 0-based and less than 3"
-        syn_num = self._syn_codons.get((cdn, pic), 0)
-        return syn_num
+    #     Return
+    #     -------
+    #     syn_num: int
+    #         number of possible synonymous mutations in the codon
+    #     """
+    #     assert 0 <= pic <= 2, "pic must be 0-based and less than 3"
+    #     syn_num = self._syn_codons.get((cdn, pic), 0)
+    #     return syn_num
 
     def get_mut_type(self, cdn1: str, cdn2: str, pic: int):
         """
@@ -245,7 +245,7 @@ class CodonAnnotation:
 
         Return
         -------
-        syn_codons: dict[str, str]
+        syn_codons: Dict[Tuple(str, int), Set[str]]
             mapping[(cdn, pic)] of syn codons
         ff_codons: set[str]
             set of ff codons (neutral on 3rd position)
@@ -254,7 +254,7 @@ class CodonAnnotation:
         for cdn, aa in self.codontable.forward_table.items():
             aa2codons[aa].add(cdn)
 
-        syn_codons = defaultdict(int)
+        syn_codons = defaultdict(set)
         for aa, codons in aa2codons.items():
             if len(codons) > 1:
                 interim_dct = defaultdict(set)
@@ -267,14 +267,18 @@ class CodonAnnotation:
                     if len(aa_syn_codons) > 1:
                         pic = key[1]
                         for cdn in aa_syn_codons:
-                            syn_codons[(cdn, pic)] += len(aa_syn_codons) - 1
+                            # syn_codon_nums[(cdn, pic)] += len(aa_syn_codons) - 1
+                            for cdn2 in aa_syn_codons:
+                                if cdn != cdn2:
+                                    syn_codons[(cdn, pic)].add(cdn2)
         ff_codons = set()
-        for (cdn, pic), num in syn_codons.items():
-            if num == 3 and pic == 2:
+        for (cdn, pic), codons in syn_codons.items():
+            if len(codons) == 3 and pic == 2:
                 ff_codons.add(cdn)
         return dict(syn_codons), ff_codons
 
     def __extract_possible_ff_contexts(self) -> Set[str]:
+        "Extract all contexts of neutral fourfold positions for current genetic code"
         possible_ff_contexts = set()
         for cdn in self._ff_codons:
             stump = cdn[1:]
@@ -367,7 +371,7 @@ def calculate_mutspec(mutations: pd.DataFrame, refseq_freqs: Dict[str, float], l
     
     refseq_freqs: dict[str, float]
         dictionary that contains nucleotide freqs of reference genome if use_context=False, 
-        else trinucleotide freqs; if you want to calculate synonymous mutspec, pass synonymous positions freqs
+        else trinucleotide freqs; if you want to calculate (fourfold) synonymous mutspec, pass such positions freqs
     label: str
         kind of needed mutspec, coulb be one of ['all', 'syn', 'ff']
     use_context: bool

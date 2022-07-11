@@ -278,7 +278,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
                 nucl_freqs["all"][nuc] += proba
                 cxt_freqs["all"][cxt_str]  += proba
 
-                _syn_scaler = self.get_syn_number(cdn_str, pic)
+                _syn_scaler = self.get_syn_number(cdn_str, pic)  # TODO remove syn_scaler
                 if _syn_scaler > 0:
                     nucl_freqs["syn"][nuc] += proba * _syn_scaler
                     cxt_freqs["syn"][cxt_str]  += proba * _syn_scaler
