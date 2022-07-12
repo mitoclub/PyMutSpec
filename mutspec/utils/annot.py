@@ -18,7 +18,7 @@ class CodonAnnotation:
         self.possible_ff_contexts = self.__extract_possible_ff_contexts()
         self.startcodons, self.stopcodons = self.read_start_stop_codons(gencode)
 
-    def is_four_fold(self, cdn: str):
+    def is_fourfold(self, cdn: str):
         """Check if codon is neutral in 3rd position"""
         return cdn in self._ff_codons
 
@@ -90,8 +90,11 @@ class CodonAnnotation:
         -  1 - synonymous sbs
         -  2 - synonymous fourfold sbs
         """
-        assert cdn1 != cdn2, "codons must be different"
-        assert 0 <= pic <= 2, "pic must be 0-based and less than 3"
+        _where_mut = [int(x != y) for x, y in zip(cdn1, cdn2)]
+        if pic < 0 or pic > 2:
+            raise ValueError("Position in codon (pic) must be 0-based and less than 3")
+        if sum(_where_mut) != 1 or _where_mut[pic] != 1:
+            raise ValueError("One mutation must be in codons and it must be on position 'pic'")
         aa1 = self.translate_codon(cdn1)
         aa2 = self.translate_codon(cdn2)
         if aa1 == "*" and aa2 == "*":
@@ -102,7 +105,7 @@ class CodonAnnotation:
             label = -1
         elif aa1 == aa2:
             label = 1
-            if pic == 2 and self.is_four_fold(cdn1):
+            if pic == 2 and self.is_fourfold(cdn1):
                 label = 2
         else:
             label = 0
@@ -181,73 +184,63 @@ class CodonAnnotation:
         mut_df = pd.DataFrame(mutations)
         return mut_df
 
-    def collect_exp_mut_freqs(self, gene: Union[str, Iterable[str]], labels=["all", "syn", "ff"]):
+    def collect_exp_mut_freqs(self, cds: Union[str, Iterable[str]], labels=["all", "syn", "ff"]):
         """
         Calculate potential expected mutation counts for nucleotides and trinucleotides (context) 
-        in gene
+        in cds gene
         
         Arguments
         ---------
-        gene: string or iterable of strings, length must be divisible by 3
-            gene sequence with codon structure; 
+        cds: string or iterable of strings, length must be divisible by 3
+            cds sequence with codon structure; 
         labels: List of label strings
             label could be one of ["all", "syn", "ff", "pos3"]
         
         Return
         ---------
-            nucl_freqs: Dict[label, Dict[nucl, count]]
-                for each label collected custom nucleotide counts
-            context_freqs: Dict[label, Dict[context, count]]
-                for each label collected custom trinucleotide counts
+            sbs12_freqs: Dict[label, Dict[nucl, count]]
+                for each label collected expected single nucleotide substitutions frequencies without contexts
+            sbs192_freqs: Dict[label, Dict[context, count]]
+                for each label collected expected single nucleotide substitutions frequencies with contexts
         """
-        n = len(gene)
+        n = len(cds)
         assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
         labels = set(labels)
 
-        nucl_freqs = {lbl: defaultdict(int) for lbl in labels}
-        cxt_freqs = {lbl: defaultdict(int) for lbl in labels}
+        sbs12_freqs = {lbl: defaultdict(int) for lbl in labels}
+        sbs192_freqs = {lbl: defaultdict(int) for lbl in labels}
 
         for pos in range(1, n - 1):
             pic = pos % 3
-            nuc = gene[pos]
-            cdn = gene[pos - pic: pos - pic + 3]
+            nuc = cds[pos]
+            cdn = cds[pos - pic: pos - pic + 3]
             cdn = cdn if isinstance(cdn, str) else "".join(cdn)
-            cxt = gene[pos - 1: pos + 2]
+            cxt = cds[pos - 1: pos + 2]
             cxt = cxt if isinstance(cxt, str) else "".join(cxt)
             mut_base12 = nuc + ">" + "{}"
             mut_base192 = cxt[0] + "[" + nuc + ">{}]" + cxt[-1]
 
-            if "all" in labels:
-                for alt_nuc in self.nucl_order:
-                    if alt_nuc == nuc:
-                        continue
-                    nucl_freqs["all"][mut_base12.format(alt_nuc)] += 1
-                    cxt_freqs["all"][mut_base192.format(alt_nuc)] += 1
-            
-            if "pos3" in labels and pic == 2:
-                for alt_nuc in self.nucl_order:
-                    if alt_nuc == nuc:
-                        continue
-                    nucl_freqs["pos3"][mut_base12.format(alt_nuc)] += 1
-                    cxt_freqs["pos3"][mut_base192.format(alt_nuc)] += 1
-
-            if "syn" in labels or "ff" in labels:
+            if "syn" in labels:
                 syn_codons = self.get_syn_codons(cdn, pic)
-                if len(syn_codons) > 0:
-                    if "syn" in labels:
-                        for alt_cdn in syn_codons:
-                            assert self.get_mut_type(cdn, alt_cdn)[0] > 0  # TODO drop line
-                            assert cdn[0] == alt_cdn[0] and cdn[-1] == alt_cdn[-1]
-                            ...# TODO
-                            alt_nuc = alt_cdn[1]
-                            nucl_freqs["syn"][mut_base12.format(alt_nuc)] += 1
-                            cxt_freqs["syn"][mut_base192.format(alt_nuc)] += 1
+                for alt_cdn in syn_codons:
+                    alt_nuc = alt_cdn[pic]
+                    sbs12_freqs["syn"][mut_base12.format(alt_nuc)] += 1
+                    sbs192_freqs["syn"][mut_base192.format(alt_nuc)] += 1
 
-                    if "ff" in labels and pic == 2 and self.is_four_fold(cdn):
-                        nucl_freqs["ff"][mut_base12.format(alt_nuc)] += 1
-                        cxt_freqs["ff"][mut_base192.format(alt_nuc)] += 1
+            for alt_nuc in self.nucl_order:
+                if alt_nuc == nuc:
+                    continue
+                if "all" in labels:
+                    sbs12_freqs["all"][mut_base12.format(alt_nuc)] += 1
+                    sbs192_freqs["all"][mut_base192.format(alt_nuc)] += 1
+                if "pos3" in labels and pic == 2:
+                    sbs12_freqs["pos3"][mut_base12.format(alt_nuc)] += 1
+                    sbs192_freqs["pos3"][mut_base192.format(alt_nuc)] += 1
+                if "ff" in labels and pic == 2 and self.is_fourfold(cdn):
+                    sbs12_freqs["ff"][mut_base12.format(alt_nuc)] += 1
+                    sbs192_freqs["ff"][mut_base192.format(alt_nuc)] += 1
 
-        return dict(nucl_freqs), dict(cxt_freqs)
+        return sbs12_freqs, sbs192_freqs
 
     def __extract_syn_codons(self):
         """
@@ -369,23 +362,32 @@ class CodonAnnotation:
         return set(codontable.start_codons), set(codontable.stop_codons)
 
 
-def calculate_mutspec(mutations: pd.DataFrame, refseq_freqs: Dict[str, float], label: str, use_context=False, use_proba=False):
+def calculate_mutspec(
+        obs_muts: pd.DataFrame, 
+        exp_muts_or_genome: Union[Dict[str, float], Iterable], 
+        label: str, 
+        gencode: int = None,
+        use_context: bool = False, 
+        use_proba: bool = False,
+    ):
     """
     Calculate mutational spectra for mutations dataframe and states frequencies of reference genome
 
     Arguments
     ---------
-    mutations: pd.DataFrame
+    obs_muts: pd.DataFrame
         table containing mutations with annotation; table must contain 2 columns:
         - Mut: str; Pattern: '[ACGT]\[[ACGT]>[ACGT]\][ACGT]'
         - Label: int; [-3, 2]. See CodonAnnotation.get_mut_type
         - ProbaFull (optional, only for use_proba=True) - probability of mutation
     
-    refseq_freqs: dict[str, float]
-        dictionary that contains nucleotide freqs of reference genome if use_context=False, 
-        else trinucleotide freqs; if you want to calculate (fourfold) synonymous mutspec, pass such positions freqs
+    exp_muts_or_genome: dict[str, float] or Iterable
+        dictionary that contains expected mutations frequencies of reference genome if use_context=False, 
+        else trinucleotide freqs; OR you can pass just genome
     label: str
         kind of needed mutspec, coulb be one of ['all', 'syn', 'ff']
+    gencode: int
+        Number of genetic code to use in expected mutations collection, required if exp_muts_or_genome is genome
     use_context: bool
         To use trinucleotide context or not, in other words calculate 192 component mutspec
     use_proba: bool
@@ -397,14 +399,14 @@ def calculate_mutspec(mutations: pd.DataFrame, refseq_freqs: Dict[str, float], l
         table, containing extended mutspec values including observed mutations numbers. 
         If use_context=True len(mutspec) = 192, else len(mutspec) = 12
     """
-    mut = mutations.copy()
     _cols = ["Label", "Mut", "ProbaFull"] if use_proba else ["Label", "Mut"]
     for c in _cols:
-        assert c in mut.columns, f"Column {c} is not in mut df"
+        assert c in obs_muts.columns, f"Column {c} is not in mut df"
 
     labels = {"syn", "ff", "all"}
     if isinstance(label, str):
         label = label.lower()
+        label_raw = label
         if label not in labels:
             raise ValueError(f"pass the appropriate label: {labels}")
         if label == "syn":
@@ -416,6 +418,19 @@ def calculate_mutspec(mutations: pd.DataFrame, refseq_freqs: Dict[str, float], l
     else:
         raise ValueError(f"pass the appropriate label: {labels}")
 
+    if isinstance(exp_muts_or_genome, dict):
+        exp_muts = exp_muts_or_genome
+    elif isinstance(exp_muts_or_genome, Iterable):
+        genome = exp_muts_or_genome
+        if gencode is None:
+            raise RuntimeError("If genome passed, gencode argument is required")
+        coda = CodonAnnotation(gencode)
+        _exp_muts12, _exp_muts192 = coda.collect_exp_mut_freqs(genome, [label_raw])
+        exp_muts = _exp_muts192 if use_context else _exp_muts12
+    else:
+        raise ValueError("'exp_muts_or_genome' must be iterable in case of genome or dict in case of precalculated exp_muts freqs")
+
+    mut = obs_muts.copy()
     if use_context:
         col_mut = "Mut"
         full_sbs = possible_sbs192_set
@@ -443,7 +458,7 @@ def calculate_mutspec(mutations: pd.DataFrame, refseq_freqs: Dict[str, float], l
     else:
         mutspec["Context"] = mutspec["Mut"].str.get(0)
 
-    mutspec["ExpFr"] = mutspec["Context"].map(refseq_freqs)
+    mutspec["ExpFr"] = mutspec["Mut"].map(exp_muts)
     mutspec["RawMutSpec"] = (mutspec["ObsFr"] / mutspec["ExpFr"]).fillna(0)
     mutspec["MutSpec"] = mutspec["RawMutSpec"] / mutspec["RawMutSpec"].sum()
     mutspec.drop("Context", axis=1, inplace=True)
