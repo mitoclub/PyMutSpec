@@ -6,6 +6,7 @@ pic is position in codon
 import os
 from collections import defaultdict
 import sys
+from shutil import rmtree
 
 import click
 import numpy as np
@@ -56,7 +57,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
         logger.info(
             f"tree loaded, number of leaf nodes: {len(self.tree)}, "
             f"total number of nodes: {len(self.tree.get_cached_content())}, "
-            f"max distance to leaf: {self.max_dist: .2f}"
+            f"distance to farthest leaf: {self.max_dist: .2f}"
         )
         self.open_handles(out_dir)
         self.extract_mutspec_from_tree()
@@ -280,7 +281,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
 
         for pos in range(1, n - 1):
             pic = pos % 3  # 0-based
-            for cdn_tuple, cxt, proba in self.sample_context_fast(pos, pic, genome, proba_cutoff):
+            for cdn_tuple, cxt, proba in self.sample_context(pos, pic, genome, proba_cutoff):
                 cdn = "".join(cdn_tuple)
                 proba *= phylocoef  # adjusted proba
                 nuc = cxt[1]
@@ -366,26 +367,38 @@ class MutSpec(CodonAnnotation, GenomeStates):
 @click.option("--states", "path_to_states", required=True, multiple=True, type=click.Path(True), help="Path to states of each node in the tree. Could be passed several states files, example: '--states file1 --states file2'")
 @click.option("--outdir", required=True, type=click.Path(exists=False, writable=True), help="Directory which will contain output files with mutations and mutspecs")
 @click.option("--gencode", required=True, type=int, help="Genetic code number to use in mutations annotation. Use 2 for vertebrate mitochondrial genes")
-@click.option("--syn", is_flag=True, required=False, default=False, help="Calculate synonymous mutspec")
-@click.option("--syn4f", is_flag=True, required=False, default=False, help="Calculate synonymous fourfold mutspec")
-@click.option("--proba", is_flag=True, required=False, default=False, help="Use states probabilities while mutations collecting")
-@click.option("--pcutoff", "proba_cutoff", required=False, default=0.01, show_default=True, type=float, help="Cutoff of tri/tetranucleotide state probability, states with lower values will not be used in mutation collecting")
-@click.option("--phylocoef/--no-phylocoef", is_flag=True, required=False, default=True, show_default=True, help="Use or don't use phylogenetic uncertainty coefficient. Use only with --proba")
-@click.option("--write_db", required=False, type=click.Choice(['dict', 'db'], case_sensitive=False), show_default=True, default="dict", help="Write sqlite3 database instead of using dictionary for states. Usefull if you have low RAM. Time expensive")
-@click.option("--db_path", "path_to_db", required=False, type=click.Path(writable=True), default="/tmp/states.db", show_default=True, help="Path to database with states. Use only with --write_db")
-@click.option("--rewrite_db", is_flag=True, required=False, default=False, help="Rewrite existing states database. Use only with --write_db")
+@click.option("--syn", is_flag=True, default=False, help="Calculate synonymous mutspec")
+@click.option("--syn4f", is_flag=True, default=False, help="Calculate synonymous fourfold mutspec")
+@click.option("--proba", is_flag=True, default=False, help="Use states probabilities while mutations collecting")
+@click.option("--pcutoff", "proba_cutoff", default=0.01, show_default=True, type=float, help="Cutoff of tri/tetranucleotide state probability, states with lower values will not be used in mutation collecting")
+@click.option("--phylocoef/--no-phylocoef", is_flag=True, default=True, show_default=True, help="Use or don't use phylogenetic uncertainty coefficient. Use only with --proba")
+@click.option("--write_db", type=click.Choice(['dict', 'db'], case_sensitive=False), show_default=True, default="dict", help="Write sqlite3 database instead of using dictionary for states. Usefull if you have low RAM. Time expensive")
+@click.option("--db_path", "path_to_db", type=click.Path(writable=True), default="/tmp/states.db", show_default=True, help="Path to database with states. Use only with --write_db")
+@click.option("--rewrite_db",  is_flag=True, default=False, help="Rewrite existing states database. Use only with --write_db")
+@click.option('-f', '--force', is_flag=True, help="Rewrite existing output directory")
 @click.option('-v', '--verbose', "verbosity", count=True, help="Verbosity level = DEBUG")
 def main(
         path_to_tree, path_to_states, outdir, 
         gencode, syn, syn4f, proba, proba_cutoff, 
         write_db, path_to_db, rewrite_db, 
-        phylocoef, verbosity,
+        phylocoef, force, verbosity,
     ):
-    global logger
+    if os.path.exists(outdir):
+        if not force:
+            answer = input(f"Delete existing directory '{outdir}'? [Y/n] ")
+            print(repr(answer), answer == "")
+            if answer.upper() != "Y" and answer != "":
+                print("Interapted")
+                exit(0)
+        rmtree(outdir)
+        print(f"Existing output directory '{outdir}' deleted")
     os.makedirs(outdir)
+    print(f"Output directory '{outdir}' created")
+    global logger
     _log_lvl = "DEBUG" if verbosity >= 1 else None
-    logger = load_logger(stream_level=_log_lvl, filename=os.path.join(outdir, "run.log"))
-    logger.info(f"Output directory '{outdir}' created")
+    logfile = os.path.join(outdir, "run.log")
+    logger = load_logger(stream_level=_log_lvl, filename=logfile)
+    logger.info(f"Writing logs to file '{logfile}'")
     logger.debug("Command: " + " ".join(sys.argv))
     MutSpec(
         path_to_tree, path_to_states, outdir, gcode=gencode, 
