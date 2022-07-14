@@ -188,14 +188,14 @@ class CodonAnnotation:
         """
         Calculate potential expected mutation counts for nucleotides and trinucleotides (context) 
         in cds gene
-        
+
         Arguments
         ---------
         cds: string or iterable of strings, length must be divisible by 3
             cds sequence with codon structure; 
         labels: List of label strings
             label could be one of ["all", "syn", "ff", "pos3"]
-        
+
         Return
         ---------
             sbs12_freqs: Dict[label, Dict[nucl, count]]
@@ -363,13 +363,13 @@ class CodonAnnotation:
 
 
 def calculate_mutspec(
-        obs_muts: pd.DataFrame, 
-        exp_muts_or_genome: Union[Dict[str, float], Iterable], 
-        label: str, 
-        gencode: int = None,
-        use_context: bool = False, 
-        use_proba: bool = False,
-    ):
+    obs_muts: pd.DataFrame,
+    exp_muts_or_genome: Union[Dict[str, float], Iterable],
+    label: str,
+    gencode: int = None,
+    use_context: bool = False,
+    use_proba: bool = False,
+):
     """
     Calculate mutational spectra for mutations dataframe and states frequencies of reference genome
 
@@ -380,7 +380,7 @@ def calculate_mutspec(
         - Mut: str; Pattern: '[ACGT]\[[ACGT]>[ACGT]\][ACGT]'
         - Label: int; [-3, 2]. See CodonAnnotation.get_mut_type
         - ProbaFull (optional, only for use_proba=True) - probability of mutation
-    
+
     exp_muts_or_genome: dict[str, float] or Iterable
         dictionary that contains expected mutations frequencies of reference genome if use_context=False, 
         else trinucleotide freqs; OR you can pass just genome
@@ -392,7 +392,7 @@ def calculate_mutspec(
         To use trinucleotide context or not, in other words calculate 192 component mutspec
     use_proba: bool
         To use probabilities of mutations or not. Usefull if you have such probabiliies
-    
+
     Return
     -------
     mutspec: pd.DataFrame
@@ -428,7 +428,8 @@ def calculate_mutspec(
         _exp_muts12, _exp_muts192 = coda.collect_exp_mut_freqs(genome, [label_raw])
         exp_muts = _exp_muts192 if use_context else _exp_muts12
     else:
-        raise ValueError("'exp_muts_or_genome' must be iterable in case of genome or dict in case of precalculated exp_muts freqs")
+        raise ValueError(
+            "'exp_muts_or_genome' must be iterable in case of genome or dict in case of precalculated exp_muts freqs")
 
     mut = obs_muts.copy()
     if use_context:
@@ -521,10 +522,14 @@ def mutations_summary(mutations: pd.DataFrame, gene_col=None, proba_col=None, ge
 
     if gene_name_mapper is not None:
         pivot_mutations.index = pivot_mutations.index.map(gene_name_mapper)
+
+    if "syn" in pivot_mutations.columns and "syn4f" in pivot_mutations.columns:
+        pivot_mutations["syn"] += pivot_mutations["syn4f"]
     return pivot_mutations
 
 
 translator = str.maketrans("ACGT", "TGCA")
+
 
 def rev_comp(mut: str):
     new_mut = mut[-1] + mut[1:-1] + mut[0]
