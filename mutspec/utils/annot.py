@@ -204,7 +204,7 @@ class CodonAnnotation:
                 for each label collected expected single nucleotide substitutions frequencies with contexts
         """
         n = len(cds)
-        assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
+        # assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
         labels = set(labels)
 
         sbs12_freqs = {lbl: defaultdict(int) for lbl in labels}
@@ -220,7 +220,7 @@ class CodonAnnotation:
             mut_base12 = nuc + ">" + "{}"
             mut_base192 = cxt[0] + "[" + nuc + ">{}]" + cxt[-1]
 
-            if "syn" in labels:
+            if "syn" in labels and len(cdn) == 3:
                 syn_codons = self.get_syn_codons(cdn, pic)
                 for alt_cdn in syn_codons:
                     alt_nuc = alt_cdn[pic]
