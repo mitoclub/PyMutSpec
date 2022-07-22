@@ -15,7 +15,8 @@ class CodonAnnotation:
     def __init__(self, gencode: Union[NCBICodonTableDNA, int]):
         self.codontable = self._prepare_codontable(gencode)
         self._syn_codons, self._ff_codons = self.__extract_syn_codons()
-        self.possible_ff_contexts = self.__extract_possible_ff_contexts()
+        self.possible_ff_contexts  = self.__extract_possible_ff_contexts()
+        self.possible_syn_contexts = self.__extract_possible_syn_contexts()
         self.startcodons, self.stopcodons = self.read_start_stop_codons(gencode)
 
     def is_fourfold(self, cdn: str):
@@ -291,6 +292,27 @@ class CodonAnnotation:
                 cxt = stump + nucl
                 possible_ff_contexts.add(cxt)
         return possible_ff_contexts
+
+    def __extract_possible_syn_contexts(self) -> Set[str]:
+        "Extract all contexts of neutral fourfold positions for current genetic code"
+        possible_syn_contexts = set()
+        for cdn, pic in self._syn_codons:
+            if pic == 1:
+                possible_syn_contexts.add(cdn)
+                continue
+            elif pic == 0:
+                stump = cdn[:-1]
+                for nucl in self.nucl_order:
+                    cxt = nucl + stump
+                    possible_syn_contexts.add(cxt)
+            elif pic == 2:
+                stump = cdn[1:]
+                for nucl in self.nucl_order:
+                    cxt = stump + nucl
+                    possible_syn_contexts.add(cxt)
+            else:
+                raise RuntimeError()
+        return possible_syn_contexts
 
     @staticmethod
     def _prepare_codontable(codontable: Union[NCBICodonTableDNA, int]):
