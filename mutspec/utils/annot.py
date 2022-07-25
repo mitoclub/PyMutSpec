@@ -387,7 +387,6 @@ class CodonAnnotation:
 def calculate_mutspec(
     obs_muts: pd.DataFrame,
     exp_muts_or_genome: Union[Dict[str, float], Iterable],
-    label: str,
     gencode: int = None,
     use_context: bool = False,
     use_proba: bool = False,
@@ -425,21 +424,6 @@ def calculate_mutspec(
     for c in _cols:
         assert c in obs_muts.columns, f"Column {c} is not in mut df"
 
-    labels = {"syn", "ff", "all"}
-    if isinstance(label, str):
-        label = label.lower()
-        label_raw = label
-        if label not in labels:
-            raise ValueError(f"pass the appropriate label: {labels}")
-        if label == "syn":
-            label = 1
-        elif label == "ff":
-            label = 2
-        elif label == "all":
-            label = 0
-    else:
-        raise ValueError(f"pass the appropriate label: {labels}")
-
     if isinstance(exp_muts_or_genome, dict):
         exp_muts = exp_muts_or_genome
     elif isinstance(exp_muts_or_genome, Iterable):
@@ -447,7 +431,7 @@ def calculate_mutspec(
         if gencode is None:
             raise RuntimeError("If genome passed, gencode argument is required")
         coda = CodonAnnotation(gencode)
-        _exp_muts12, _exp_muts192 = coda.collect_exp_mut_freqs(genome, [label_raw])
+        _exp_muts12, _exp_muts192 = coda.collect_exp_mut_freqs(genome)
         exp_muts = _exp_muts192 if use_context else _exp_muts12
     else:
         raise ValueError(
@@ -465,7 +449,7 @@ def calculate_mutspec(
     if not use_proba:
         mut["ProbaFull"] = 1
 
-    mutspec = mut[mut["Label"] >= label].groupby(col_mut)["ProbaFull"].sum().reset_index()
+    mutspec = mut.groupby(col_mut)["ProbaFull"].sum().reset_index()
     mutspec.columns = ["Mut", "ObsFr"]
 
     # fill unobserved mutations by zeros
@@ -486,7 +470,7 @@ def calculate_mutspec(
     mutspec["MutSpec"] = mutspec["RawMutSpec"] / mutspec["RawMutSpec"].sum()
     mutspec.drop("Context", axis=1, inplace=True)
 
-    assert np.isclose(mutspec.ObsFr.sum(), mut[mut["Label"] >= label].ProbaFull.sum())
+    assert np.isclose(mutspec.ObsFr.sum(), mut.ProbaFull.sum())
     return mutspec
 
 
@@ -557,3 +541,27 @@ def rev_comp(mut: str):
     new_mut = mut[-1] + mut[1:-1] + mut[0]
     new_mut = new_mut.translate(translator)
     return new_mut
+
+
+def lbl_id2lbl(lbl_id: int) -> str:
+    if lbl_id == 0:
+        lbl = "all"
+    elif lbl_id == 1:
+        lbl = "syn"
+    elif lbl_id == 2:
+        lbl = "ff"
+    else:
+        raise NotImplementedError()
+    return lbl
+
+
+def lbl2lbl_id(lbl: str) -> int:
+    if lbl == "all":
+        lbl_id = 0
+    elif lbl == "syn":
+        lbl_id = 1
+    elif lbl == "ff":
+        lbl_id = 2
+    else:
+        raise NotImplementedError()
+    return lbl_id

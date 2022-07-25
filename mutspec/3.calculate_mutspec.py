@@ -12,6 +12,7 @@ import click
 import numpy as np
 import pandas as pd
 from ete3 import PhyloTree
+from mutspec.utils.annot import lbl2lbl_id
 
 from utils import (
     iter_tree_edges, profiler, calculate_mutspec, get_farthest_leaf,
@@ -152,8 +153,10 @@ class MutSpec(CodonAnnotation, GenomeStates):
 
                 # calculate gene mutational spectra for all labels
                 for lbl in self.MUT_LABELS:
-                    mutspec12 = calculate_mutspec(gene_mut_df, gene_exp_sbs12[lbl], label=lbl, use_context=False, use_proba=self.proba_mode)
-                    mutspec12["RefNode"] = ref_node.name
+                    mutspec12 = calculate_mutspec(
+                        gene_mut_df[gene_mut_df.Label >= lbl2lbl_id(lbl)], gene_exp_sbs12[lbl], 
+                        use_context=False, use_proba=self.proba_mode
+                    )
                     mutspec12["AltNode"] = alt_node.name
                     mutspec12["Label"] = lbl
                     mutspec12["Gene"]  = gene
@@ -161,9 +164,11 @@ class MutSpec(CodonAnnotation, GenomeStates):
                     self.dump_table(mutspec12, self.handle["ms12s"], add_header["ms12g"])
                     add_header["ms12g"] = False
 
-                if len(gene_mut_df) > 100:
-                    for lbl in self.MUT_LABELS:
-                        mutspec192 = calculate_mutspec(gene_mut_df, gene_exp_sbs192[lbl], label=lbl, use_context=True, use_proba=self.proba_mode)
+                    if len(gene_mut_df) > 100:
+                        mutspec192 = calculate_mutspec(
+                            gene_mut_df[gene_mut_df.Label >= lbl2lbl_id(lbl)], gene_exp_sbs192[lbl], 
+                            use_context=True, use_proba=self.proba_mode
+                        )
                         mutspec192["RefNode"] = ref_node.name
                         mutspec192["AltNode"] = alt_node.name
                         mutspec192["Label"] = lbl
@@ -192,11 +197,17 @@ class MutSpec(CodonAnnotation, GenomeStates):
             
             # calculate full genome mutational spectra for all labels
             for lbl in self.MUT_LABELS:
-                mutspec12 = calculate_mutspec(genome_mutations_df, genome_nucl_freqs[lbl], label=lbl, use_context=False, use_proba=self.proba_mode)
+                mutspec12 = calculate_mutspec(
+                    genome_mutations_df[genome_mutations_df.Label >= lbl2lbl_id(lbl)],
+                    genome_nucl_freqs[lbl], use_context=False, use_proba=self.proba_mode
+                )
                 mutspec12["RefNode"] = ref_node.name
                 mutspec12["AltNode"] = alt_node.name
                 mutspec12["Label"] = lbl
-                mutspec192 = calculate_mutspec(genome_mutations_df, genome_cxt_freqs[lbl], label=lbl, use_context=True, use_proba=self.proba_mode)
+                mutspec192 = calculate_mutspec(
+                    genome_mutations_df[genome_mutations_df.Label >= lbl2lbl_id(lbl)],
+                    genome_cxt_freqs[lbl], use_context=True, use_proba=self.proba_mode
+                )
                 mutspec192["RefNode"] = ref_node.name
                 mutspec192["AltNode"] = alt_node.name
                 mutspec192["Label"] = lbl
