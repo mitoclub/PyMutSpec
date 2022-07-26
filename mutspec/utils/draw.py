@@ -8,13 +8,13 @@ from .constants import possible_sbs12, possible_sbs192
 
 
 def plot_mutspec12(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutational spectra", savepath=None):
-    fig = plt.figure(figsize=(24, 12))
+    fig = plt.figure(figsize=(6, 4))
     ax = fig.add_subplot(111)
     ax = sns.barplot(x="Mut", y=ylabel, data=mutspec, order=possible_sbs12, ax=fig.gca())
     ax.set_title(title)
     if savepath is not None:
         plt.savefig(savepath)
-    return ax
+    plt.show()
 
 
 def __add_line(ax, xpos, ypos):
@@ -31,7 +31,6 @@ def __label_len(my_index, level):
 
 def __label_group_bar_table(ax, df):
     font = {
-        'family': 'cursive',
         'color':  'black',
         'weight': 'normal',
         'size': 7,
@@ -57,7 +56,7 @@ def __label_group_bar_table(ax, df):
         ypos -= .05
 
 
-def plot_mutspec192(mutspec192: pd.DataFrame, title="Mutational spectra", filepath=None):
+def plot_mutspec192(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutational spectra", figsize=(24, 12), filepath=None):
     """
     Plot barblot of given mutational spectra calculated from single nucleotide substitutions
 
@@ -75,11 +74,12 @@ def plot_mutspec192(mutspec192: pd.DataFrame, title="Mutational spectra", filepa
     mutspec192["Context"] = mutspec192.Mut.str.get(0) + mutspec192.Mut.str.get(2) + mutspec192.Mut.str.get(-1)
 
     df = mutspec192.groupby(["MutBase", "Context"]).mean()
-    fig = plt.figure(figsize=(24, 12))
+    fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111)
-    sns.barplot(x="Mut", y="MutSpec", data=mutspec192,
-                order=possible_sbs192, errwidth=1, ax=fig.gca())
-
+    sns.barplot(
+        x="Mut", y=ylabel, data=mutspec192,
+        order=possible_sbs192, errwidth=1, ax=fig.gca()
+    )
     labels = ['' for _ in ax.get_xticklabels()]
     ax.set_xticklabels(labels)
     ax.set_xlabel('')
