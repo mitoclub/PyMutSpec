@@ -25,7 +25,10 @@ class CodonAnnotation:
 
     def translate_codon(self, cdn: str) -> str:
         """Translate codon to animo acid"""
-        return self.codontable.forward_table.get(cdn, "*")
+        if isinstance(cdn, str):
+            return self.codontable.forward_table.get(cdn, "*")
+        else:
+            return cdn
 
     def is_syn_mut(self, cdn1: str, cdn2: str):
         """
