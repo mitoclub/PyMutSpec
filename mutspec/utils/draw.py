@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from .constants import possible_sbs12, possible_sbs192
+from .constants import possible_sbs12, possible_sbs192, ordered_sbs192
 
 
 coloring6 = {
@@ -114,7 +114,7 @@ def plot_mutspec192(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutationa
     ax = fig.add_subplot(111)
     sns.barplot(
         x="Mut", y=ylabel, data=mutspec192,
-        order=possible_sbs192, errwidth=1, ax=fig.gca()
+        order=ordered_sbs192, errwidth=1, ax=fig.gca()
     )
     # map colors to bars
     for bar, clr in zip(ax.patches, colors192):
