@@ -35,6 +35,14 @@ _smpl["Context"] = _smpl.Mut.str.get(0) + _smpl.Mut.str.get(2) + _smpl.Mut.str.g
 colors192 = _smpl.sort_values(["MutBase", "Context"])["MutBase"].map(coloring12).values
 colors12 = [coloring12[sbs] for sbs in possible_sbs12]
 
+
+def coloring192():
+    colors = "red yellow lime blue".split()
+    while True:
+        for clr in colors:
+            yield clr
+
+
 def plot_mutspec12(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutational spectra", savepath=None):
     # TODO add checks of mutspec12
     # TODO add description to all plot* functions
@@ -72,7 +80,7 @@ def __label_group_bar_table(ax, df):
     }
     rotation = 90
     ypos = -.05
-    scale = 1./df.index.size
+    scale = 1. / df.index.size
     for level in range(df.index.nlevels)[::-1]:
         if level == 0:
             rotation = 0
@@ -91,7 +99,7 @@ def __label_group_bar_table(ax, df):
         ypos -= .05
 
 
-def plot_mutspec192(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutational spectra", figsize=(24, 12), filepath=None):
+def plot_mutspec192(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutational spectra", figsize=(20, 12), filepath=None):
     """
     Plot barblot of given mutational spectra calculated from single nucleotide substitutions
 
@@ -112,21 +120,46 @@ def plot_mutspec192(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutationa
     df = mutspec192.groupby(["MutBase", "Context"]).mean()
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111)
+    ax.grid(axis="y", alpha=.7, linewidth=0.5)
     sns.barplot(
         x="Mut", y=ylabel, data=mutspec192,
-        order=ordered_sbs192, errwidth=1, ax=fig.gca()
+        # order=ordered_sbs192, 
+        errwidth=1, ax=fig.gca(),
     )
     # map colors to bars
-    for bar, clr in zip(ax.patches, colors192):
+    for bar, clr in zip(ax.patches, coloring192()):
         bar.set_color(clr)
-        bar.set_width(0.5)
-    
+        bar.set_width(0.3)
+
     labels = ['' for _ in ax.get_xticklabels()]
     ax.set_xticklabels(labels)
     ax.set_xlabel('')
     ax.set_title(title)
     __label_group_bar_table(ax, df)
     fig.subplots_adjust(bottom=0.1 * df.index.nlevels)
+    if filepath is not None:
+        plt.savefig(filepath)
+    plt.show()
+
+
+def plot_mutspec192kk(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutational spectra", figsize=(22, 8), filepath=None):
+    ms192 = mutspec192.copy()
+    ms192["long_lbl"] = ms192.Mut.str.get(2) + ms192.Mut.str.get(4) + ": " + ms192.Mut.str.get(0) + ms192.Mut.str.get(2) + ms192.Mut.str.get(-1)
+    fig = plt.figure(figsize=figsize)
+    ax = fig.add_subplot(111)
+    ax.grid(axis="y", alpha=.7, linewidth=0.5)
+    sns.barplot(
+        x="long_lbl", y=ylabel, data=ms192,
+        order=[x[2] + x[4] + ": " + x[0] + x[2] + x[-1] for x in ordered_sbs192], 
+        errwidth=1, ax=fig.gca()
+    )
+    plt.xticks(rotation=90, fontsize=7)
+    plt.xlabel("")
+    # map colors to bars
+    for bar, clr in zip(ax.patches, coloring192()):
+        bar.set_color(clr)
+        bar.set_alpha(alpha=0.9)
+        bar.set_width(0.3)
     if filepath is not None:
         plt.savefig(filepath)
     plt.show()
