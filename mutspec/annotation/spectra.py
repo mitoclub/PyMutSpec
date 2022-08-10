@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 from .mut import CodonAnnotation
-from ..constants import *
+from ..constants import possible_sbs12_set, possible_sbs192_set
 
 
 def calculate_mutspec(
@@ -48,9 +48,9 @@ def calculate_mutspec(
         assert c in obs_muts.columns, f"Column {c} is not in mut df"
 
     if isinstance(exp_muts_or_genome, dict):
-        exp_muts = exp_muts_or_genome
+        exp_muts = exp_muts_or_genome.copy()
     elif isinstance(exp_muts_or_genome, Iterable):
-        genome = exp_muts_or_genome
+        genome = exp_muts_or_genome.copy()
         if gencode is None:
             raise RuntimeError("If genome passed, gencode argument is required")
         coda = CodonAnnotation(gencode)
@@ -90,6 +90,7 @@ def calculate_mutspec(
 
     mutspec["ExpFr"] = mutspec["Mut"].map(exp_muts)
     mutspec["RawMutSpec"] = (mutspec["ObsFr"] / mutspec["ExpFr"]).fillna(0)
+    mutspec["RawMutSpec"] = np.where(mutspec.RawMutSpec == np.inf, mutspec.ObsFr, mutspec.RawMutSpec)
     mutspec["MutSpec"] = mutspec["RawMutSpec"] / mutspec["RawMutSpec"].sum()
     mutspec.drop("Context", axis=1, inplace=True)
 
