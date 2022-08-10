@@ -12,7 +12,7 @@ with open("requirements.txt", encoding="utf-8") as file:
                 packages.append(line)
 
 setup(
-    name="MutSpecUtils",
+    name="mutspec",
     version="0.0.1",
     author="kpotoh, genkvg",
     author_email="None",

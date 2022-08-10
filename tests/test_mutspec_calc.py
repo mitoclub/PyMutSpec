@@ -4,7 +4,7 @@ import pytest
 import pandas as pd
 
 from mutspec.utils.annot import calculate_mutspec
-from mutspec.utils.constants import possible_sbs12, possible_sbs192, possible_codons
+from mutspec.utils.constants import possible_sbs12, possible_sbs192
 
 
 @pytest.fixture
@@ -28,9 +28,9 @@ def mut():
 @pytest.fixture
 def nucl_freqs():
     fr = {
-        "all": {"A": 2, "C": 8, "G": 4, "T": 3},
-        "syn": {"A": 1, "C": 5, "G": 3, "T": 2},
-        "ff" : {"C": 3, "G": 3, "T": 1},
+        "all": {"A>C": 2, "A>T": 1, "C>T": 8, "C>A": 2, "C>G": 1, "G>A": 4, "G>T": 2, "T>C": 3, "T>A": 1},
+        "syn": {"A>C": 1, "C>T": 6, "C>A": 1, "G>A": 1, "G>T": 1, "T>C": 2},
+        "ff" : {"A>C": 1, "C>T": 3, "C>A": 1, "G>T": 1},
     }
     return fr
 
@@ -39,18 +39,21 @@ def nucl_freqs():
 def cxt_freqs():
     fr = dict()
     for lbl, max_num in zip(["all", "syn", "ff"], [20, 13, 7]):
-        fr[lbl] = {cxt: max(0, random.randint(-5, max_num)) for cxt in possible_codons}
+        fr[lbl] = {cxt: max(0, random.randint(-5, max_num)) for cxt in possible_sbs192}
     return fr
 
 
-@pytest.mark.parametrize("use_proba", [True, False])
-@pytest.mark.parametrize("lbl_id, lbl", [(0, "all"), (1, "syn"), (2, "ff")])
-def test_ms12_calc(mut, nucl_freqs, use_proba, lbl_id, lbl):
-    ms = calculate_mutspec(
-        mut, nucl_freqs[lbl], lbl, 
-        use_context=False, use_proba=use_proba,
-    )
+@pytest.mark.parametrize("use_proba", [False, True])
+@pytest.mark.parametrize("lbl_id", [0, 1, 2])
+def test_ms12_calc(mut, nucl_freqs, use_proba, lbl_id):
+    if lbl_id == 0:
+        lbl = "all"
+    elif lbl_id == 1:
+        lbl = "syn"
+    elif lbl_id == 2:
+        lbl = "ff"
     cur_mut = mut[(mut.Label >= lbl_id)]
+    ms = calculate_mutspec(cur_mut, nucl_freqs[lbl], use_context=False, use_proba=use_proba)
     for sbs in possible_sbs12:
         divisor = nucl_freqs[lbl].get(sbs[0], 0)
         if divisor <= 0:
@@ -64,13 +67,16 @@ def test_ms12_calc(mut, nucl_freqs, use_proba, lbl_id, lbl):
 
 
 @pytest.mark.parametrize("use_proba", [True, False])
-@pytest.mark.parametrize("lbl_id, lbl", [(0, "all"), (1, "syn"), (2, "ff")])
-def test_ms192_calc(mut, cxt_freqs, use_proba, lbl_id, lbl):
-    ms = calculate_mutspec(
-        mut, cxt_freqs[lbl], lbl, 
-        use_context=True, use_proba=use_proba,
-    )
+@pytest.mark.parametrize("lbl_id", [0, 1, 2])
+def test_ms192_calc(mut, cxt_freqs, use_proba, lbl_id):
+    if lbl_id == 0:
+        lbl = "all"
+    elif lbl_id == 1:
+        lbl = "syn"
+    elif lbl_id == 2:
+        lbl = "ff"
     cur_mut = mut[(mut.Label >= lbl_id)]
+    ms = calculate_mutspec(cur_mut, cxt_freqs[lbl], use_context=True, use_proba=use_proba)
     for sbs in possible_sbs192:
         cxt = sbs[0] + sbs[2] + sbs[-1]
         divisor = cxt_freqs[lbl].get(cxt, 0)
