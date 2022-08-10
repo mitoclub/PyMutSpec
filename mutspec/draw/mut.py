@@ -1,10 +1,14 @@
+"""
+Functionality to plot mutational spectrums
+"""
+
 from itertools import groupby
 
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from .constants import possible_sbs12, possible_sbs192, ordered_sbs192
+from ..constants import possible_sbs12, possible_sbs192, ordered_sbs192
 
 
 coloring6 = {

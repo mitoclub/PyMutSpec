@@ -2,8 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from mutspec import utils
-from mutspec.utils import GenomeStates
+from mutspec.io import GenomeStates
 
 path_to_states = ["./tests/data/states_sample.tsv"]
 path_to_db = './tests/data/states_sample.db'

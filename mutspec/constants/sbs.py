@@ -1,7 +1,6 @@
-import pandas as pd
-
-from .temporary import *
-
+"""
+Constant values of all possible trinucleotides, sinble nucleotide substiturtions (sbs) with and without contexts
+"""
 
 possible_sbs12 = [
     'A>C', 'A>G', 'A>T',
@@ -37,15 +36,41 @@ possible_sbs192 = [
 ]
 possible_sbs192_set = set(possible_sbs192)
 possible_sbs12_set = set(possible_sbs12)
-
-df = pd.DataFrame({"sbs": possible_sbs192})
-df["sbs_base"] = df.sbs.str.slice(2, 5)
-df["is_cosmic"] = df["sbs_base"].isin("A>C A>G A>T C>T G>C G>T".split())
-df["sbs_revcomp"] = df["sbs"].apply(rev_comp)
-df["sbs_for_ordering"] = df.apply(lambda x: x.sbs if x.is_cosmic else x.sbs_revcomp, axis=1)
-df = df.sort_values(["sbs_base", "sbs_for_ordering"])
-ordered_sbs192 = list(df.sbs.values)
-del df
+ordered_sbs192 = [
+    'A[A>C]A', 'A[A>C]C', 'A[A>C]G', 'A[A>C]T', 'C[A>C]A', 'C[A>C]C', 'C[A>C]G', 'C[A>C]T', 
+    'G[A>C]A', 'G[A>C]C', 'G[A>C]G', 'G[A>C]T', 'T[A>C]A', 'T[A>C]C', 'T[A>C]G', 'T[A>C]T', 
+    'A[A>G]A', 'A[A>G]C', 'A[A>G]G', 'A[A>G]T', 'C[A>G]A', 'C[A>G]C', 'C[A>G]G', 'C[A>G]T', 
+    'G[A>G]A', 'G[A>G]C', 'G[A>G]G', 'G[A>G]T', 'T[A>G]A', 'T[A>G]C', 'T[A>G]G', 'T[A>G]T', 
+    'A[A>T]A', 'A[A>T]C', 'A[A>T]G', 'A[A>T]T', 'C[A>T]A', 'C[A>T]C', 'C[A>T]G', 'C[A>T]T', 
+    'G[A>T]A', 'G[A>T]C', 'G[A>T]G', 'G[A>T]T', 'T[A>T]A', 'T[A>T]C', 'T[A>T]G', 'T[A>T]T', 
+    'T[C>A]T', 'G[C>A]T', 'C[C>A]T', 'A[C>A]T', 'T[C>A]G', 'G[C>A]G', 'C[C>A]G', 'A[C>A]G', 
+    'T[C>A]C', 'G[C>A]C', 'C[C>A]C', 'A[C>A]C', 'T[C>A]A', 'G[C>A]A', 'C[C>A]A', 'A[C>A]A', 
+    'T[C>G]T', 'G[C>G]T', 'C[C>G]T', 'A[C>G]T', 'T[C>G]G', 'G[C>G]G', 'C[C>G]G', 'A[C>G]G', 
+    'T[C>G]C', 'G[C>G]C', 'C[C>G]C', 'A[C>G]C', 'T[C>G]A', 'G[C>G]A', 'C[C>G]A', 'A[C>G]A', 
+    'A[C>T]A', 'A[C>T]C', 'A[C>T]G', 'A[C>T]T', 'C[C>T]A', 'C[C>T]C', 'C[C>T]G', 'C[C>T]T', 
+    'G[C>T]A', 'G[C>T]C', 'G[C>T]G', 'G[C>T]T', 'T[C>T]A', 'T[C>T]C', 'T[C>T]G', 'T[C>T]T', 
+    'T[G>A]T', 'G[G>A]T', 'C[G>A]T', 'A[G>A]T', 'T[G>A]G', 'G[G>A]G', 'C[G>A]G', 'A[G>A]G', 
+    'T[G>A]C', 'G[G>A]C', 'C[G>A]C', 'A[G>A]C', 'T[G>A]A', 'G[G>A]A', 'C[G>A]A', 'A[G>A]A', 
+    'A[G>C]A', 'A[G>C]C', 'A[G>C]G', 'A[G>C]T', 'C[G>C]A', 'C[G>C]C', 'C[G>C]G', 'C[G>C]T', 
+    'G[G>C]A', 'G[G>C]C', 'G[G>C]G', 'G[G>C]T', 'T[G>C]A', 'T[G>C]C', 'T[G>C]G', 'T[G>C]T', 
+    'A[G>T]A', 'A[G>T]C', 'A[G>T]G', 'A[G>T]T', 'C[G>T]A', 'C[G>T]C', 'C[G>T]G', 'C[G>T]T', 
+    'G[G>T]A', 'G[G>T]C', 'G[G>T]G', 'G[G>T]T', 'T[G>T]A', 'T[G>T]C', 'T[G>T]G', 'T[G>T]T', 
+    'T[T>A]T', 'G[T>A]T', 'C[T>A]T', 'A[T>A]T', 'T[T>A]G', 'G[T>A]G', 'C[T>A]G', 'A[T>A]G', 
+    'T[T>A]C', 'G[T>A]C', 'C[T>A]C', 'A[T>A]C', 'T[T>A]A', 'G[T>A]A', 'C[T>A]A', 'A[T>A]A', 
+    'T[T>C]T', 'G[T>C]T', 'C[T>C]T', 'A[T>C]T', 'T[T>C]G', 'G[T>C]G', 'C[T>C]G', 'A[T>C]G', 
+    'T[T>C]C', 'G[T>C]C', 'C[T>C]C', 'A[T>C]C', 'T[T>C]A', 'G[T>C]A', 'C[T>C]A', 'A[T>C]A', 
+    'T[T>G]T', 'G[T>G]T', 'C[T>G]T', 'A[T>G]T', 'T[T>G]G', 'G[T>G]G', 'C[T>G]G', 'A[T>G]G', 
+    'T[T>G]C', 'G[T>G]C', 'C[T>G]C', 'A[T>G]C', 'T[T>G]A', 'G[T>G]A', 'C[T>G]A', 'A[T>G]A'
+]
+# df = pd.DataFrame({"sbs": possible_sbs192})
+# df["sbs_base"] = df.sbs.str.slice(2, 5)
+# df["is_cosmic"] = df["sbs_base"].isin("A>C A>G A>T C>T G>C G>T".split())
+# df["sbs_revcomp"] = df["sbs"].apply(rev_comp)
+# df["sbs_for_ordering"] = df.apply(lambda x: x.sbs if x.is_cosmic else x.sbs_revcomp, axis=1)
+# df = df.sort_values(["sbs_base", "sbs_for_ordering"])
+# ordered_sbs192 = list(df.sbs.values)
+# print(ordered_sbs192)
+# del df
 
 possible_nucls = list("ACGT")
 possible_codons = [

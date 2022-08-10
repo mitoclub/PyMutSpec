@@ -17,4 +17,3 @@ def load_logger(path=DEFAULT_PATH_TO_LOGCONF, stream_level: str = None, filename
         logging.config.dictConfig(log_config)
     logger = logging.getLogger('MutSpecCalc')
     return logger
-
