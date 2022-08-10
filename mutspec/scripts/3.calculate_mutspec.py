@@ -13,12 +13,10 @@ import numpy as np
 import pandas as pd
 from ete3 import PhyloTree
 
-from mutspec.utils import (
-    iter_tree_edges, profiler, calculate_mutspec, get_farthest_leaf,
-    CodonAnnotation, GenomeStates, possible_sbs12, possible_sbs192
-)
-from mutspec.utils.logging import load_logger
-from mutspec.annotation import lbl2lbl_id
+from mutspec.annotation import CodonAnnotation, get_farthest_leaf, iter_tree_edges, calculate_mutspec, lbl2lbl_id
+from mutspec.io import GenomeStates
+from mutspec.constants import possible_sbs12, possible_sbs192
+from mutspec.utils import load_logger, profiler
 
 logger = None
 
