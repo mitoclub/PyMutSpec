@@ -7,6 +7,7 @@ from Bio.Data import CodonTable
 from Bio.Data.CodonTable import NCBICodonTableDNA
 
 from .constants import *
+from .temporary import *
 
 
 class CodonAnnotation:
@@ -535,15 +536,6 @@ def mutations_summary(mutations: pd.DataFrame, gene_col=None, proba_col=None, ge
     if "syn" in pivot_mutations.columns and "syn4f" in pivot_mutations.columns:
         pivot_mutations["syn"] += pivot_mutations["syn4f"]
     return pivot_mutations
-
-
-translator = str.maketrans("ACGT", "TGCA")
-
-
-def rev_comp(mut: str):
-    new_mut = mut[-1] + mut[1:-1] + mut[0]
-    new_mut = new_mut.translate(translator)
-    return new_mut
 
 
 def lbl_id2lbl(lbl_id: int) -> str:
