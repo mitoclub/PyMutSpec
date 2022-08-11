@@ -1,3 +1,4 @@
+from sys import stderr
 from typing import Set, Union, Dict, Iterable
 
 import numpy as np
@@ -90,6 +91,8 @@ def calculate_mutspec(
 
     mutspec["ExpFr"] = mutspec["Mut"].map(exp_muts)
     mutspec["RawMutSpec"] = (mutspec["ObsFr"] / mutspec["ExpFr"]).fillna(0)
+    for sbs, cnt in mutspec[mutspec.RawMutSpec == np.inf][["Mut", "ObsFr"]].values:
+        print(f"WARNING! Substitution {sbs} is unexpected but observed, n={cnt}", file=stderr)
     mutspec["RawMutSpec"] = np.where(mutspec.RawMutSpec == np.inf, mutspec.ObsFr, mutspec.RawMutSpec)
     mutspec["MutSpec"] = mutspec["RawMutSpec"] / mutspec["RawMutSpec"].sum()
     mutspec.drop("Context", axis=1, inplace=True)
