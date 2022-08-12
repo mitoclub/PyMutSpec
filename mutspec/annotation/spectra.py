@@ -14,6 +14,7 @@ def calculate_mutspec(
     gencode: int = None,
     use_context: bool = False,
     use_proba: bool = False,
+    verbose=False,
 ):
     """
     Calculate mutational spectra for mutations dataframe and states frequencies of reference genome
@@ -37,6 +38,8 @@ def calculate_mutspec(
         To use trinucleotide context or not, in other words calculate 192 component mutspec
     use_proba: bool
         To use probabilities of mutations or not. Usefull if you have such probabiliies
+    verbose: bool
+        Show warning messages or not
 
     Return
     -------
@@ -91,8 +94,9 @@ def calculate_mutspec(
 
     mutspec["ExpFr"] = mutspec["Mut"].map(exp_muts)
     mutspec["RawMutSpec"] = (mutspec["ObsFr"] / mutspec["ExpFr"]).fillna(0)
-    for sbs, cnt in mutspec[mutspec.RawMutSpec == np.inf][["Mut", "ObsFr"]].values:
-        print(f"WARNING! Substitution {sbs} is unexpected but observed, n={cnt}", file=stderr)
+    if verbose:
+        for sbs, cnt in mutspec[mutspec.RawMutSpec == np.inf][["Mut", "ObsFr"]].values:
+            print(f"WARNING! Substitution {sbs} is unexpected but observed, n={cnt}", file=stderr)
     mutspec["RawMutSpec"] = np.where(mutspec.RawMutSpec == np.inf, mutspec.ObsFr, mutspec.RawMutSpec)
     mutspec["MutSpec"] = mutspec["RawMutSpec"] / mutspec["RawMutSpec"].sum()
     mutspec.drop("Context", axis=1, inplace=True)
