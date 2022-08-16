@@ -94,6 +94,9 @@ class CodonAnnotation:
         -  1 - synonymous sbs
         -  2 - synonymous fourfold sbs
         """
+        if not isinstance(cdn1, str) or not isinstance(cdn2, str):
+            return 0, None, None
+            
         _where_mut = [int(x != y) for x, y in zip(cdn1, cdn2)]
         if pic < 0 or pic > 2:
             raise ValueError("Position in codon (pic) must be 0-based and less than 3")
