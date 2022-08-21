@@ -24,7 +24,6 @@ def calculate_mutspec(
     obs_muts: pd.DataFrame
         table containing mutations with annotation; table must contain 2 columns:
         - Mut: str; Pattern: '[ACGT]\[[ACGT]>[ACGT]\][ACGT]'
-        - Label: int; [-3, 2]. See CodonAnnotation.get_mut_type
         - ProbaFull (optional, only for use_proba=True) - probability of mutation
 
     exp_muts_or_genome: dict[str, float] or Iterable
@@ -47,7 +46,7 @@ def calculate_mutspec(
         table, containing extended mutspec values including observed mutations numbers. 
         If use_context=True len(mutspec) = 192, else len(mutspec) = 12
     """
-    _cols = ["Label", "Mut", "ProbaFull"] if use_proba else ["Label", "Mut"]
+    _cols = ["Mut", "ProbaFull"] if use_proba else ["Mut"]
     for c in _cols:
         assert c in obs_muts.columns, f"Column {c} is not in mut df"
 
