@@ -61,7 +61,7 @@ def _coloring192():
             yield clr
 
 
-def plot_mutspec12(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutational spectra", savepath=None):
+def plot_mutspec12(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutational spectrum", savepath=None):
     # TODO add checks of mutspec12
     # TODO add description to all plot* functions
     fig = plt.figure(figsize=(6, 4))
@@ -117,15 +117,15 @@ def __label_group_bar_table(ax, df):
         ypos -= .05
 
 
-def plot_mutspec192(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutational spectra", figsize=(20, 12), filepath=None):
+def plot_mutspec192(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutational spectrum", figsize=(20, 12), filepath=None):
     """
-    Plot barblot of given mutational spectra calculated from single nucleotide substitutions
+    Plot barblot of given mutational spectrum calculated from single nucleotide substitutions
 
     Arguments
     ---------
     mutspec192: pd.DataFrame
-        table, containing 192 component mutational spectra for one or many species, all substitutions must be presented in the table
-    title: str, default = 'Mutational spectra'
+        table, containing 192 component mutational spectrum for one or many species, all substitutions must be presented in the table
+    title: str, default = 'Mutational spectrum'
         Title on the plot
     filepath: str, default = None
         Path to output plot file. If None no images will be written
@@ -160,7 +160,7 @@ def plot_mutspec192(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutationa
     plt.show()
 
 
-def plot_mutspec192kk(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutational spectra", figsize=(24, 6), filepath=None):
+def plot_mutspec192kk(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutational spectrum", figsize=(24, 6), filepath=None):
     ms192 = mutspec192.copy()
     ms192["long_lbl"] = ms192.Mut.str.get(2) + ms192.Mut.str.get(4) + ": " + ms192.Mut.str.get(0) + ms192.Mut.str.get(2) + ms192.Mut.str.get(-1)
     fig = plt.figure(figsize=figsize)
