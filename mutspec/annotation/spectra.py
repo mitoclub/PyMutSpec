@@ -1,10 +1,11 @@
+from sys import stderr
 from typing import Set, Union, Dict, Iterable
 
 import numpy as np
 import pandas as pd
 
 from .mut import CodonAnnotation
-from ..constants import *
+from ..constants import possible_sbs12_set, possible_sbs192_set
 
 
 def calculate_mutspec(
@@ -13,6 +14,7 @@ def calculate_mutspec(
     gencode: int = None,
     use_context: bool = False,
     use_proba: bool = False,
+    verbose=False,
 ):
     """
     Calculate mutational spectra for mutations dataframe and states frequencies of reference genome
@@ -22,7 +24,6 @@ def calculate_mutspec(
     obs_muts: pd.DataFrame
         table containing mutations with annotation; table must contain 2 columns:
         - Mut: str; Pattern: '[ACGT]\[[ACGT]>[ACGT]\][ACGT]'
-        - Label: int; [-3, 2]. See CodonAnnotation.get_mut_type
         - ProbaFull (optional, only for use_proba=True) - probability of mutation
 
     exp_muts_or_genome: dict[str, float] or Iterable
@@ -36,6 +37,8 @@ def calculate_mutspec(
         To use trinucleotide context or not, in other words calculate 192 component mutspec
     use_proba: bool
         To use probabilities of mutations or not. Usefull if you have such probabiliies
+    verbose: bool
+        Show warning messages or not
 
     Return
     -------
@@ -43,14 +46,14 @@ def calculate_mutspec(
         table, containing extended mutspec values including observed mutations numbers. 
         If use_context=True len(mutspec) = 192, else len(mutspec) = 12
     """
-    _cols = ["Label", "Mut", "ProbaFull"] if use_proba else ["Label", "Mut"]
+    _cols = ["Mut", "ProbaFull"] if use_proba else ["Mut"]
     for c in _cols:
         assert c in obs_muts.columns, f"Column {c} is not in mut df"
 
     if isinstance(exp_muts_or_genome, dict):
-        exp_muts = exp_muts_or_genome
+        exp_muts = exp_muts_or_genome.copy()
     elif isinstance(exp_muts_or_genome, Iterable):
-        genome = exp_muts_or_genome
+        genome = exp_muts_or_genome.copy()
         if gencode is None:
             raise RuntimeError("If genome passed, gencode argument is required")
         coda = CodonAnnotation(gencode)
@@ -90,6 +93,10 @@ def calculate_mutspec(
 
     mutspec["ExpFr"] = mutspec["Mut"].map(exp_muts)
     mutspec["RawMutSpec"] = (mutspec["ObsFr"] / mutspec["ExpFr"]).fillna(0)
+    if verbose:
+        for sbs, cnt in mutspec[mutspec.RawMutSpec == np.inf][["Mut", "ObsFr"]].values:
+            print(f"WARNING! Substitution {sbs} is unexpected but observed, n={cnt}", file=stderr)
+    mutspec["RawMutSpec"] = np.where(mutspec.RawMutSpec == np.inf, mutspec.ObsFr, mutspec.RawMutSpec)
     mutspec["MutSpec"] = mutspec["RawMutSpec"] / mutspec["RawMutSpec"].sum()
     mutspec.drop("Context", axis=1, inplace=True)
 

@@ -10,7 +10,7 @@ import click
 import numpy as np
 import pandas as pd
 
-from mutspec.utils import load_scheme
+from mutspec.io import load_scheme
 
 dtypes = {
     "Site": np.int32,

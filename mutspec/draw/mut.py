@@ -11,7 +11,7 @@ import seaborn as sns
 from ..constants import possible_sbs12, possible_sbs192, ordered_sbs192
 
 
-coloring6 = {
+color_mapping6 = {
     "C>A": "deepskyblue",
     "C>G": "black",
     "C>T": "red",
@@ -19,7 +19,7 @@ coloring6 = {
     "T>C": "green",
     "T>G": "pink",
 }
-coloring12 = {
+color_mapping12 = {
     "C>A": "deepskyblue",
     "G>T": "deepskyblue",
     "C>G": "black",
@@ -36,18 +36,32 @@ coloring12 = {
 _smpl = pd.DataFrame({"Mut": possible_sbs192})
 _smpl["MutBase"] = _smpl.Mut.str.slice(2, 5)
 _smpl["Context"] = _smpl.Mut.str.get(0) + _smpl.Mut.str.get(2) + _smpl.Mut.str.get(-1)
-colors192 = _smpl.sort_values(["MutBase", "Context"])["MutBase"].map(coloring12).values
-colors12 = [coloring12[sbs] for sbs in possible_sbs12]
+colors192 = _smpl.sort_values(["MutBase", "Context"])["MutBase"].map(color_mapping12).values
+colors12 = [color_mapping12[sbs] for sbs in possible_sbs12]
 
 
-def coloring192():
+def __prepare_nice_kk_order():
+    _nice_order_kk = []
+    prev = None
+    for sbs in ordered_sbs192:
+        if prev is not None and sbs[2:5] != prev[2:5]:
+            _nice_order_kk.append("")
+        _nice_order_kk.append(sbs[2] + sbs[4] + ": " + sbs[0] + sbs[2] + sbs[-1])
+        prev = sbs
+    return _nice_order_kk
+
+
+_nice_order_kk = __prepare_nice_kk_order()
+
+
+def _coloring192():
     colors = "red yellow lime blue".split()
     while True:
         for clr in colors:
             yield clr
 
 
-def plot_mutspec12(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutational spectra", savepath=None):
+def plot_mutspec12(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutational spectrum", savepath=None):
     # TODO add checks of mutspec12
     # TODO add description to all plot* functions
     fig = plt.figure(figsize=(6, 4))
@@ -103,15 +117,15 @@ def __label_group_bar_table(ax, df):
         ypos -= .05
 
 
-def plot_mutspec192(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutational spectra", figsize=(20, 12), filepath=None):
+def plot_mutspec192(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutational spectrum", figsize=(20, 12), filepath=None):
     """
-    Plot barblot of given mutational spectra calculated from single nucleotide substitutions
+    Plot barblot of given mutational spectrum calculated from single nucleotide substitutions
 
     Arguments
     ---------
     mutspec192: pd.DataFrame
-        table, containing 192 component mutational spectra for one or many species, all substitutions must be presented in the table
-    title: str, default = 'Mutational spectra'
+        table, containing 192 component mutational spectrum for one or many species, all substitutions must be presented in the table
+    title: str, default = 'Mutational spectrum'
         Title on the plot
     filepath: str, default = None
         Path to output plot file. If None no images will be written
@@ -127,11 +141,11 @@ def plot_mutspec192(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutationa
     ax.grid(axis="y", alpha=.7, linewidth=0.5)
     sns.barplot(
         x="Mut", y=ylabel, data=mutspec192,
-        # order=ordered_sbs192, 
+        order=ordered_sbs192, 
         errwidth=1, ax=fig.gca(),
     )
     # map colors to bars
-    for bar, clr in zip(ax.patches, coloring192()):
+    for bar, clr in zip(ax.patches, colors192):
         bar.set_color(clr)
         bar.set_width(0.3)
 
@@ -146,7 +160,7 @@ def plot_mutspec192(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutationa
     plt.show()
 
 
-def plot_mutspec192kk(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutational spectra", figsize=(22, 8), filepath=None):
+def plot_mutspec192kk(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutational spectrum", figsize=(24, 6), filepath=None):
     ms192 = mutspec192.copy()
     ms192["long_lbl"] = ms192.Mut.str.get(2) + ms192.Mut.str.get(4) + ": " + ms192.Mut.str.get(0) + ms192.Mut.str.get(2) + ms192.Mut.str.get(-1)
     fig = plt.figure(figsize=figsize)
@@ -154,15 +168,18 @@ def plot_mutspec192kk(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutatio
     ax.grid(axis="y", alpha=.7, linewidth=0.5)
     sns.barplot(
         x="long_lbl", y=ylabel, data=ms192,
-        order=[x[2] + x[4] + ": " + x[0] + x[2] + x[-1] for x in ordered_sbs192], 
-        errwidth=1, ax=fig.gca()
+        order=_nice_order_kk, errwidth=1, ax=fig.gca()
     )
     plt.xticks(rotation=90, fontsize=7)
-    plt.xlabel("")
+    ax.set_title(title)
+    ax.set_xlabel("")
+    ax.set_ylabel("Mutational spectrum")
     # map colors to bars
-    for bar, clr in zip(ax.patches, coloring192()):
-        bar.set_color(clr)
-        bar.set_alpha(alpha=0.9)
+    clrs_iterator = _coloring192()
+    for bar, sbs in zip(ax.patches, _nice_order_kk):
+        if len(sbs):
+            bar.set_color(next(clrs_iterator))
+            bar.set_alpha(alpha=0.9)
         bar.set_width(0.3)
     if filepath is not None:
         plt.savefig(filepath)

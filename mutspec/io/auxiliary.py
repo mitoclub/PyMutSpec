@@ -1,9 +1,10 @@
 import os
 import re
-from typing import Dict
+from typing import Dict, Union
 
 import numpy as np
 import pandas as pd
+from Bio.SeqRecord import SeqRecord
 from Bio import SeqIO
 
 
@@ -29,15 +30,21 @@ def get_aln_files(path: str):
     return files
 
 
-def read_genbank_ref(path: str):
-    gb_file = next(SeqIO.parse(path, "genbank"))
+def read_genbank_ref(gb: Union[str, SeqRecord]):
+    if isinstance(gb, str):
+        genome = next(SeqIO.parse(gb, "genbank"))
+    elif isinstance(gb, SeqRecord):
+        genome = gb
+    else:
+        raise NotImplementedError
+
     ftypes_nc = {'rRNA', 'tRNA'}
     full_nucls = set("ACGT")
     data = []
     df: pd.DataFrame = None
-    for ftr in gb_file.features:
+    for ftr in genome.features:
         if ftr.type == "source":
-            source = ftr.extract(gb_file)
+            source = ftr.extract(genome)
             seq = str(source.seq)
             for pos, nuc in enumerate(seq):
                 context = seq[pos - 1: pos + 2]
