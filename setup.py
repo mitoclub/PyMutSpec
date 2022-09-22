@@ -19,7 +19,6 @@ setup(
     license="MIT",
     install_requires=packages,
     dependency_links=extra_index_urls,
-    # package_data={"": ["data/*", "data/**/*"]},
-    packages=find_packages(include="core*"),
+    packages=find_packages(),
     python_requires=">=3.8",
 )
