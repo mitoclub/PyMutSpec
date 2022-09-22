@@ -6,7 +6,7 @@ import pandas as pd
 from Bio.Data import CodonTable
 from Bio.Data.CodonTable import NCBICodonTableDNA
 
-from ..constants import *
+from mutspec.constants import *
 
 
 class CodonAnnotation:

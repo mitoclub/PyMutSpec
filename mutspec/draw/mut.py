@@ -8,7 +8,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from ..constants import possible_sbs12, possible_sbs192, ordered_sbs192
+from mutspec.constants import possible_sbs12, possible_sbs192, ordered_sbs192
 
 
 color_mapping6 = {

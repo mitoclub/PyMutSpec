@@ -4,8 +4,8 @@ from typing import Set, Union, Dict, Iterable
 import numpy as np
 import pandas as pd
 
+from mutspec.constants import possible_sbs12_set, possible_sbs192_set
 from .mut import CodonAnnotation
-from ..constants import possible_sbs12_set, possible_sbs192_set
 
 
 def calculate_mutspec(
