@@ -1,5 +1,4 @@
-data/*
-!data/share
+data
 
 *.db
 *.ipynb_checkpoints
