@@ -406,7 +406,10 @@ def main(
     global logger
     _log_lvl = "DEBUG" if verbosity >= 1 else None
     logfile = os.path.join(outdir, "run.log")
-    logger = load_logger(stream_level=_log_lvl, filename=logfile)
+    # TODO drop
+    _root = os.path.dirname(sys.argv[0]).removesuffix("/scripts")
+    DEFAULT_PATH_TO_LOGCONF = os.path.join(_root, "mutspec/utils/configs/log_settings.yaml")
+    logger = load_logger(DEFAULT_PATH_TO_LOGCONF, stream_level=_log_lvl, filename=logfile)
     logger.info(f"Writing logs to file '{logfile}'")
     logger.debug("Command: " + " ".join(sys.argv))
     MutSpec(
