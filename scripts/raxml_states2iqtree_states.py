@@ -6,8 +6,8 @@
 import sys
 
 nucls = list("ACGT")
-header = ["Node", "Site", "State", "p_A", "p_C", "p_G", "p_T"]
-
+header = ["Node", "Part", "Site", "State", "p_A", "p_C", "p_G", "p_T"]
+part = "1"
 
 def agrmax(a):
     xmax = 0
@@ -37,7 +37,7 @@ def main(path_to_raxml_states, out_path):
                 else:
                     probas = line.split()
                     most_probable_state = nucls[agrmax(map(float, probas))]
-                    row = [node, str(i), most_probable_state] + probas
+                    row = [node, part, str(i), most_probable_state] + probas
                     fout.write("\t".join(row) + "\n")
                     i += 1
 
