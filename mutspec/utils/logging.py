@@ -1,10 +1,11 @@
 import os
+import sys
 import logging
 import logging.config
 
 import yaml
 
-DEFAULT_PATH_TO_LOGCONF = "./configs/log_settings.yaml"
+DEFAULT_PATH_TO_LOGCONF = os.path.join(os.path.dirname(sys.argv[0]), "configs/log_settings.yaml")
 
 
 def load_logger(path=DEFAULT_PATH_TO_LOGCONF, stream_level: str = None, filename=None):
