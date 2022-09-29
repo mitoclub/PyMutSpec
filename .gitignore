@@ -12,3 +12,4 @@ tests/data/states_sample.db
 .vscode
 .pytest_cache
 *.egg
+tmp
