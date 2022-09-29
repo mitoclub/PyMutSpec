@@ -4,6 +4,8 @@ script add names for internal nodes in newick file
 import sys
 from ete3 import PhyloTree
 
+dist_formatter="%0.8f"
+
 
 def main(path_to_tree, path_to_out):
     tree = PhyloTree(path_to_tree, format=1)
@@ -14,7 +16,7 @@ def main(path_to_tree, path_to_out):
             node.name = "Node{}".format(i)
             i += 1
 
-    tree.write(format=1, outfile=path_to_out)
+    tree.write(format=1, outfile=path_to_out, dist_formatter=dist_formatter)
 
 
 if __name__ == "__main__":
