@@ -1,5 +1,5 @@
 """
-Leaves genomes must be written directly without partitioning - only positions in gene!!
+Leaves genomes must be written directly without partitioning - only positions in part!!
 Only filenames need for this, but if there are preliminary aln concatenation it need additional step
 
 Internal States must be rewritten to similar format 
@@ -24,34 +24,29 @@ def parse_alignment_and_write_states(files: list, outfile) -> Tuple[str, int]:
     """
     print(f"Processing...", file=sys.stderr)
     handle = open(outfile, "w")
-    ngenes = len(files)
-    if ngenes == 1:
-        columns = "Node Site State p_A p_C p_G p_T".split()
-    else:    
-        columns = "Node Part Site State p_A p_C p_G p_T".split()
+    ngenes = len(files)  
+    columns = "Node Part Site State p_A p_C p_G p_T".split()
     handle.write("\t".join(columns) + "\n")
     aln_lens = dict()
     files = set(files)
     history = defaultdict(list)
     for filepath in files:
-        gene = os.path.basename(filepath).replace(".fna", "")
+        part = os.path.basename(filepath).replace(".fna", "")
+        if ngenes == 1:
+            part = "1"
         fasta = SeqIO.parse(filepath, "fasta")
         for rec in fasta:
             node = rec.name
-            history[node].append(gene)
+            history[node].append(part)
             seq = str(rec.seq)
             for site, state in enumerate(seq, 1):
-                pos_data = [node, str(gene), str(site), state]
-                if ngenes == 1:
-                    pos_data = [node, str(site), state]
-                else:    
-                    pos_data = [node, str(gene), str(site), state]
+                pos_data = [node, part, str(site), state]
                 for nucl in nucls:
                     p = int(nucl == state)
                     pos_data.append(str(p))
 
                 handle.write("\t".join(pos_data) + "\n")
-        aln_lens[gene] = len(seq)
+        aln_lens[part] = len(seq)
 
     if ngenes > 1:
         # get max set of parts. Only for multiple files
