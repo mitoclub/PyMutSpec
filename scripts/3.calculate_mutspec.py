@@ -26,7 +26,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
             self, path_to_tree, path_to_states, out_dir, 
             gcode=2, db_mode="dict", path_to_db="/tmp/states.db", 
             rewrite_db=None, proba_mode=False, proba_cutoff=0.01, 
-            use_phylocoef=False, syn=False, syn4f=False,
+            use_phylocoef=False, syn=False, syn4f=False, no_mutspec=False,
         ):
         for path in list(path_to_states) + [path_to_tree]:
             if not os.path.exists(path):
@@ -42,6 +42,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
         logger.info(f"Use probabilities of genomic states: {proba_mode}")
         self.proba_cutoff = proba_cutoff
         self.use_phylocoef = use_phylocoef
+        self.no_mutspec = no_mutspec
         if proba_mode:
             logger.info(f"Use phylogenetic uncertainty coefficient: {use_phylocoef}")
         self.MUT_LABELS = ["all"]
@@ -49,12 +50,12 @@ class MutSpec(CodonAnnotation, GenomeStates):
             self.MUT_LABELS.append("syn")
         if syn4f:
             self.MUT_LABELS.append("ff")
-        logger.info(f"Will calculate such mutspecs: {self.MUT_LABELS}")
+        logger.info(f"Types of spectra to calculate: {self.MUT_LABELS}")
         self.fp_format = np.float32
         self.tree = PhyloTree(path_to_tree, format=1)
         self.max_dist = self.fp_format(get_farthest_leaf(self.tree))
         logger.info(
-            f"tree loaded, number of leaf nodes: {len(self.tree)}, "
+            f"Tree loaded, number of leaf nodes: {len(self.tree)}, "
             f"total number of nodes: {len(self.tree.get_cached_content())}, "
             f"distance to farthest leaf: {self.max_dist: .2f}"
         )
@@ -63,19 +64,20 @@ class MutSpec(CodonAnnotation, GenomeStates):
         self.close_handles()
 
     def open_handles(self, out_dir):
+        self.handle = dict()
         path_to_mutations  = os.path.join(out_dir, "mutations.tsv")
         path_to_nucl_freqs = os.path.join(out_dir, "expected_mutations.tsv")
-        path_to_mutspec12  = os.path.join(out_dir, "mutspec12.tsv")
-        path_to_mutspec192 = os.path.join(out_dir, "mutspec192.tsv")
-        path_to_mutspec_genes12  = os.path.join(out_dir, "mutspec12genes.tsv")
-        path_to_mutspec_genes192 = os.path.join(out_dir, "mutspec192genes.tsv")
-        self.handle = dict()
-        self.handle["mut"]    = open(path_to_mutations, "w")
+        self.handle["mut"] = open(path_to_mutations, "w")
         self.handle["freq"]   = open(path_to_nucl_freqs, "w")
-        self.handle["ms12"]   = open(path_to_mutspec12, "w")
-        self.handle["ms192"]  = open(path_to_mutspec192, "w")
-        self.handle["ms12s"]  = open(path_to_mutspec_genes12, "w")
-        self.handle["ms192g"] = open(path_to_mutspec_genes192, "w")
+        if not self.no_mutspec:
+            path_to_mutspec12  = os.path.join(out_dir, "mutspec12.tsv")
+            path_to_mutspec192 = os.path.join(out_dir, "mutspec192.tsv")
+            path_to_mutspec_genes12  = os.path.join(out_dir, "mutspec12genes.tsv")
+            path_to_mutspec_genes192 = os.path.join(out_dir, "mutspec192genes.tsv")
+            self.handle["ms12"]   = open(path_to_mutspec12, "w")
+            self.handle["ms192"]  = open(path_to_mutspec192, "w")
+            self.handle["ms12s"]  = open(path_to_mutspec_genes12, "w")
+            self.handle["ms192g"] = open(path_to_mutspec_genes192, "w")
         logger.info("Handles opened")
 
     def close_handles(self):
@@ -89,7 +91,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
         aln_size = self.genome_size
         for ei, (ref_node, alt_node) in enumerate(iter_tree_edges(self.tree), 1):
             if ref_node.name not in self.nodes or alt_node.name not in self.nodes:
-                logger.debug(f"Pass edge '{ref_node.name}'-'{alt_node.name}' due to absence of genome")
+                logger.warning(f"Pass edge '{ref_node.name}'-'{alt_node.name}' due to absence of genome")
                 continue
 
             # get genomes from storage
@@ -148,45 +150,44 @@ class MutSpec(CodonAnnotation, GenomeStates):
                 
                 # collect mutations of full genome
                 genome_mutations.append(gene_mut_df)
-
+                
                 # calculate gene mutational spectra for all labels
-                for lbl in self.MUT_LABELS:
-                    mutspec12 = calculate_mutspec(
-                        gene_mut_df[gene_mut_df.Label >= lbl2lbl_id(lbl)], gene_exp_sbs12[lbl], 
-                        use_context=False, use_proba=self.proba_mode
-                    )
-                    mutspec12["AltNode"] = alt_node.name
-                    mutspec12["Label"] = lbl
-                    mutspec12["Gene"]  = gene
-                    # Dump gene mutspecs 
-                    self.dump_table(mutspec12, self.handle["ms12s"], add_header["ms12g"])
-                    add_header["ms12g"] = False
-
-                    if len(gene_mut_df) > 100:
-                        mutspec192 = calculate_mutspec(
-                            gene_mut_df[gene_mut_df.Label >= lbl2lbl_id(lbl)], gene_exp_sbs192[lbl], 
-                            use_context=True, use_proba=self.proba_mode
+                if not self.no_mutspec:
+                    for lbl in self.MUT_LABELS:
+                        mutspec12 = calculate_mutspec(
+                            gene_mut_df[gene_mut_df.Label >= lbl2lbl_id(lbl)], gene_exp_sbs12[lbl], 
+                            use_context=False, use_proba=self.proba_mode
                         )
-                        mutspec192["RefNode"] = ref_node.name
-                        mutspec192["AltNode"] = alt_node.name
-                        mutspec192["Label"] = lbl
-                        mutspec192["Gene"] = gene
+                        mutspec12["AltNode"] = alt_node.name
+                        mutspec12["Label"] = lbl
+                        mutspec12["Gene"]  = gene
                         # Dump gene mutspecs 
-                        self.dump_table(mutspec192, self.handle["ms192g"], add_header["ms192g"])
-                        add_header["ms192g"] = False
+                        self.dump_table(mutspec12, self.handle["ms12s"], add_header["ms12g"])
+                        add_header["ms12g"] = False
+
+                        if len(gene_mut_df) > 100:
+                            mutspec192 = calculate_mutspec(
+                                gene_mut_df[gene_mut_df.Label >= lbl2lbl_id(lbl)], gene_exp_sbs192[lbl], 
+                                use_context=True, use_proba=self.proba_mode
+                            )
+                            mutspec192["RefNode"] = ref_node.name
+                            mutspec192["AltNode"] = alt_node.name
+                            mutspec192["Label"] = lbl
+                            mutspec192["Gene"] = gene
+                            # Dump gene mutspecs 
+                            self.dump_table(mutspec192, self.handle["ms192g"], add_header["ms192g"])
+                            add_header["ms192g"] = False
 
             if len(genome_mutations) == 0:
-                logger.warning(f"Observed 0 mutations for branch ({ref_node.name} - {alt_node.name})")
+                logger.info(f"Observed 0 mutations for branch ({ref_node.name} - {alt_node.name})")
                 continue
 
             genome_mutations_df = pd.concat(genome_mutations)
             del genome_mutations
             
             mut_num = genome_mutations_df.ProbaFull.sum() if self.proba_mode else len(genome_mutations_df)
-            logger.debug(f"Extracted {mut_num} mutations from {ref_node.name} to {alt_node.name}")
-            if self.proba_mode and mut_num > aln_size * 0.1:
-                logger.warning(f"Observed too many mutations ({mut_num} > {aln_size} * 0.1) for branch ({ref_node.name} - {alt_node.name})")
-            if not self.proba_mode and mut_num > aln_size * 0.1:
+            logger.info(f"Observed {mut_num:.3f} mutations for branch ({ref_node.name} - {alt_node.name})")
+            if mut_num > aln_size * 0.1:
                 logger.warning(f"Observed too many mutations ({mut_num} > {aln_size} * 0.1) for branch ({ref_node.name} - {alt_node.name})")
 
             # dump mutations
@@ -194,26 +195,27 @@ class MutSpec(CodonAnnotation, GenomeStates):
             add_header["mut"] = False
             
             # calculate full genome mutational spectra for all labels
-            for lbl in self.MUT_LABELS:
-                mutspec12 = calculate_mutspec(
-                    genome_mutations_df[genome_mutations_df.Label >= lbl2lbl_id(lbl)],
-                    genome_nucl_freqs[lbl], use_context=False, use_proba=self.proba_mode
-                )
-                mutspec12["RefNode"] = ref_node.name
-                mutspec12["AltNode"] = alt_node.name
-                mutspec12["Label"] = lbl
-                mutspec192 = calculate_mutspec(
-                    genome_mutations_df[genome_mutations_df.Label >= lbl2lbl_id(lbl)],
-                    genome_cxt_freqs[lbl], use_context=True, use_proba=self.proba_mode
-                )
-                mutspec192["RefNode"] = ref_node.name
-                mutspec192["AltNode"] = alt_node.name
-                mutspec192["Label"] = lbl
+            if not self.no_mutspec:
+                for lbl in self.MUT_LABELS:
+                    mutspec12 = calculate_mutspec(
+                        genome_mutations_df[genome_mutations_df.Label >= lbl2lbl_id(lbl)],
+                        genome_nucl_freqs[lbl], use_context=False, use_proba=self.proba_mode
+                    )
+                    mutspec12["RefNode"] = ref_node.name
+                    mutspec12["AltNode"] = alt_node.name
+                    mutspec12["Label"] = lbl
+                    mutspec192 = calculate_mutspec(
+                        genome_mutations_df[genome_mutations_df.Label >= lbl2lbl_id(lbl)],
+                        genome_cxt_freqs[lbl], use_context=True, use_proba=self.proba_mode
+                    )
+                    mutspec192["RefNode"] = ref_node.name
+                    mutspec192["AltNode"] = alt_node.name
+                    mutspec192["Label"] = lbl
 
-                # Dump genome mutspecs
-                self.dump_table(mutspec12,  self.handle["ms12"],  add_header["ms"])
-                self.dump_table(mutspec192, self.handle["ms192"], add_header["ms"])
-                add_header["ms"] = False
+                    # Dump genome mutspecs
+                    self.dump_table(mutspec12,  self.handle["ms12"],  add_header["ms"])
+                    self.dump_table(mutspec192, self.handle["ms192"], add_header["ms"])
+                    add_header["ms"] = False
 
             if ei % 100 == 0:
                 logger.info(f"Processed {ei} tree edges")
@@ -381,6 +383,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
 @click.option("--proba", is_flag=True, default=False, help="Use states probabilities while mutations collecting")
 @click.option("--pcutoff", "proba_cutoff", default=0.01, show_default=True, type=float, help="Cutoff of tri/tetranucleotide state probability, states with lower values will not be used in mutation collecting")
 @click.option("--phylocoef/--no-phylocoef", is_flag=True, default=True, show_default=True, help="Use or don't use phylogenetic uncertainty coefficient. Use only with --proba")
+@click.option("--no-mutspec", is_flag=True, default=False, show_default=True, help="Don't calculate mutspec, only mutations extraction")
 @click.option("--write_db", type=click.Choice(['dict', 'db'], case_sensitive=False), show_default=True, default="dict", help="Write sqlite3 database instead of using dictionary for states. Usefull if you have low RAM. Time expensive")
 @click.option("--db_path", "path_to_db", type=click.Path(writable=True), default="/tmp/states.db", show_default=True, help="Path to database with states. Use only with --write_db")
 @click.option("--rewrite_db",  is_flag=True, default=False, help="Rewrite existing states database. Use only with --write_db")
@@ -390,7 +393,7 @@ def main(
         path_to_tree, path_to_states, outdir, 
         gencode, syn, syn4f, proba, proba_cutoff, 
         write_db, path_to_db, rewrite_db, 
-        phylocoef, force, verbosity,
+        phylocoef, no_mutspec, force, verbosity,
     ):
     if os.path.exists(outdir):
         if not force:
@@ -416,22 +419,9 @@ def main(
         path_to_tree, path_to_states, outdir, gcode=gencode, 
         db_mode=write_db, path_to_db=path_to_db, rewrite_db=rewrite_db, 
         proba_mode=proba, proba_cutoff=proba_cutoff, use_phylocoef=phylocoef,
-        syn=syn, syn4f=syn4f,
+        syn=syn, syn4f=syn4f, no_mutspec=no_mutspec,
     )
 
 
 if __name__ == "__main__":
     main()
-
-
-# if __name__ == "__main__":
-#     path_to_tree =   "./data/example_nematoda/anc.treefile.rooted"
-#     path_to_leaves = "./data/example_nematoda/leaves_states_nematoda.tsv"
-#     path_to_anc = "./data/example_nematoda/nematoda_anc_mf/genes_states.tsv"
-#     out_dir = "./data/processed/nematoda"
-
-#     out_dir_lbl=""
-#     out_dir_lbl = datetime.now().strftime("%d-%m-%y-%H-%M-%S") + "_" + out_dir_lbl
-#     out_dir = os.path.join(out_dir, out_dir_lbl)
-    
-#     main(path_to_tree, path_to_anc, path_to_leaves, "anc_mf")

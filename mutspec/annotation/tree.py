@@ -1,10 +1,10 @@
 from queue import Queue
 
 import numpy as np
-from ete3 import PhyloTree
+from ete3 import PhyloTree, PhyloNode
 
 
-def node_parent(node):
+def node_parent(node: PhyloNode):
     try:
         return next(node.iter_ancestors())
     except BaseException:
