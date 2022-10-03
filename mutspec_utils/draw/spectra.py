@@ -8,8 +8,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from mutspec.constants import possible_sbs12, possible_sbs192, ordered_sbs192
-
+from .sbs_orders import ordered_sbs192_kp, ordered_sbs192_kk
+from mutspec_utils.constants import possible_sbs12, possible_sbs192
 
 color_mapping6 = {
     "C>A": "deepskyblue",
@@ -40,18 +40,15 @@ colors192 = _smpl.sort_values(["MutBase", "Context"])["MutBase"].map(color_mappi
 colors12 = [color_mapping12[sbs] for sbs in possible_sbs12]
 
 
-def __prepare_nice_kk_order():
-    _nice_order_kk = []
+def __prepare_nice_labels(ordered_sbs192):
+    _nice_order = []
     prev = None
     for sbs in ordered_sbs192:
         if prev is not None and sbs[2:5] != prev[2:5]:
-            _nice_order_kk.append("")
-        _nice_order_kk.append(sbs[2] + sbs[4] + ": " + sbs[0] + sbs[2] + sbs[-1])
+            _nice_order.append("")
+        _nice_order.append(sbs[2] + sbs[4] + ": " + sbs[0] + sbs[2] + sbs[-1])
         prev = sbs
-    return _nice_order_kk
-
-
-_nice_order_kk = __prepare_nice_kk_order()
+    return _nice_order
 
 
 def _coloring192():
@@ -141,7 +138,7 @@ def plot_mutspec192(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutationa
     ax.grid(axis="y", alpha=.7, linewidth=0.5)
     sns.barplot(
         x="Mut", y=ylabel, data=mutspec192,
-        order=ordered_sbs192, 
+        order=ordered_sbs192_kp, 
         errwidth=1, ax=fig.gca(),
     )
     # map colors to bars
@@ -168,7 +165,7 @@ def plot_mutspec192kk(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutatio
     ax.grid(axis="y", alpha=.7, linewidth=0.5)
     sns.barplot(
         x="long_lbl", y=ylabel, data=ms192,
-        order=_nice_order_kk, errwidth=1, ax=fig.gca()
+        order=__prepare_nice_labels(ordered_sbs192_kk), errwidth=1, ax=fig.gca()
     )
     plt.xticks(rotation=90, fontsize=7)
     ax.set_title(title)
@@ -176,7 +173,7 @@ def plot_mutspec192kk(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutatio
     ax.set_ylabel("Mutational spectrum")
     # map colors to bars
     clrs_iterator = _coloring192()
-    for bar, sbs in zip(ax.patches, _nice_order_kk):
+    for bar, sbs in zip(ax.patches, __prepare_nice_labels(ordered_sbs192_kk)):
         if len(sbs):
             bar.set_color(next(clrs_iterator))
             bar.set_alpha(alpha=0.9)
