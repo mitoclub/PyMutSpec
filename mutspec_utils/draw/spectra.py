@@ -25,11 +25,11 @@ color_mapping12 = {
     "C>G": "black",
     "G>C": "black",
     "C>T": "red",
-    "G>A": "salmon",
+    "G>A": "red",  # salmon
     "T>A": "silver",
     "A>T": "silver",
-    "T>C": "green",
-    "A>G": "green",
+    "T>C": "yellowgreen",
+    "A>G": "yellowgreen",
     "T>G": "pink",
     "A>C": "pink",
 }
@@ -51,7 +51,7 @@ def __prepare_nice_labels(ordered_sbs192):
     return _nice_order
 
 
-def _coloring192():
+def _coloring192kk():
     colors = "red yellow lime blue".split()
     while True:
         for clr in colors:
@@ -128,30 +128,42 @@ def plot_mutspec192(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutationa
         Path to output plot file. If None no images will be written
     """
     # TODO add checks of mutspec192
-    mutspec192 = mutspec192.copy()
-    mutspec192["MutBase"] = mutspec192.Mut.str.slice(2, 5)
-    mutspec192["Context"] = mutspec192.Mut.str.get(0) + mutspec192.Mut.str.get(2) + mutspec192.Mut.str.get(-1)
+    ms192 = mutspec192.copy()
+    ms192["MutBase"] = ms192.Mut.str.slice(2, 5)
+    ms192["Context"] = ms192.Mut.str.get(0) + ms192.Mut.str.get(2) + ms192.Mut.str.get(-1)
+    ms192["long_lbl"] = ms192.Mut.str.get(2) + ms192.Mut.str.get(4) + ": " + ms192.Mut.str.get(0) + ms192.Mut.str.get(2) + ms192.Mut.str.get(-1)
+    order = __prepare_nice_labels(ordered_sbs192_kp)
 
-    df = mutspec192.groupby(["MutBase", "Context"]).mean()
+    df = ms192.groupby(["MutBase", "Context"]).mean()
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111)
     ax.grid(axis="y", alpha=.7, linewidth=0.5)
     sns.barplot(
-        x="Mut", y=ylabel, data=mutspec192,
-        order=ordered_sbs192_kp, 
-        errwidth=1, ax=fig.gca(),
+        x="long_lbl", y=ylabel, data=ms192,
+        order=order, errwidth=1, ax=fig.gca(),
     )
-    # map colors to bars
-    for bar, clr in zip(ax.patches, colors192):
-        bar.set_color(clr)
-        bar.set_width(0.3)
-
-    labels = ['' for _ in ax.get_xticklabels()]
-    ax.set_xticklabels(labels)
-    ax.set_xlabel('')
     ax.set_title(title)
-    __label_group_bar_table(ax, df)
-    fig.subplots_adjust(bottom=0.1 * df.index.nlevels)
+    ax.set_xlabel("")
+    ax.set_ylabel("")
+    # map colors to bars
+    width = 0.4
+    shift = None
+    for bar, sbs in zip(ax.patches, order):
+        if not shift:
+            shift = (bar.get_width() - width) / 2
+        if len(sbs):
+            if "long_lbl":
+                s = sbs[0] + ">" + sbs[1]
+                bar.set_color(color_mapping12[s])
+            bar.set_alpha(alpha=0.9)
+        bar.set_width(width)
+        bar.set_x(bar.get_x() + shift)
+
+    plt.xticks(rotation=90, fontsize=6)
+    # labels = ['' for _ in ax.get_xticklabels()]
+    # ax.set_xticklabels(labels)
+    # __label_group_bar_table(ax, df)
+    # fig.subplots_adjust(bottom=0.1 * df.index.nlevels)
     if filepath is not None:
         plt.savefig(filepath)
     plt.show()
@@ -163,17 +175,19 @@ def plot_mutspec192kk(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutatio
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111)
     ax.grid(axis="y", alpha=.7, linewidth=0.5)
+    order = __prepare_nice_labels(ordered_sbs192_kk)
     sns.barplot(
         x="long_lbl", y=ylabel, data=ms192,
-        order=__prepare_nice_labels(ordered_sbs192_kk), errwidth=1, ax=fig.gca()
+        order=order, 
+        errwidth=1, ax=fig.gca(), 
     )
     plt.xticks(rotation=90, fontsize=7)
     ax.set_title(title)
     ax.set_xlabel("")
     ax.set_ylabel("Mutational spectrum")
     # map colors to bars
-    clrs_iterator = _coloring192()
-    for bar, sbs in zip(ax.patches, __prepare_nice_labels(ordered_sbs192_kk)):
+    clrs_iterator = _coloring192kk()
+    for bar, sbs in zip(ax.patches, order):
         if len(sbs):
             bar.set_color(next(clrs_iterator))
             bar.set_alpha(alpha=0.9)
