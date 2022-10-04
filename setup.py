@@ -12,8 +12,8 @@ with open("requirements.txt", encoding="utf-8") as file:
                 packages.append(line)
 
 setup(
-    name="mutspec",
-    version="0.0.1",
+    name="mutspec_utils",
+    version="0.0.2",
     author="kpotoh, genkvg",
     author_email="None",
     license="MIT",
