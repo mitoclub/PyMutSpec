@@ -411,7 +411,7 @@ def main(
     logfile = os.path.join(outdir, "run.log")
     # TODO drop
     _root = os.path.dirname(sys.argv[0]).replace("/scripts", "")
-    DEFAULT_PATH_TO_LOGCONF = os.path.join(_root, "mutspec/utils/configs/log_settings.yaml")
+    DEFAULT_PATH_TO_LOGCONF = os.path.join(_root, "mutspec_utils/utils/configs/log_settings.yaml")
     logger = load_logger(DEFAULT_PATH_TO_LOGCONF, stream_level=_log_lvl, filename=logfile)
     logger.info(f"Writing logs to file '{logfile}'")
     logger.debug("Command: " + " ".join(sys.argv))
