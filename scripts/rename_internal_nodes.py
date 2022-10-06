@@ -36,7 +36,10 @@ def main(path_to_dist_tree, path_to_named_tree, path_to_out):
             node_dist = pa_dist
             node_named = pa_named
 
-    tree_dist.write(format=1, outfile=path_to_out, dist_formatter=dist_formatter)
+    nwk = tree_dist.write(format=1, outfile=None, dist_formatter=dist_formatter)
+    nwk = nwk.replace(";", "ROOT;")  # add ROOT label, that cannot be added with PhyloTree
+    with open(path_to_out, "w") as fout:
+        fout.write(nwk)
 
 
 if __name__ == "__main__":
