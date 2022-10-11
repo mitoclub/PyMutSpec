@@ -70,6 +70,9 @@ def plot_mutspec12(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutation
         bar.set_color(clr)
 
     ax.set_title(title)
+    ax.set_ylabel("")
+    ax.set_xlabel("")
+
     if savepath is not None:
         plt.savefig(savepath)
     if show:
@@ -118,7 +121,7 @@ def __label_group_bar_table(ax, df):
         ypos -= .05
 
 
-def plot_mutspec192(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutational spectrum", figsize=(20, 12), filepath=None):
+def plot_mutspec192(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutational spectrum", show=True, figsize=(24, 10), filepath=None):
     """
     Plot barblot of given mutational spectrum calculated from single nucleotide substitutions
 
@@ -170,10 +173,12 @@ def plot_mutspec192(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutationa
     # fig.subplots_adjust(bottom=0.1 * df.index.nlevels)
     if filepath is not None:
         plt.savefig(filepath)
-    plt.show()
+    if show:
+        plt.show()
+    else:
+        plt.close()
 
-
-def plot_mutspec192kk(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutational spectrum", figsize=(24, 6), filepath=None):
+def plot_mutspec192kk(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutational spectrum", show=True, figsize=(24, 6), filepath=None):
     ms192 = mutspec192.copy()
     ms192["long_lbl"] = ms192.Mut.str.get(2) + ms192.Mut.str.get(4) + ": " + ms192.Mut.str.get(0) + ms192.Mut.str.get(2) + ms192.Mut.str.get(-1)
     fig = plt.figure(figsize=figsize)
@@ -198,5 +203,7 @@ def plot_mutspec192kk(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutatio
         bar.set_width(0.3)
     if filepath is not None:
         plt.savefig(filepath)
-    plt.show()
-
+    if show:
+        plt.show()
+    else:
+        plt.close()
