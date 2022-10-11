@@ -58,7 +58,7 @@ def _coloring192kk():
             yield clr
 
 
-def plot_mutspec12(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutational spectrum", savepath=None):
+def plot_mutspec12(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutational spectrum", show=True, savepath=None):
     # TODO add checks of mutspec12
     # TODO add description to all plot* functions
     fig = plt.figure(figsize=(6, 4))
@@ -72,7 +72,11 @@ def plot_mutspec12(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutation
     ax.set_title(title)
     if savepath is not None:
         plt.savefig(savepath)
-    plt.show()
+    if show:
+        plt.show()
+    else:
+        plt.close()
+    return ax
 
 
 def __add_line(ax, xpos, ypos):
