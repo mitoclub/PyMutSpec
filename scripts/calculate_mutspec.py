@@ -9,7 +9,7 @@ from mutspec_utils.annotation import calculate_mutspec, rev_comp, translator
 from mutspec_utils.constants import possible_sbs12, possible_sbs192
 
 OUTGRP = "OUTGRP"
-MUT_NUM_FOR_192 = 150
+MUT_NUM_FOR_192 = 4 * 8
 LABELS = [0, 1, 2]
 
 color_mapping12 = {
@@ -54,7 +54,8 @@ def __prepare_nice_labels(ordered_sbs192):
     for sbs in ordered_sbs192:
         if prev is not None and sbs[2:5] != prev[2:5]:
             _nice_order.append("")
-        _nice_order.append(sbs[2] + sbs[4] + ": " + sbs[0] + sbs[2] + sbs[-1])
+        # _nice_order.append(sbs[2] + sbs[4] + ": " + sbs[0] + sbs[2] + sbs[-1])
+        _nice_order.append(sbs)
         prev = sbs
     return _nice_order
 
@@ -107,7 +108,7 @@ def plot_mutspec192(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutationa
     ax = fig.add_subplot(111)
     ax.grid(axis="y", alpha=.7, linewidth=0.5)
     sns.barplot(
-        x="long_lbl", y=ylabel, data=ms192,
+        x="Mut", y=ylabel, data=ms192,
         order=order, errwidth=1, ax=fig.gca(),
     )
     ax.set_title(title)
@@ -120,9 +121,7 @@ def plot_mutspec192(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutationa
         if not shift:
             shift = (bar.get_width() - width) / 2
         if len(sbs):
-            if "long_lbl":
-                s = sbs[0] + ">" + sbs[1]
-                bar.set_color(color_mapping12[s])
+            bar.set_color(color_mapping12[sbs[2:5]])
             bar.set_alpha(alpha=0.9)
         bar.set_width(width)
         bar.set_x(bar.get_x() + shift)
@@ -145,10 +144,13 @@ def plot_mutspec192(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutationa
 @click.option("-e", "--expected", "path_to_exp", type=click.Path(True), help="Path to expected mutations table")
 @click.option("-o", '--outdir', type=click.Path(True), default=".", show_default=True, help="Path to output directory for files (must exist)")
 @click.option("-l", '--label', default="", show_default=True, help="Label for files naming")
-@click.option('--outgrp', default=OUTGRP, show_default=True, help="Name of outgroup node in the tree to exclude from mutations set")
-@click.option('--mnum192', "mut_num_for_192", default=MUT_NUM_FOR_192, show_default=True, help="Number of mutations required to calculate and plot 192-component mutational spectra")
-@click.option('--ext', "image_extension", default="pdf", show_default=True, type=click.Choice(['pdf', 'png', 'jpg'], case_sensitive=False), help="Images format to save")
+@click.option("-t", '--outgrp', default=OUTGRP, show_default=True, help="Name of outgroup node in the tree to exclude from mutations set")
+@click.option("-m", '--mnum192', "mut_num_for_192", default=MUT_NUM_FOR_192, show_default=True, help="Number of mutation types (maximum 192) required to calculate and plot 192-component mutational spectra")
+@click.option("-x", '--ext', "image_extension", default="pdf", show_default=True, type=click.Choice(['pdf', 'png', 'jpg'], case_sensitive=False), help="Images format to save")
 def main(path_to_obs, path_to_exp, outdir, label, outgrp, mut_num_for_192, image_extension):
+    if mut_num_for_192 > 192:
+        raise RuntimeError("Number of mutation types must be less then 192, but passed {}".format(mut_num_for_192))
+
     path_to_united_exp = os.path.join(outdir, "mean_expexted_mutations_{}.tsv".format(label))
     path_to_ms12 = os.path.join(outdir, "ms12{}_{}.tsv")
     path_to_ms12plot = os.path.join(outdir, "ms12{}_{}.{}")
@@ -160,7 +162,6 @@ def main(path_to_obs, path_to_exp, outdir, label, outgrp, mut_num_for_192, image
 
     obs = obs[obs.AltNode != outgrp]
     exp = exp_raw.drop_duplicates().drop(["Node", "Gene"], axis=1).groupby("Label").mean()
-    # exp.reset_index().to_csv(path_to_united_exp, sep="\t", index=None)
     exp_melted = exp.reset_index()
     exp_melted["Label"] = exp_melted["Label"].where(exp_melted["Label"] != "ff", "syn4f")
     exp_melted.melt("Label", exp_melted.columns.values[1:], var_name="Mut", value_name="MutSpec")\
@@ -180,15 +181,18 @@ def main(path_to_obs, path_to_exp, outdir, label, outgrp, mut_num_for_192, image
             cur_exp = exp.loc[lbl].to_dict()
 
             ms12 = calculate_mutspec(cur_obs, cur_exp, use_context=False, use_proba=True)
+            ms12["Mut"] = ms12["Mut"].str.translate(translator)
             ms12.to_csv(path_to_ms12.format(lbl, label), sep="\t", index=None)
             plot_mutspec12(ms12, title=f"{lbl} mutational spectrum",
                            savepath=path_to_ms12plot.format(lbl, label, image_extension), show=False)
-            if cur_obs.shape[0] > mut_num_for_192:
+            if cur_obs.Mut.nunique() >= mut_num_for_192:
                 ms192 = calculate_mutspec(cur_obs, cur_exp, use_context=True, use_proba=True)
+                ms192["Mut"] = ms192["Mut"].apply(rev_comp)
                 ms192.to_csv(path_to_ms192.format(lbl, label), sep="\t", index=None)
                 plot_mutspec192(ms192, title=f"{lbl} mutational spectrum",
                                 filepath=path_to_ms192plot.format(lbl, label, image_extension), show=False)
 
 
 if __name__ == "__main__":
-    main()
+    # main()
+    main("--observed tmp/observed_mutations.tsv -e tmp/expected_mutations.txt -o tmp/ -l debug".split())
