@@ -9,8 +9,9 @@ from mutspec_utils.annotation import calculate_mutspec, rev_comp, translator
 from mutspec_utils.constants import possible_sbs12, possible_sbs192
 
 OUTGRP = "OUTGRP"
-MUT_NUM_FOR_192 = 4 * 8
+MUT_NUM_FOR_192 = 16
 LABELS = [0, 1, 2]
+PROBA_MIN = 0.1
 
 color_mapping12 = {
     "C>A": "deepskyblue",
@@ -144,10 +145,11 @@ def plot_mutspec192(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutationa
 @click.option("-e", "--expected", "path_to_exp", type=click.Path(True), help="Path to expected mutations table")
 @click.option("-o", '--outdir', type=click.Path(True), default=".", show_default=True, help="Path to output directory for files (must exist)")
 @click.option("-l", '--label', default="", show_default=True, help="Label for files naming")
+@click.option("-p", '--proba_min', default=PROBA_MIN, show_default=True, help="Minimal mutation probability to consider in mutspec calculation")
 @click.option("-t", '--outgrp', default=OUTGRP, show_default=True, help="Name of outgroup node in the tree to exclude from mutations set")
 @click.option("-m", '--mnum192', "mut_num_for_192", default=MUT_NUM_FOR_192, show_default=True, help="Number of mutation types (maximum 192) required to calculate and plot 192-component mutational spectra")
 @click.option("-x", '--ext', "image_extension", default="pdf", show_default=True, type=click.Choice(['pdf', 'png', 'jpg'], case_sensitive=False), help="Images format to save")
-def main(path_to_obs, path_to_exp, outdir, label, outgrp, mut_num_for_192, image_extension):
+def main(path_to_obs, path_to_exp, outdir, label, proba_min, outgrp, mut_num_for_192, image_extension):
     if mut_num_for_192 > 192:
         raise RuntimeError("Number of mutation types must be less then 192, but passed {}".format(mut_num_for_192))
 
@@ -160,7 +162,7 @@ def main(path_to_obs, path_to_exp, outdir, label, outgrp, mut_num_for_192, image
     obs = pd.read_csv(path_to_obs, sep="\t")
     exp_raw = pd.read_csv(path_to_exp, sep="\t")
 
-    obs = obs[obs.AltNode != outgrp]
+    obs = obs[(obs.AltNode != outgrp) & (obs.ProbaFull > proba_min)]
     exp = exp_raw.drop_duplicates().drop(["Node", "Gene"], axis=1).groupby("Label").mean()
     exp_melted = exp.reset_index()
     exp_melted["Label"] = exp_melted["Label"].where(exp_melted["Label"] != "ff", "syn4f")
@@ -194,5 +196,5 @@ def main(path_to_obs, path_to_exp, outdir, label, outgrp, mut_num_for_192, image
 
 
 if __name__ == "__main__":
-    # main()
-    main("--observed tmp/observed_mutations.tsv -e tmp/expected_mutations.txt -o tmp/ -l debug".split())
+    main()
+    # main("--observed tmp/observed_mutations_RAxML.tsv -e tmp/expected_mutations.txt -o tmp/ -l debug".split())
