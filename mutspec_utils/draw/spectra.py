@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from .sbs_orders import ordered_sbs192_kp, ordered_sbs192_kk
-from mutspec_utils.constants import possible_sbs12, possible_sbs192
+from mutspec_utils.constants import possible_sbs192
 
 color_mapping6 = {
     "C>A": "deepskyblue",
@@ -33,11 +33,12 @@ color_mapping12 = {
     "T>G": "pink",
     "A>C": "pink",
 }
+sbs12_ordered = ["C>A", "G>T", "C>G", "G>C", "C>T", "G>A", "T>A", "A>T", "T>C", "A>G", "T>G", "A>C"]
 _smpl = pd.DataFrame({"Mut": possible_sbs192})
 _smpl["MutBase"] = _smpl.Mut.str.slice(2, 5)
 _smpl["Context"] = _smpl.Mut.str.get(0) + _smpl.Mut.str.get(2) + _smpl.Mut.str.get(-1)
 colors192 = _smpl.sort_values(["MutBase", "Context"])["MutBase"].map(color_mapping12).values
-colors12 = [color_mapping12[sbs] for sbs in possible_sbs12]
+colors12 = [color_mapping12[sbs] for sbs in sbs12_ordered]
 
 
 def __prepare_nice_labels(ordered_sbs192):
@@ -63,7 +64,7 @@ def plot_mutspec12(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutation
     # TODO add description to all plot* functions
     fig = plt.figure(figsize=(6, 4))
     ax = fig.add_subplot(111)
-    ax = sns.barplot(x="Mut", y=ylabel, data=mutspec, order=possible_sbs12, ax=fig.gca())
+    ax = sns.barplot(x="Mut", y=ylabel, data=mutspec, order=sbs12_ordered, ax=fig.gca())
 
     # map colors to bars
     for bar, clr in zip(ax.patches, colors12):

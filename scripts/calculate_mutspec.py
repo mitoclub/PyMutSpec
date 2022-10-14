@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from mutspec_utils.annotation import calculate_mutspec, rev_comp, translator
-from mutspec_utils.constants import possible_sbs12, possible_sbs192
+from mutspec_utils.constants import possible_sbs192
 
 OUTGRP = "OUTGRP"
 MUT_NUM_FOR_192 = 16
@@ -27,7 +27,8 @@ color_mapping12 = {
     "T>G": "pink",
     "A>C": "pink",
 }
-colors12 = [color_mapping12[sbs] for sbs in possible_sbs12]
+sbs12_ordered = ["C>A", "G>T", "C>G", "G>C", "C>T", "G>A", "T>A", "A>T", "T>C", "A>G", "T>G", "A>C"]
+colors12 = [color_mapping12[sbs] for sbs in sbs12_ordered]
 
 
 kk_lbls = "A>C A>G A>T C>T G>C G>T".split()
@@ -64,7 +65,7 @@ def __prepare_nice_labels(ordered_sbs192):
 def plot_mutspec12(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutational spectrum", show=True, savepath=None):
     fig = plt.figure(figsize=(6, 4))
     ax = fig.add_subplot(111)
-    ax = sns.barplot(x="Mut", y=ylabel, data=mutspec, order=possible_sbs12, ax=fig.gca())
+    ax = sns.barplot(x="Mut", y=ylabel, data=mutspec, order=sbs12_ordered, ax=fig.gca())
 
     # map colors to bars
     for bar, clr in zip(ax.patches, colors12):
