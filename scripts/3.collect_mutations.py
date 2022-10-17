@@ -81,7 +81,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
         logger.info("Handles opened")
 
     def close_handles(self):
-        for _, file in self.handle:
+        for file in self.handle.values():
             file.close()
         logger.info("Handles closed")
 
@@ -106,6 +106,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
             genome_nucl_freqs = {lbl: defaultdict(self.fp_format) for lbl in self.MUT_LABELS}
             genome_cxt_freqs  = {lbl: defaultdict(self.fp_format) for lbl in self.MUT_LABELS}
             genome_mutations = []
+            total_mut_num = 0
             for gene in ref_genome:
                 ref_seq = ref_genome[gene]
                 alt_seq = alt_genome[gene]
@@ -186,6 +187,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
             del genome_mutations
             
             mut_num = genome_mutations_df.ProbaFull.sum() if self.proba_mode else len(genome_mutations_df)
+            total_mut_num += mut_num
             logger.info(f"Observed {mut_num:.3f} mutations for branch ({ref_node.name} - {alt_node.name})")
             if mut_num > aln_size * 0.1:
                 logger.warning(f"Observed too many mutations ({mut_num} > {aln_size} * 0.1) for branch ({ref_node.name} - {alt_node.name})")
@@ -220,7 +222,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
             if ei % 100 == 0:
                 logger.info(f"Processed {ei} tree edges")
 
-        logger.info(f"Processed {ei} tree edges")
+        logger.info(f"Processed {ei} tree edges and collected {total_mut_num:.3f} substitutions")
         logger.info("MutSpec extraction done")
 
     def extract_mutations_proba(self, g1: np.ndarray, g2: np.ndarray):
