@@ -90,6 +90,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
         add_header = defaultdict(lambda: True)
         aln_size = self.genome_size
         dists_to_leafs = dict()
+        total_mut_num = 0
         for ei, (ref_node, alt_node) in enumerate(iter_tree_edges(self.tree), 1):
             if ref_node.name not in self.nodes or alt_node.name not in self.nodes:
                 logger.warning(f"Pass edge '{ref_node.name}'-'{alt_node.name}' due to absence of genome")
@@ -111,7 +112,6 @@ class MutSpec(CodonAnnotation, GenomeStates):
             genome_nucl_freqs = {lbl: defaultdict(self.fp_format) for lbl in self.MUT_LABELS}
             genome_cxt_freqs  = {lbl: defaultdict(self.fp_format) for lbl in self.MUT_LABELS}
             genome_mutations = []
-            total_mut_num = 0
             for gene in ref_genome:
                 ref_seq = ref_genome[gene]
                 alt_seq = alt_genome[gene]
@@ -232,8 +232,9 @@ class MutSpec(CodonAnnotation, GenomeStates):
             if ei % 100 == 0:
                 logger.info(f"Processed {ei} tree edges")
 
-        logger.info(f"Processed {ei} tree edges and collected {total_mut_num:.3f} substitutions")
-        logger.info("MutSpec extraction done")
+        logger.info(f"Processed {ei} tree edges")
+        logger.info(f"Observed {total_mut_num:.3f} substitutions")
+        logger.info("Extraction of mutations from phylogenetic tree completed succesfully")
 
     def extract_mutations_proba(self, g1: np.ndarray, g2: np.ndarray):
         """
