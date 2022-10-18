@@ -59,10 +59,10 @@ def _coloring192kk():
             yield clr
 
 
-def plot_mutspec12(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutational spectrum", show=True, savepath=None):
+def plot_mutspec12(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutational spectrum", figsize=(6, 4), show=True, savepath=None):
     # TODO add checks of mutspec12
     # TODO add description to all plot* functions
-    fig = plt.figure(figsize=(6, 4))
+    fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111)
     ax = sns.barplot(x="Mut", y=ylabel, data=mutspec, order=sbs12_ordered, ax=fig.gca())
 

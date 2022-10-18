@@ -89,6 +89,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
         logger.info("Start mutation extraction from tree")
         add_header = defaultdict(lambda: True)
         aln_size = self.genome_size
+        dists_to_leafs = dict()
         for ei, (ref_node, alt_node) in enumerate(iter_tree_edges(self.tree), 1):
             if ref_node.name not in self.nodes or alt_node.name not in self.nodes:
                 logger.warning(f"Pass edge '{ref_node.name}'-'{alt_node.name}' due to absence of genome")
@@ -99,7 +100,11 @@ class MutSpec(CodonAnnotation, GenomeStates):
             alt_genome = self.get_genome(alt_node.name)
 
             # calculate phylogenetic uncertainty correction
-            _, dist_to_closest_leaf = ref_node.get_closest_leaf()
+            if ref_node.name in dists_to_leafs:
+                dist_to_closest_leaf = dists_to_leafs[ref_node.name]
+            else:
+                _, dist_to_closest_leaf = ref_node.get_closest_leaf()
+
             dist_to_closest_leaf = self.fp_format(dist_to_closest_leaf)
             phylocoef = self.fp_format(1 - min(1, dist_to_closest_leaf / self.max_dist))
 
@@ -113,16 +118,17 @@ class MutSpec(CodonAnnotation, GenomeStates):
 
                 # collect state frequencies
                 if self.proba_mode:
-                    gene_exp_sbs12, gene_exp_sbs192 = self.collect_exp_mut_freqs_proba(ref_seq, phylocoef)
+                    gene_exp_sbs12, gene_exp_sbs192 = self.collect_exp_mut_freqs_proba(ref_seq, phylocoef, self.MUT_LABELS)
                 else:
                     gene_exp_sbs12, gene_exp_sbs192 = self.collect_exp_mut_freqs(ref_seq)
 
                 # dump state frequencies
-                self.dump_expected_mutations(
-                    gene_exp_sbs12, gene_exp_sbs192, ref_node.name, 
-                    gene, self.handle["freq"], add_header["freqs"],
-                )
-                add_header["freqs"] = False
+                if ref_node.name not in dists_to_leafs:
+                    self.dump_expected_mutations(
+                        gene_exp_sbs12, gene_exp_sbs192, ref_node.name, 
+                        gene, self.handle["freq"], add_header["freqs"],
+                    )
+                    add_header["freqs"] = False
                 
                 # summarize state frequencies over genome
                 for lbl in self.MUT_LABELS:
@@ -179,6 +185,10 @@ class MutSpec(CodonAnnotation, GenomeStates):
                             self.dump_table(mutspec192, self.handle["ms192g"], add_header["ms192g"])
                             add_header["ms192g"] = False
 
+            # save current node distance to closest leaf after genes processing
+            if ref_node.name not in dists_to_leafs:
+                dists_to_leafs[ref_node.name] = dist_to_closest_leaf
+            
             if len(genome_mutations) == 0:
                 logger.info(f"Observed 0 mutations for branch ({ref_node.name} - {alt_node.name})")
                 continue
@@ -287,10 +297,10 @@ class MutSpec(CodonAnnotation, GenomeStates):
         n = len(genome)
         assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
         assert 0 <= phylocoef <= 1, "Evol coefficient must be between 0 and 1"
-        labels = set(labels)
 
         sbs12_freqs = {lbl: defaultdict(int) for lbl in labels}
         sbs192_freqs = {lbl: defaultdict(int) for lbl in labels}
+        labels = set(labels)
 
         for pos in range(1, n - 1):
             pic = pos % 3  # 0-based
