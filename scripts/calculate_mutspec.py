@@ -167,7 +167,7 @@ def main(path_to_obs, path_to_exp, outdir, label, proba_min, outgrp, mut_num_for
     exp = exp_raw.drop_duplicates().drop(["Node", "Gene"], axis=1).groupby("Label").mean()
     exp_melted = exp.reset_index()
     exp_melted["Label"] = exp_melted["Label"].where(exp_melted["Label"] != "ff", "syn4f")
-    exp_melted.melt("Label", exp_melted.columns.values[1:], var_name="Mut", value_name="MutSpec")\
+    exp_melted.melt("Label", exp_melted.columns.values[1:], var_name="Mut", value_name="Count")\
         .sort_values(["Mut", "Label"])\
             .to_csv(path_to_united_exp, sep="\t", index=None)
 
@@ -185,12 +185,14 @@ def main(path_to_obs, path_to_exp, outdir, label, proba_min, outgrp, mut_num_for
 
             ms12 = calculate_mutspec(cur_obs, cur_exp, use_context=False, use_proba=True)
             ms12["Mut"] = ms12["Mut"].str.translate(translator)
+            ms12.drop("RawMutSpec", axis=1, inplace=True)
             ms12.to_csv(path_to_ms12.format(lbl, label), sep="\t", index=None)
             plot_mutspec12(ms12, title=f"{lbl} mutational spectrum",
                            savepath=path_to_ms12plot.format(lbl, label, image_extension), show=False)
             if cur_obs.Mut.nunique() >= mut_num_for_192:
                 ms192 = calculate_mutspec(cur_obs, cur_exp, use_context=True, use_proba=True)
                 ms192["Mut"] = ms192["Mut"].apply(rev_comp)
+                ms192.drop("RawMutSpec", axis=1, inplace=True)
                 ms192.to_csv(path_to_ms192.format(lbl, label), sep="\t", index=None)
                 plot_mutspec192(ms192, title=f"{lbl} mutational spectrum",
                                 filepath=path_to_ms192plot.format(lbl, label, image_extension), show=False)

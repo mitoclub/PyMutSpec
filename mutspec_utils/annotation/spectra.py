@@ -76,13 +76,13 @@ def calculate_mutspec(
         mut["ProbaFull"] = 1
 
     mutspec = mut.groupby(col_mut)["ProbaFull"].sum().reset_index()
-    mutspec.columns = ["Mut", "ObsFr"]
+    mutspec.columns = ["Mut", "ObsNum"]
 
     # fill unobserved mutations by zeros
     mutspec_appendix = []
     unobserved_sbs = full_sbs.difference(mutspec["Mut"].values)
     for usbs in unobserved_sbs:
-        mutspec_appendix.append({"Mut": usbs, "ObsFr": 0})
+        mutspec_appendix.append({"Mut": usbs, "ObsNum": 0})
     mutspec = pd.concat([mutspec, pd.DataFrame(mutspec_appendix)], ignore_index=True)
 
     if use_context:
@@ -91,14 +91,14 @@ def calculate_mutspec(
     else:
         mutspec["Context"] = mutspec["Mut"].str.get(0)
 
-    mutspec["ExpFr"] = mutspec["Mut"].map(exp_muts)
-    mutspec["RawMutSpec"] = (mutspec["ObsFr"] / mutspec["ExpFr"]).fillna(0)
+    mutspec["ExpNum"] = mutspec["Mut"].map(exp_muts)
+    mutspec["RawMutSpec"] = (mutspec["ObsNum"] / mutspec["ExpNum"]).fillna(0)
     if verbose:
-        for sbs, cnt in mutspec[mutspec.RawMutSpec == np.inf][["Mut", "ObsFr"]].values:
+        for sbs, cnt in mutspec[mutspec.RawMutSpec == np.inf][["Mut", "ObsNum"]].values:
             print(f"WARNING! Substitution {sbs} is unexpected but observed, n={cnt}", file=stderr)
-    mutspec["RawMutSpec"] = np.where(mutspec.RawMutSpec == np.inf, mutspec.ObsFr, mutspec.RawMutSpec)
+    mutspec["RawMutSpec"] = np.where(mutspec.RawMutSpec == np.inf, mutspec.ObsNum, mutspec.RawMutSpec)
     mutspec["MutSpec"] = mutspec["RawMutSpec"] / mutspec["RawMutSpec"].sum()
     mutspec.drop("Context", axis=1, inplace=True)
 
-    assert np.isclose(mutspec.ObsFr.sum(), mut.ProbaFull.sum())
+    assert np.isclose(mutspec.ObsNum.sum(), mut.ProbaFull.sum())
     return mutspec
