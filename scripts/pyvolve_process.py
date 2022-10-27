@@ -1,11 +1,10 @@
-from email.policy import default
 import click
 import pyvolve
 import pandas as pd
 from Bio import SeqIO
 
 DEFAULT_REPLICS = 10
-DEFAULT_ALGO = "exponentiation"
+DEFAULT_GENCODE = 2
 
 
 def get_rates(path_to_mutspec):
@@ -30,17 +29,17 @@ def get_root_seq(path_to_fasta):
 @click.option("-t", "--tree", "path_to_tree", type=click.Path(True), help="")
 @click.option("-s", "--spectra", "path_to_mutspec", type=click.Path(True), help="")
 @click.option("-r", "--replics", "number_of_replics", default=DEFAULT_REPLICS, show_default=True, type=int, help="")
-@click.option("-l", "--algorithm", default=DEFAULT_ALGO, show_default=True, type=click.Choice(["exponentiation", "Gillespie"]), help="")
 @click.option("-w", "--write_anc", is_flag=True, help="")
-def main(path_to_mulal, path_to_tree, path_to_mutspec, number_of_replics, algorithm, write_anc):
-    algorithm = 0 if algorithm == "exponentiation" else 1
-    tree = pyvolve.read_tree(file=path_to_tree)
+@click.option("-c", "--gencode", default=DEFAULT_GENCODE, show_default=True, help="")
+@click.option("-l", "--scale_tree", default=10, show_default=True, help="")
+def main(path_to_mulal, path_to_tree, path_to_mutspec, number_of_replics, write_anc, gencode, scale_tree):
+    tree = pyvolve.read_tree(file=path_to_tree, scale_tree=scale_tree)
     custom_mutation_asym = get_rates(path_to_mutspec)
-    codon_freqs = pyvolve.ReadFrequencies("codon", file=path_to_mulal).compute_frequencies(type="codon")
-    model = pyvolve.Model("mutsel", {"state_freqs": codon_freqs, "mu": custom_mutation_asym})
+    codon_freqs = pyvolve.ReadFrequencies("codon", file=path_to_mulal, gencode=gencode).compute_frequencies(type="codon")
+    model = pyvolve.Model("mutsel", {"state_freqs": codon_freqs, "mu": custom_mutation_asym}, gencode=gencode)
     root_seq = get_root_seq(path_to_mulal)
     partition = pyvolve.Partition(models=model, root_sequence=root_seq)
-    evolver = pyvolve.Evolver(partitions=partition, tree=tree)
+    evolver = pyvolve.Evolver(partitions=partition, tree=tree, gencode=gencode)
 
     # for _ in range(number_of_replics):
     evolver(
@@ -48,8 +47,6 @@ def main(path_to_mulal, path_to_tree, path_to_mutspec, number_of_replics, algori
         countfile="tmp/evolve/countfile.txt",
         ratefile=None, infofile=None,
         write_anc=write_anc,
-        # algorithm=algorithm,
-        algorithm=0,
     )
 
 
