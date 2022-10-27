@@ -14,3 +14,4 @@ tests/data/states_sample.db
 .pytest_cache
 *.egg
 tmp
+.idea
