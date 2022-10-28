@@ -28,11 +28,13 @@ def get_root_seq(path_to_fasta):
 @click.option("-a", "--alignment", "path_to_mulal", type=click.Path(True), help="")
 @click.option("-t", "--tree", "path_to_tree", type=click.Path(True), help="")
 @click.option("-s", "--spectra", "path_to_mutspec", type=click.Path(True), help="")
+@click.option("-o", "--out", type=click.Path(writable=True), help="Output sequences alignment (fasta)")
+@click.option("--outcount", type=click.Path(writable=True), default=None, show_default=True, help="")
 @click.option("-r", "--replics", "number_of_replics", default=DEFAULT_REPLICS, show_default=True, type=int, help="")
 @click.option("-w", "--write_anc", is_flag=True, help="")
 @click.option("-c", "--gencode", default=DEFAULT_GENCODE, show_default=True, help="")
 @click.option("-l", "--scale_tree", default=10, show_default=True, help="")
-def main(path_to_mulal, path_to_tree, path_to_mutspec, number_of_replics, write_anc, gencode, scale_tree):
+def main(path_to_mulal, path_to_tree, path_to_mutspec, out, outcount, number_of_replics, write_anc, gencode, scale_tree):
     tree = pyvolve.read_tree(file=path_to_tree, scale_tree=scale_tree)
     custom_mutation_asym = get_rates(path_to_mutspec)
     codon_freqs = pyvolve.ReadFrequencies("codon", file=path_to_mulal, gencode=gencode).compute_frequencies(type="codon")
@@ -41,14 +43,15 @@ def main(path_to_mulal, path_to_tree, path_to_mutspec, number_of_replics, write_
     partition = pyvolve.Partition(models=model, root_sequence=root_seq)
     evolver = pyvolve.Evolver(partitions=partition, tree=tree, gencode=gencode)
 
-    # for _ in range(number_of_replics):
-    evolver(
-        seqfile="tmp/evolve/custom_seqfile.fasta",
-        countfile="tmp/evolve/countfile.txt",
-        ratefile=None, infofile=None,
-        write_anc=write_anc,
-    )
+    for i in range(number_of_replics):
+        print("Processing {} replica".format(i))
+        evolver(
+            seqfile=out.replace(".fasta", "_part-{:04}.fasta".format(i)), 
+            countfile=outcount,
+            ratefile=None, infofile=None,
+            write_anc=write_anc,
+        )
 
 
 if __name__ == "__main__":
-    main("-a ./tmp/alignment_checked.fasta -t ./tmp/dist.nwk -s ./tmp/ms12syn_.tsv -w".split())
+    main("-a ./tmp/evolve/alignment_checked.fasta -t ./tmp/evolve/iqtree_anc_tree.nwk -s ./tmp/ms12syn_.tsv -w -o ./tmp/evolve/seqfile.fasta".split())

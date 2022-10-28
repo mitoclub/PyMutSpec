@@ -31,9 +31,7 @@ def parse_alignment_and_write_states(files: list, outfile) -> Tuple[str, int]:
     files = set(files)
     history = defaultdict(list)
     for filepath in files:
-        part = os.path.basename(filepath).replace(".fna", "")
-        if ngenes == 1:
-            part = "1"
+        part = "1" if ngenes == 1 else os.path.basename(filepath).replace(".fna", "")
         fasta = SeqIO.parse(filepath, "fasta")
         for rec in fasta:
             node = rec.name
