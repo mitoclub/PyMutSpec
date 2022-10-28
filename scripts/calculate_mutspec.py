@@ -163,7 +163,8 @@ def main(path_to_obs, path_to_exp, outdir, label, proba_min, outgrp, mut_num_for
     obs = pd.read_csv(path_to_obs, sep="\t")
     exp_raw = pd.read_csv(path_to_exp, sep="\t")
 
-    obs = obs[(obs.AltNode != outgrp) & (obs.ProbaFull > proba_min)]
+    # exclude ROOT node because RAxML don't change input tree that contains one node more than it's need
+    obs = obs[(~obs.AltNode.isin([outgrp, "ROOT"])) & (obs.ProbaFull > proba_min)]
     exp = exp_raw.drop_duplicates().drop(["Node", "Gene"], axis=1).groupby("Label").mean()
     exp_melted = exp.reset_index()
     exp_melted["Label"] = exp_melted["Label"].where(exp_melted["Label"] != "ff", "syn4f")

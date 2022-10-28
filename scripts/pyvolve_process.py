@@ -7,10 +7,10 @@ DEFAULT_REPLICS = 10
 DEFAULT_GENCODE = 2
 
 
-def get_rates(path_to_mutspec):
+def get_rates(path_to_mutspec, eps=1e-3):
     ms = pd.read_csv(path_to_mutspec, sep="\t")
     ms["Mut"] = ms["Mut"].str.replace(">", "")
-    ms["MutSpec"] = ms["MutSpec"] + 0.01
+    ms["MutSpec"] = ms["MutSpec"] + eps
     rates = ms.set_index("Mut")["MutSpec"].to_dict()
     return rates
 
@@ -19,7 +19,7 @@ def get_root_seq(path_to_fasta):
     root_seq = None
     for rec in SeqIO.parse(path_to_fasta, format="fasta"):
         if rec.name.startswith("RN"):
-            root_seq = str(rec.seq)#[:144]
+            root_seq = str(rec.seq)
             break
     return root_seq
 
