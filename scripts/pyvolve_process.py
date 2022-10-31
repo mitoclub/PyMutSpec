@@ -46,7 +46,7 @@ def main(path_to_mulal, path_to_tree, path_to_mutspec, out, outcount, number_of_
     for i in range(number_of_replics):
         print("Processing {} replica".format(i))
         evolver(
-            seqfile=out.replace(".fasta", "_part-{:04}.fasta".format(i)), 
+            seqfile=out.replace(".fasta", "_sample-{:04}.fasta".format(i)), 
             countfile=outcount,
             ratefile=None, infofile=None,
             write_anc=write_anc,
@@ -54,4 +54,5 @@ def main(path_to_mulal, path_to_tree, path_to_mutspec, out, outcount, number_of_
 
 
 if __name__ == "__main__":
-    main("-a ./tmp/evolve/alignment_checked.fasta -t ./tmp/evolve/iqtree_anc_tree.nwk -s ./tmp/ms12syn_.tsv -w -o ./tmp/evolve/seqfile.fasta".split())
+    # main("-a ./tmp/evolve/alignment_checked.fasta -t ./tmp/evolve/iqtree_anc_tree.nwk -s ./tmp/ms12syn_.tsv -w -o ./tmp/evolve/seqfile.fasta".split())
+    main()

@@ -146,15 +146,9 @@ def plot_mutspec192(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutationa
 @click.option("-e", "--expected", "path_to_exp", type=click.Path(True), help="Path to expected mutations table")
 @click.option("-o", '--outdir', type=click.Path(True), default=".", show_default=True, help="Path to output directory for files (must exist)")
 @click.option("-l", '--label', default="", show_default=True, help="Label for files naming")
-@click.option("-p", '--proba_min', default=PROBA_MIN, show_default=True, help="Minimal mutation probability to consider in mutspec calculation")
 @click.option("-t", '--outgrp', default=OUTGRP, show_default=True, help="Name of outgroup node in the tree to exclude from mutations set")
-@click.option("-m", '--mnum192', "mut_num_for_192", default=MUT_NUM_FOR_192, show_default=True, help="Number of mutation types (maximum 192) required to calculate and plot 192-component mutational spectra")
-@click.option('--plot', is_flag=True, help="Plot spectra plots")
 @click.option("-x", '--ext', "image_extension", default="pdf", show_default=True, type=click.Choice(['pdf', 'png', 'jpg'], case_sensitive=False), help="Images format to save")
-def main(path_to_obs, path_to_exp, outdir, label, proba_min, outgrp, mut_num_for_192, plot, image_extension):
-    if mut_num_for_192 > 192:
-        raise RuntimeError("Number of mutation types must be less then 192, but passed {}".format(mut_num_for_192))
-
+def main(path_to_obs, path_to_exp, outdir, label, outgrp, image_extension):
     path_to_united_exp = os.path.join(outdir, "mean_expexted_mutations_{}.tsv".format(label))
     path_to_ms12 = os.path.join(outdir, "ms12{}_{}.tsv")
     path_to_ms12plot = os.path.join(outdir, "ms12{}_{}.{}")
@@ -165,43 +159,50 @@ def main(path_to_obs, path_to_exp, outdir, label, proba_min, outgrp, mut_num_for
     exp_raw = pd.read_csv(path_to_exp, sep="\t")
 
     # exclude ROOT node because RAxML don't change input tree that contains one node more than it's need
-    obs = obs[(~obs.AltNode.isin([outgrp, "ROOT"])) & (obs.ProbaFull > proba_min)]
+    obs = obs[(~obs.AltNode.isin([outgrp, "ROOT"]))]
     exp = exp_raw.drop_duplicates().drop(["Node", "Gene"], axis=1).groupby("Label").mean()
     exp_melted = exp.reset_index()
     exp_melted["Label"] = exp_melted["Label"].where(exp_melted["Label"] != "ff", "syn4f")
     exp_melted.melt("Label", exp_melted.columns.values[1:], var_name="Mut", value_name="Count")\
         .sort_values(["Mut", "Label"])\
             .to_csv(path_to_united_exp, sep="\t", index=None)
+    
+    # only syn
+    lbl = "syn"
+    lbl_code = 1
+    cur_exp = exp.loc[lbl].to_dict()
 
-    for lbl_code in LABELS:
-        if lbl_code == 0:
-            lbl = "all"
-        elif lbl_code == 1:
-            lbl = "syn"
-        elif lbl_code == 2:
-            lbl = "ff"
-
-        cur_obs = obs[obs.Label >= lbl_code]
+    ms12_collection = []
+    ms192_collection = []
+    for replica in obs.Replica.unique():
+        cur_obs = obs[(obs["Label"] >= lbl_code) & (obs["Replica"] == replica)]
         if cur_obs.shape[0]:
-            cur_exp = exp.loc[lbl].to_dict()
-
-            ms12 = calculate_mutspec(cur_obs, cur_exp, use_context=False, use_proba=True)
+            ms12 = calculate_mutspec(cur_obs, cur_exp, use_context=False, use_proba=False)
             ms12["Mut"] = ms12["Mut"].str.translate(translator)
             ms12.drop("RawMutSpec", axis=1, inplace=True)
-            ms12.to_csv(path_to_ms12.format(lbl, label), sep="\t", index=None)
-            if plot:
-                plot_mutspec12(ms12, title=f"{lbl} mutational spectrum",
-                            savepath=path_to_ms12plot.format(lbl, label, image_extension), show=False)
-            if cur_obs.Mut.nunique() >= mut_num_for_192:
-                ms192 = calculate_mutspec(cur_obs, cur_exp, use_context=True, use_proba=True)
-                ms192["Mut"] = ms192["Mut"].apply(rev_comp)
-                ms192.drop("RawMutSpec", axis=1, inplace=True)
-                ms192.to_csv(path_to_ms192.format(lbl, label), sep="\t", index=None)
-                if plot:
-                    plot_mutspec192(ms192, title=f"{lbl} mutational spectrum",
-                                    filepath=path_to_ms192plot.format(lbl, label, image_extension), show=False)
+            ms12["Replica"] = replica
+            ms12_collection.append(ms12)
 
+            ms192 = calculate_mutspec(cur_obs, cur_exp, use_context=True, use_proba=False)
+            ms192["Mut"] = ms192["Mut"].apply(rev_comp)
+            ms192.drop("RawMutSpec", axis=1, inplace=True)
+            ms192["Replica"] = replica
+            ms192_collection.append(ms192)
+
+    if ms12_collection:
+        ms12 = pd.concat(ms12_collection)
+        ms12.to_csv(path_to_ms12.format(lbl, label), sep="\t", index=None)
+        plot_mutspec12(ms12, title=f"{lbl} mutational spectrum",
+            savepath=path_to_ms12plot.format(lbl, label, image_extension), show=False)
+    
+    if ms192_collection:
+        ms192 = pd.concat(ms192_collection)
+        ms192.to_csv(path_to_ms192.format(lbl, label), sep="\t", index=None)
+        plot_mutspec192(ms192, title=f"{lbl} mutational spectrum",
+            filepath=path_to_ms192plot.format(lbl, label, image_extension), show=False)
+        
 
 if __name__ == "__main__":
     main()
+    # main("-e tmp/evolve_sc/mout/expected_mutations.tsv -o tmp/evolve_sc/out -l iqtree -b tmp/evolve_sc/full_mutations.txt".split())
     # main("--observed tmp/observed_mutations_RAxML.tsv -e tmp/expected_mutations.txt -o tmp/ -l debug".split())

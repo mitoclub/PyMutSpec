@@ -1,15 +1,14 @@
 import os
-import sys
 import logging
 import logging.config
 
 import yaml
 
-DEFAULT_PATH_TO_LOGCONF = os.path.join(os.path.dirname(sys.argv[0]), "configs/log_settings.yaml")
+DEFAULT_PATH_TO_LOGCONF = os.path.join(os.path.dirname(__file__), "configs/log_settings.yaml")
 
 
 def load_logger(path=DEFAULT_PATH_TO_LOGCONF, stream_level: str = None, filename=None):
-    with open(os.environ.get("LOG_CONFIG", path), "rb") as file:
+    with open(path, "r") as file:
         log_config = yaml.safe_load(file)
         if stream_level is not None:
             log_config["handlers"]["stream_handler"]["level"] = stream_level

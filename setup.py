@@ -8,6 +8,8 @@ with open("requirements.txt", encoding="utf-8") as file:
         if line:
             if line.startswith("-f"):
                 extra_index_urls.append(line.split()[1])
+            elif line.startswith("#"):
+                continue
             else:
                 packages.append(line)
 

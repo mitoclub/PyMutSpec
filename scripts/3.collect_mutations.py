@@ -50,7 +50,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
             self.MUT_LABELS.append("syn")
         if syn4f:
             self.MUT_LABELS.append("ff")
-        logger.info(f"Types of spectra to calculate: {self.MUT_LABELS}")
+        logger.info(f"Types of mutations to collect and process: {self.MUT_LABELS}")
         self.fp_format = np.float32
         self.tree = PhyloTree(path_to_tree, format=1)
         self.max_dist = self.fp_format(get_farthest_leaf(self.tree))
@@ -92,8 +92,11 @@ class MutSpec(CodonAnnotation, GenomeStates):
         dists_to_leafs = dict()
         total_mut_num = 0
         for ei, (ref_node, alt_node) in enumerate(iter_tree_edges(self.tree), 1):
-            if ref_node.name not in self.nodes or alt_node.name not in self.nodes:
-                logger.warning(f"Pass edge '{ref_node.name}'-'{alt_node.name}' due to absence of genome")
+            if alt_node.name not in self.nodes:
+                logger.warning(f"Pass edge '{ref_node.name}'-'{alt_node.name}' due to absence of '{alt_node.name}' genome")
+                continue
+            if ref_node.name not in self.nodes:
+                logger.warning(f"Pass edge '{ref_node.name}'-'{alt_node.name}' due to absence of '{ref_node.name}' genome")
                 continue
 
             # get genomes from storage
@@ -224,7 +227,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
                     mutspec192["AltNode"] = alt_node.name
                     mutspec192["Label"] = lbl
 
-                    # Dump genome mutspecs
+                    # Dump genome spectra
                     self.dump_table(mutspec12,  self.handle["ms12"],  add_header["ms"])
                     self.dump_table(mutspec192, self.handle["ms192"], add_header["ms"])
                     add_header["ms"] = False
@@ -422,11 +425,8 @@ def main(
     global logger
     _log_lvl = "DEBUG" if verbosity >= 1 else None
     logfile = os.path.join(outdir, "run.log")
-    # TODO drop
-    _root = os.path.dirname(sys.argv[0]).replace("/scripts", "")
-    DEFAULT_PATH_TO_LOGCONF = os.path.join(_root, "mutspec_utils/utils/configs/log_settings.yaml")
-    logger = load_logger(DEFAULT_PATH_TO_LOGCONF, stream_level=_log_lvl, filename=logfile)
-    logger.info(f"Writing logs to file '{logfile}'")
+    logger = load_logger(stream_level=_log_lvl, filename=logfile)
+    logger.info(f"Writing logs to '{logfile}'")
     logger.debug("Command: " + " ".join(sys.argv))
     MutSpec(
         path_to_tree, path_to_states, outdir, gcode=gencode, 

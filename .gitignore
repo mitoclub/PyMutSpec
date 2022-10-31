@@ -6,8 +6,6 @@ data
 env*
 evn*
 *.Rhistory
-mutspec.egg-info
-mutspec_utils.egg-info
 *.tar*
 tests/data/states_sample.db
 .vscode
