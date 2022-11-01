@@ -26,12 +26,15 @@ if os.path.exists("scripts"):
 setup(
     name="mutspec_utils",
     version="0.0.3",
-    author="kpotoh, genkvg",
+    author="kpotoh",
+    description="Utilities for advanced analysis of mutational spectra",
+    url="https://github.com/mitoclub/mutspec-utils",
     author_email="None",
     license="MIT",
     install_requires=packages,
     dependency_links=extra_index_urls,
     scripts=scripts,
+    data_files=[('configs', ['mutspec_utils/utils/configs/log_settings.yaml'])],
     packages=find_packages(),
     python_requires=">=3.8",
 )
