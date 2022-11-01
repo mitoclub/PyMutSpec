@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 Adapt anc table (part adding & site replacement)
 

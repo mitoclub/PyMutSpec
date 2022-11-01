@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import os
 
 import click
@@ -65,7 +67,7 @@ def __prepare_nice_labels(ordered_sbs192):
 def plot_mutspec12(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutational spectrum", show=True, savepath=None):
     fig = plt.figure(figsize=(6, 4))
     ax = fig.add_subplot(111)
-    ax = sns.barplot(x="Mut", y=ylabel, data=mutspec, order=sbs12_ordered, ax=fig.gca())
+    ax = sns.boxplot(x="Mut", y=ylabel, data=mutspec, order=sbs12_ordered, ax=fig.gca())
 
     # map colors to bars
     for bar, clr in zip(ax.patches, colors12):

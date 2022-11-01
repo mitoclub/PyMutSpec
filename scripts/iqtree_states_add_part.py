@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 script add "Part" column to states (tsv) file
 """

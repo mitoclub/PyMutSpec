@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 pic is position in codon
 

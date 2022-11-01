@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # USAGE: script.py [PATH_TO_REPLICS...] OUT_PATH_TO_MERGED_MUTATIONS
 
 import re

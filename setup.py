@@ -1,7 +1,9 @@
+import os
 from setuptools import setup, find_packages
 
 extra_index_urls = []
 packages = []
+scripts = []
 
 with open("requirements.txt", encoding="utf-8") as file:
     for line in map(str.strip, file):
@@ -13,14 +15,23 @@ with open("requirements.txt", encoding="utf-8") as file:
             else:
                 packages.append(line)
 
+if os.path.exists("scripts"):
+    for file in os.listdir("scripts"):
+        if file.endswith(".py") and not file.startswith("_"):
+            fp = os.path.join("scripts", file)
+            with open(fp) as fin:
+                if "python" in fin.readline():
+                    scripts.append(fp)
+
 setup(
     name="mutspec_utils",
-    version="0.0.2",
+    version="0.0.3",
     author="kpotoh, genkvg",
     author_email="None",
     license="MIT",
     install_requires=packages,
     dependency_links=extra_index_urls,
+    scripts=scripts,
     packages=find_packages(),
     python_requires=">=3.8",
 )

@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 Leaves genomes must be written directly without partitioning - only positions in part!!
 Only filenames need for this, but if there are preliminary aln concatenation it need additional step
