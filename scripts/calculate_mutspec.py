@@ -5,7 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from mutspec_utils.annotation import calculate_mutspec, rev_comp, translator
+from mutspec_utils.annotation import calculate_mutspec, rev_comp, transcriptor
 from mutspec_utils.constants import possible_sbs192
 
 OUTGRP = "OUTGRP"
@@ -36,7 +36,7 @@ cosmic_lbls = "C>A C>G C>T T>A T>C T>G".split()
 
 df = pd.DataFrame({"sbs": possible_sbs192})
 df["sbs_base"] = df["sbs"].str.slice(2, 5)
-df["sbs_base_revcomp"] = df["sbs_base"].str.translate(translator)
+df["sbs_base_revcomp"] = df["sbs_base"].str.translate(transcriptor)
 df["sbs_revcomp"] = df["sbs"].apply(rev_comp)
 df["is_cosmic"] = df["sbs_base"].isin(cosmic_lbls)
 df["is_kk"] = df["sbs_base"].isin(kk_lbls)
@@ -186,7 +186,7 @@ def main(path_to_obs, path_to_exp, outdir, label, proba_min, outgrp, mut_num_for
             cur_exp = exp.loc[lbl].to_dict()
 
             ms12 = calculate_mutspec(cur_obs, cur_exp, use_context=False, use_proba=True)
-            ms12["Mut"] = ms12["Mut"].str.translate(translator)
+            ms12["Mut"] = ms12["Mut"].str.translate(transcriptor)
             ms12.drop("RawMutSpec", axis=1, inplace=True)
             ms12.to_csv(path_to_ms12.format(lbl, label), sep="\t", index=None)
             if plot:

@@ -411,23 +411,25 @@ def main(
         write_db, path_to_db, rewrite_db, 
         phylocoef, no_mutspec, force, verbosity,
     ):
+
     if os.path.exists(outdir):
         if not force:
             answer = input(f"Delete existing directory '{outdir}'? [Y/n] ")
-            print(repr(answer), answer == "")
             if answer.upper() != "Y" and answer != "":
-                print("Interapted")
+                print("Interapted", file=sys.stderr)
                 exit(0)
         rmtree(outdir)
-        print(f"Existing output directory '{outdir}' deleted")
+        print(f"Directory '{outdir}' deleted", file=sys.stderr)
     os.makedirs(outdir)
-    print(f"Output directory '{outdir}' created")
+
     global logger
-    _log_lvl = "DEBUG" if verbosity >= 1 else None
+    _log_lvl = "INFO" if verbosity >= 1 else None
     logfile = os.path.join(outdir, "run.log")
     logger = load_logger(stream_level=_log_lvl, filename=logfile)
     logger.info(f"Writing logs to '{logfile}'")
     logger.debug("Command: " + " ".join(sys.argv))
+    logger.debug(f"Output directory '{outdir}' created")
+
     MutSpec(
         path_to_tree, path_to_states, outdir, gcode=gencode, 
         db_mode=write_db, path_to_db=path_to_db, rewrite_db=rewrite_db, 

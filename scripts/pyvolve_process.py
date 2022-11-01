@@ -3,12 +3,15 @@ import pyvolve
 import pandas as pd
 from Bio import SeqIO
 
+from mutspec_utils.annotation import transcriptor
+
 DEFAULT_REPLICS = 10
 DEFAULT_GENCODE = 2
 
 
 def get_rates(path_to_mutspec, eps=1e-3):
     ms = pd.read_csv(path_to_mutspec, sep="\t")
+    ms["Mut"] = ms["Mut"].str.translate(transcriptor)
     ms["Mut"] = ms["Mut"].str.replace(">", "")
     ms["MutSpec"] = ms["MutSpec"] + eps
     rates = ms.set_index("Mut")["MutSpec"].to_dict()
@@ -44,7 +47,7 @@ def main(path_to_mulal, path_to_tree, path_to_mutspec, out, outcount, number_of_
     evolver = pyvolve.Evolver(partitions=partition, tree=tree, gencode=gencode)
 
     for i in range(number_of_replics):
-        print("Processing {} replica".format(i))
+        print("Generating {} replica".format(i))
         evolver(
             seqfile=out.replace(".fasta", "_sample-{:04}.fasta".format(i)), 
             countfile=outcount,

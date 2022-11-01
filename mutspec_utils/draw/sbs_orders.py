@@ -1,14 +1,14 @@
 import pandas as pd
 
 from mutspec_utils.constants import possible_sbs192
-from mutspec_utils.annotation import rev_comp, translator
+from mutspec_utils.annotation import rev_comp, transcriptor
 
 kk_lbls = "A>C A>G A>T C>T G>C G>T".split()
 cosmic_lbls = "C>A C>G C>T T>A T>C T>G".split()
 
 df = pd.DataFrame({"sbs": possible_sbs192})
 df["sbs_base"] = df["sbs"].str.slice(2, 5)
-df["sbs_base_revcomp"] = df["sbs_base"].str.translate(translator)
+df["sbs_base_revcomp"] = df["sbs_base"].str.translate(transcriptor)
 df["sbs_revcomp"] = df["sbs"].apply(rev_comp)
 df["is_cosmic"] = df["sbs_base"].isin(cosmic_lbls)
 df["is_kk"] = df["sbs_base"].isin(kk_lbls)
