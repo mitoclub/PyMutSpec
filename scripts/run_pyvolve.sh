@@ -11,6 +11,10 @@ replics=10
 GENCODE=2
 scale_tree=1
 
+# export MKL_NUM_THREADS=1
+# export NUMEXPR_NUM_THREADS=1
+# export OMP_NUM_THREADS=1
+
 tree=tree.nwk
 nw_prune $raw_tree OUTGRP > $tree
 python3 ../../scripts/pyvolve_process.py -a $mulal -t $tree -s $spectra -o seqfile.fasta -r $replics --write_anc -c $GENCODE -l $scale_tree
@@ -31,8 +35,8 @@ python3 ../../scripts/concat_mutations.py seqfile_sample-*.fasta.mutations full_
 mkdir -p out
 
 # TODO add additional agrs
-python3 ../../scripts/calculate_mutspec_pyvolve.py -b full_mutations.txt -e mout/expected_mutations.tsv \
-	-o out -l iqtree --outgrp OUTGRP
+python3 ../../scripts/calculate_mutspec.py -b full_mutations.txt -e mout/expected_mutations.tsv \
+	-o out -l debug --syn --syn4f --mnum192 0 --plot
 
 
 cd /home/kpotoh/mutspec-utils

@@ -107,7 +107,7 @@ def plot_mutspec192(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutationa
         ms192.Mut.str.get(0) + ms192.Mut.str.get(2) + ms192.Mut.str.get(-1)
     order = __prepare_nice_labels(ordered_sbs192_kp)
 
-    df = ms192.groupby(["MutBase", "Context"]).mean()
+    # df = ms192.groupby(["MutBase", "Context"]).mean()
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111)
     ax.grid(axis="y", alpha=.7, linewidth=0.5)

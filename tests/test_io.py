@@ -7,15 +7,15 @@ path_to_states = ["./tests/data/states_sample.tsv"]
 path_to_db = './tests/data/states_sample.db'
 
 
-@pytest.mark.parametrize("proba_mode", [True, False])
-def test_get_genome_simple(proba_mode):
+@pytest.mark.parametrize("use_proba", [True, False])
+def test_get_genome_simple(use_proba):
     gs1 = GenomeStates(
         path_to_states, path_to_db=path_to_db, mode="db", 
-        rewrite=False, proba_mode=proba_mode,
+        rewrite=False, use_proba=use_proba,
     )
     gs2 = GenomeStates(
         path_to_states, path_to_db=path_to_db, mode="dict", 
-        proba_mode=proba_mode,
+        use_proba=use_proba,
     )
     for node in gs1.nodes:
         g1 = gs1.get_genome(node)

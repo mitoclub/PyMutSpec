@@ -26,7 +26,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
     def __init__(
             self, path_to_tree, path_to_states, out_dir, 
             gcode=2, db_mode="dict", path_to_db="/tmp/states.db", 
-            rewrite_db=None, proba_mode=False, proba_cutoff=0.01, 
+            rewrite_db=None, use_proba=False, proba_cutoff=0.01, 
             use_phylocoef=False, syn=False, syn4f=False, no_mutspec=False,
         ):
         for path in list(path_to_states) + [path_to_tree]:
@@ -35,16 +35,16 @@ class MutSpec(CodonAnnotation, GenomeStates):
 
         CodonAnnotation.__init__(self, gcode)
         GenomeStates.__init__(
-            self, path_to_states, path_to_db, db_mode, rewrite_db, proba_mode
+            self, path_to_states, path_to_db, db_mode, rewrite_db, use_proba
         )
         self.gcode = gcode
         logger.info(f"Using gencode {gcode}")
-        self.proba_mode = proba_mode
-        logger.info(f"Use probabilities of genomic states: {proba_mode}")
+        self.use_proba = use_proba
+        logger.info(f"Use probabilities of genomic states: {use_proba}")
         self.proba_cutoff = proba_cutoff
         self.use_phylocoef = use_phylocoef
         self.no_mutspec = no_mutspec
-        if proba_mode:
+        if use_proba:
             logger.info(f"Use phylogenetic uncertainty coefficient: {use_phylocoef}")
         self.MUT_LABELS = ["all"]
         if syn:
@@ -121,7 +121,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
                 alt_seq = alt_genome[gene]
 
                 # collect state frequencies
-                if self.proba_mode:
+                if self.use_proba:
                     gene_exp_sbs12, gene_exp_sbs192 = self.collect_exp_mut_freqs_proba(ref_seq, phylocoef, self.MUT_LABELS)
                 else:
                     gene_exp_sbs12, gene_exp_sbs192 = self.collect_exp_mut_freqs(ref_seq)
@@ -142,7 +142,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
                         genome_cxt_freqs[lbl][trinucl] += freq
 
                 # extract mutations and put in order columns
-                if self.proba_mode:
+                if self.use_proba:
                     gene_mut_df = self.extract_mutations_proba(ref_seq, alt_seq)
                 else:
                     gene_mut_df = self.extract_mutations_simple(ref_seq, alt_seq)
@@ -150,7 +150,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
                 if gene_mut_df.shape[0] == 0:
                     continue
                 
-                if self.proba_mode:
+                if self.use_proba:
                     if self.use_phylocoef:
                         gene_mut_df["ProbaFull"] = phylocoef * gene_mut_df["ProbaMut"]
                     else:
@@ -167,7 +167,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
                     for lbl in self.MUT_LABELS:
                         mutspec12 = calculate_mutspec(
                             gene_mut_df[gene_mut_df.Label >= lbl2lbl_id(lbl)], gene_exp_sbs12[lbl], 
-                            use_context=False, use_proba=self.proba_mode
+                            use_context=False, use_proba=self.use_proba
                         )
                         mutspec12["AltNode"] = alt_node.name
                         mutspec12["Label"] = lbl
@@ -179,7 +179,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
                         if len(gene_mut_df) > 100:
                             mutspec192 = calculate_mutspec(
                                 gene_mut_df[gene_mut_df.Label >= lbl2lbl_id(lbl)], gene_exp_sbs192[lbl], 
-                                use_context=True, use_proba=self.proba_mode
+                                use_context=True, use_proba=self.use_proba
                             )
                             mutspec192["RefNode"] = ref_node.name
                             mutspec192["AltNode"] = alt_node.name
@@ -200,7 +200,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
             genome_mutations_df = pd.concat(genome_mutations)
             del genome_mutations
             
-            mut_num = genome_mutations_df.ProbaFull.sum() if self.proba_mode else len(genome_mutations_df)
+            mut_num = genome_mutations_df.ProbaFull.sum() if self.use_proba else len(genome_mutations_df)
             total_mut_num += mut_num
             logger.info(f"Observed {mut_num:.3f} mutations for branch ({ref_node.name} - {alt_node.name})")
             if mut_num > aln_size * 0.1:
@@ -215,14 +215,14 @@ class MutSpec(CodonAnnotation, GenomeStates):
                 for lbl in self.MUT_LABELS:
                     mutspec12 = calculate_mutspec(
                         genome_mutations_df[genome_mutations_df.Label >= lbl2lbl_id(lbl)],
-                        genome_nucl_freqs[lbl], use_context=False, use_proba=self.proba_mode
+                        genome_nucl_freqs[lbl], use_context=False, use_proba=self.use_proba
                     )
                     mutspec12["RefNode"] = ref_node.name
                     mutspec12["AltNode"] = alt_node.name
                     mutspec12["Label"] = lbl
                     mutspec192 = calculate_mutspec(
                         genome_mutations_df[genome_mutations_df.Label >= lbl2lbl_id(lbl)],
-                        genome_cxt_freqs[lbl], use_context=True, use_proba=self.proba_mode
+                        genome_cxt_freqs[lbl], use_context=True, use_proba=self.use_proba
                     )
                     mutspec192["RefNode"] = ref_node.name
                     mutspec192["AltNode"] = alt_node.name
@@ -434,7 +434,7 @@ def main(
     MutSpec(
         path_to_tree, path_to_states, outdir, gcode=gencode, 
         db_mode=write_db, path_to_db=path_to_db, rewrite_db=rewrite_db, 
-        proba_mode=proba, proba_cutoff=proba_cutoff, use_phylocoef=phylocoef,
+        use_proba=proba, proba_cutoff=proba_cutoff, use_phylocoef=phylocoef,
         syn=syn, syn4f=syn4f, no_mutspec=no_mutspec,
     )
 

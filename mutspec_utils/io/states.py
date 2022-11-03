@@ -16,9 +16,9 @@ class GenomeStates:
     - use mode="dict" if your mtDNA tree is small (~1500 nodes require ~350MB of RAM); 
     big trees with 100000 nodes require tens GB of RAM, therefore use mode="db"
     """
-    def __init__(self, path_states: List[str], path_to_db=None, mode="dict", rewrite=False, proba_mode=True):
+    def __init__(self, path_states: List[str], path_to_db=None, mode="dict", rewrite=False, use_proba=True):
         self.mode = mode
-        self.proba_mode = proba_mode
+        self.use_proba = use_proba
         print(f"Genome states storage mode = '{mode}'", file=sys.stderr)
         self.path_to_db = path_to_db
         if mode == "dict":
@@ -40,7 +40,7 @@ class GenomeStates:
         elif self.mode == "db":
             genome_raw = defaultdict(list)
             cur = self.con.cursor()
-            if self.proba_mode:
+            if self.use_proba:
                 query = f"""SELECT Part, Site, p_A, p_C, p_G, p_T FROM states WHERE Node='{node}'"""
                 dtype = [
                     ("Site", np.int32),
@@ -61,7 +61,7 @@ class GenomeStates:
                 state = np.array(state_tup, dtype=dtype)
                 state_sorted = np.sort(state, order="Site")
                 state_sorted_devoid = np.array(list(map(list, state_sorted)))
-                state = state_sorted_devoid[:, 1:] if self.proba_mode else state_sorted_devoid[:, 1]
+                state = state_sorted_devoid[:, 1:] if self.use_proba else state_sorted_devoid[:, 1]
                 genome[part] = state
             return genome
 
@@ -131,7 +131,7 @@ class GenomeStates:
             "p_G":  states_dtype, "p_T": states_dtype,
             "Site": np.int32,     #"Part": np.int8,
         }
-        if self.proba_mode:
+        if self.use_proba:
             usecols = ["Node", "Part", "Site", "p_A", "p_C", "p_G", "p_T"]
         else:
             usecols = ["Node", "Part", "Site", "State"]
@@ -147,7 +147,7 @@ class GenomeStates:
             gr = states.groupby(["Node", "Part"])
             for (node, part), gene_pos_ids in gr.groups.items():
                 gene_df = states.loc[gene_pos_ids]
-                if self.proba_mode:
+                if self.use_proba:
                     gene_states = gene_df[["p_A", "p_C", "p_G", "p_T"]].values
                 else:
                     gene_states = gene_df.State.values
