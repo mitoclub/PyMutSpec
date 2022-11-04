@@ -406,11 +406,13 @@ class MutSpec(CodonAnnotation, GenomeStates):
 @click.option("--rewrite_db",  is_flag=True, default=False, help="Rewrite existing states database. Use only with --write_db")
 @click.option('-f', '--force', is_flag=True, help="Rewrite existing output directory")
 @click.option('-v', '--verbose', "verbosity", count=True, help="Verbosity level = DEBUG")
+@click.option("--config", default=None, type=click.Path(True), help="Path to log-config file")
 def main(
         path_to_tree, path_to_states, outdir, 
         gencode, syn, syn4f, proba, proba_cutoff, 
         write_db, path_to_db, rewrite_db, 
         phylocoef, no_mutspec, force, verbosity,
+        config
     ):
 
     if os.path.exists(outdir):
@@ -426,7 +428,10 @@ def main(
     global logger
     _log_lvl = "INFO" if verbosity >= 1 else None
     logfile = os.path.join(outdir, "run.log")
-    logger = load_logger(stream_level=_log_lvl, filename=logfile)
+    if config:
+        logger = load_logger(path=config, stream_level=_log_lvl, filename=logfile)
+    else:
+        logger = load_logger(stream_level=_log_lvl, filename=logfile)
     logger.info(f"Writing logs to '{logfile}'")
     logger.debug("Command: " + " ".join(sys.argv))
     logger.debug(f"Output directory '{outdir}' created")
