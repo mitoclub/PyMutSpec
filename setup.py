@@ -1,5 +1,5 @@
 import os
-from setuptools import setup
+from setuptools import setup, find_packages
 
 extra_index_urls = []
 packages = []
@@ -34,7 +34,8 @@ setup(
     install_requires=packages,
     dependency_links=extra_index_urls,
     scripts=scripts,
-    packages=['mutspec_utils'],
-    package_data={'mutspec_utils': ['utils/configs/log_settings.yaml']},
+    packages=find_packages(),
+    include_package_data=True,
+    # package_data={'mutspec_utils': ['utils/configs/log_settings.yaml']},
     python_requires=">=3.8",
 )
