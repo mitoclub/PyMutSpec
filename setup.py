@@ -35,7 +35,7 @@ setup(
     dependency_links=extra_index_urls,
     scripts=scripts,
     packages=find_packages(),
-    include_package_data=True,
-    # package_data={'mutspec_utils': ['utils/configs/log_settings.yaml']},
+    # include_package_data=True,
+    package_data={'mutspec_utils': ['utils/configs/log_settings.yaml']},
     python_requires=">=3.8",
 )
