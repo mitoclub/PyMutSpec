@@ -3,8 +3,8 @@
 import os
 
 import click
-import pandas as pd
 import matplotlib.pyplot as plt
+import pandas as pd
 import seaborn as sns
 
 from mutspec_utils.annotation import calculate_mutspec, rev_comp, transcriptor

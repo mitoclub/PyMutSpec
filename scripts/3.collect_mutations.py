@@ -5,8 +5,8 @@ pic is position in codon
 """
 
 import os
-from collections import defaultdict
 import sys
+from collections import defaultdict
 from shutil import rmtree
 
 import click
@@ -14,9 +14,11 @@ import numpy as np
 import pandas as pd
 from ete3 import PhyloTree
 
-from mutspec_utils.annotation import CodonAnnotation, get_farthest_leaf, iter_tree_edges, calculate_mutspec, lbl2lbl_id
-from mutspec_utils.io import GenomeStates
+from mutspec_utils.annotation import (CodonAnnotation, calculate_mutspec,
+                                      get_farthest_leaf, iter_tree_edges,
+                                      lbl2lbl_id)
 from mutspec_utils.constants import possible_sbs12, possible_sbs192
+from mutspec_utils.io import GenomeStates
 from mutspec_utils.utils import load_logger, profiler
 
 logger = None

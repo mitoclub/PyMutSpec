@@ -4,12 +4,13 @@ Functionality to plot mutational spectrums
 
 from itertools import groupby
 
-import pandas as pd
 import matplotlib.pyplot as plt
+import pandas as pd
 import seaborn as sns
 
-from .sbs_orders import ordered_sbs192_kp, ordered_sbs192_kk
 from mutspec_utils.constants import possible_sbs192
+
+from .sbs_orders import ordered_sbs192_kk, ordered_sbs192_kp
 
 color_mapping6 = {
     "C>A": "deepskyblue",
@@ -203,7 +204,7 @@ def plot_mutspec192kk(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutatio
             bar.set_alpha(alpha=0.9)
         bar.set_width(0.3)
     if filepath is not None:
-        plt.savefig(filepath)
+        plt.savefig(filepath, dpi=300, bbox_inches="tight")
     if show:
         plt.show()
     else:
