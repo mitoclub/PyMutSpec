@@ -94,10 +94,10 @@ class MutSpec(CodonAnnotation, GenomeStates):
         total_mut_num = 0
         for ei, (ref_node, alt_node) in enumerate(iter_tree_edges(self.tree), 1):
             if alt_node.name not in self.nodes:
-                logger.warning(f"Pass edge '{ref_node.name}'-'{alt_node.name}' due to absence of '{alt_node.name}' genome")
+                logger.warning(f"Skip edge '{ref_node.name}'-'{alt_node.name}' due to absence of '{alt_node.name}' genome")
                 continue
             if ref_node.name not in self.nodes:
-                logger.warning(f"Pass edge '{ref_node.name}'-'{alt_node.name}' due to absence of '{ref_node.name}' genome")
+                logger.warning(f"Skip edge '{ref_node.name}'-'{alt_node.name}' due to absence of '{ref_node.name}' genome")
                 continue
 
             # get genomes from storage
@@ -194,7 +194,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
                 dists_to_leafs[ref_node.name] = dist_to_closest_leaf
             
             if len(genome_mutations) == 0:
-                logger.info(f"Observed 0 mutations for branch ({ref_node.name} - {alt_node.name})")
+                logger.info(f"0 mutations from {ei:03} branch ({ref_node.name} - {alt_node.name})")
                 continue
 
             genome_mutations_df = pd.concat(genome_mutations)
@@ -202,7 +202,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
             
             mut_num = genome_mutations_df.ProbaFull.sum() if self.use_proba else len(genome_mutations_df)
             total_mut_num += mut_num
-            logger.info(f"Observed {mut_num:.3f} mutations for branch ({ref_node.name} - {alt_node.name})")
+            logger.info(f"{mut_num:.3f} mutations from branch {ei:03} ({ref_node.name} - {alt_node.name})")
             if mut_num > aln_size * 0.1:
                 logger.warning(f"Observed too many mutations ({mut_num} > {aln_size} * 0.1) for branch ({ref_node.name} - {alt_node.name})")
 
@@ -232,9 +232,6 @@ class MutSpec(CodonAnnotation, GenomeStates):
                     self.dump_table(mutspec12,  self.handle["ms12"],  add_header["ms"])
                     self.dump_table(mutspec192, self.handle["ms192"], add_header["ms"])
                     add_header["ms"] = False
-
-            if ei % 100 == 0:
-                logger.info(f"Processed {ei} tree edges")
 
         logger.info(f"Processed {ei} tree edges")
         logger.info(f"Observed {total_mut_num:.3f} substitutions")
