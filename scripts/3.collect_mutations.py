@@ -25,7 +25,7 @@ logger = None
 class MutSpec(CodonAnnotation, GenomeStates):    
     def __init__(
             self, path_to_tree, path_to_states, out_dir, 
-            gcode=2, db_mode="dict", path_to_db="/tmp/states.db", 
+            gcode=2, db_mode="dict", path_to_db=None,
             rewrite_db=None, use_proba=False, proba_cutoff=0.01, 
             use_phylocoef=False, syn=False, syn4f=False, no_mutspec=False,
         ):
@@ -401,18 +401,18 @@ class MutSpec(CodonAnnotation, GenomeStates):
 @click.option("--pcutoff", "proba_cutoff", default=0.01, show_default=True, type=float, help="Cutoff of tri/tetranucleotide state probability, states with lower values will not be used in mutation collecting")
 @click.option("--phylocoef/--no-phylocoef", is_flag=True, default=True, show_default=True, help="Use or don't use phylogenetic uncertainty coefficient. Use only with --proba")
 @click.option("--no-mutspec", is_flag=True, default=False, show_default=True, help="Don't calculate mutspec, only mutations extraction")
-@click.option("--write_db", type=click.Choice(['dict', 'db'], case_sensitive=False), show_default=True, default="dict", help="Write sqlite3 database instead of using dictionary for states. Usefull if you have low RAM. Time expensive")
+@click.option("--write_db", is_flag=True, help="Write sqlite3 database instead of using dictionary for states. Usefull if you have low RAM. Time expensive")
 @click.option("--db_path", "path_to_db", type=click.Path(writable=True), default="/tmp/states.db", show_default=True, help="Path to database with states. Use only with --write_db")
-@click.option("--rewrite_db",  is_flag=True, default=False, help="Rewrite existing states database. Use only with --write_db")
+@click.option("--rewrite_db",  is_flag=True, default=False, help="Rewrite existing states database. Use only with --write_db")  # drop argument, replace by question
 @click.option('-f', '--force', is_flag=True, help="Rewrite existing output directory")
-@click.option('-v', '--verbose', "verbosity", count=True, help="Verbosity level = DEBUG")
+@click.option('-q', '--quiet', help="Quiet mode, suppress printing to screen (stderr) most of log messages")
 @click.option("--config", default=None, type=click.Path(True), help="Path to log-config file")
 def main(
         path_to_tree, path_to_states, outdir, 
         gencode, syn, syn4f, proba, proba_cutoff, 
         write_db, path_to_db, rewrite_db, 
-        phylocoef, no_mutspec, force, verbosity,
-        config
+        phylocoef, no_mutspec, 
+        force, quiet, config,
     ):
 
     if os.path.exists(outdir):
@@ -426,19 +426,19 @@ def main(
     os.makedirs(outdir)
 
     global logger
-    _log_lvl = "INFO" if verbosity >= 1 else None
+    _log_lvl = "CRITICAL" if quiet else None
     logfile = os.path.join(outdir, "run.log")
-    if config:
-        logger = load_logger(path=config, stream_level=_log_lvl, filename=logfile)
-    else:
-        logger = load_logger(stream_level=_log_lvl, filename=logfile)
+    logger = load_logger(path=config, stream_level=_log_lvl, filename=logfile)
+
     logger.info(f"Writing logs to '{logfile}'")
     logger.debug("Command: " + " ".join(sys.argv))
     logger.debug(f"Output directory '{outdir}' created")
 
+    db_mode = "db" if write_db else "dict"
+    
     MutSpec(
         path_to_tree, path_to_states, outdir, gcode=gencode, 
-        db_mode=write_db, path_to_db=path_to_db, rewrite_db=rewrite_db, 
+        db_mode=db_mode, path_to_db=path_to_db, rewrite_db=rewrite_db, 
         use_proba=proba, proba_cutoff=proba_cutoff, use_phylocoef=phylocoef,
         syn=syn, syn4f=syn4f, no_mutspec=no_mutspec,
     )

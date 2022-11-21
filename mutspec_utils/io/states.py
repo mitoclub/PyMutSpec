@@ -89,7 +89,7 @@ class GenomeStates:
         cur = con.cursor()
         self.con = con
         if done:
-            self.nodes = self._get_nodes()
+            self.nodes = self._get_nodes_from_db()
             return
 
         print("Writing new database file", file=sys.stderr)
@@ -115,10 +115,10 @@ class GenomeStates:
             con.commit()
             handle.close()
 
-        self.nodes = self._get_nodes()
+        self.nodes = self._get_nodes_from_db()
         # con.close()
     
-    def _get_nodes(self):
+    def _get_nodes_from_db(self):
         nodes = set()
         cur = self.con.cursor()
         for node in cur.execute("SELECT DISTINCT Node from states"):
@@ -145,8 +145,8 @@ class GenomeStates:
             assert aln_sizes.nunique() == 1, "uncomplete leaves state table"
             states = states.sort_values(["Node", "Part", "Site"])
             gr = states.groupby(["Node", "Part"])
-            for (node, part), gene_pos_ids in gr.groups.items():
-                gene_df = states.loc[gene_pos_ids]
+            for (node, part), gene_pos_ids in tqdm.tqdm(gr.groups.items()):
+                gene_df = states.loc[gene_pos_ids]  # TODO simplify: iterate over gr
                 if self.use_proba:
                     gene_states = gene_df[["p_A", "p_C", "p_G", "p_T"]].values
                 else:

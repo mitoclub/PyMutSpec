@@ -14,7 +14,7 @@ handlers:
     formatter: extended_console_process
   stream_handler:
     class: logging.StreamHandler
-    level: WARNING
+    level: INFO
     formatter: default_console_process
     stream: ext://sys.stderr
 loggers:
