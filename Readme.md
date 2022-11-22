@@ -49,8 +49,9 @@ python scripts/6.2.states2iqtree_format.py --anc data/interim/iqtree_runs/brun3/
 ```bash
 python mutspec/1.terminal_genomes2iqtree_format.py --aln data/example_birds/aln --scheme data/example_birds/scheme_birds_genes.nex --out data/example_birds/leaves_birds_states.tsv
 python mutspec/2.states2iqtree_format.py --anc data/example_birds/anc_kg.state --leaves data/example_birds/leaves_birds_states.tsv --out data/example_birds/genes_states.tsv
-# simple mutspec without probabilities
 
+# mutspec using IQTREE probabilities WITH phylogenetic coefficient
+python scripts/3.collect_mutations.py --tree data/example_birds/anc_kg.treefile --states data/example_birds/genes_states.tsv --states data/example_birds/leaves_birds_states.tsv --outdir data/processed/birds/21-11-22 --gencode 2 --syn --syn4f --proba --phylocoef
 ```
 
 ## Nematoda workflow
@@ -62,11 +63,11 @@ python mutspec/2.iqtree_states2custom_format.py --anc data/example_nematoda/anc_
 python mutspec/2.iqtree_states_parted2custom_format.py --anc ./data/example_nematoda/nematoda_anc_HKY_part/anc_HKY_part.state --scheme ./data/example_nematoda/scheme_devilworm.nex --leaves ./data/example_nematoda/leaves_states_nematoda.tsv --out data/example_nematoda/nematoda_anc_HKY_part/genes_states.tsv
 
 # SIMPLE mutspec without probabilities without phylogenetic coefficient
-python mutspec/3.calculate_mutspec.py --tree data/example_nematoda/anc.treefile.rooted --states data/example_nematoda/nematoda_anc_HKY_part/genes_states.tsv --states data/example_nematoda/leaves_states_nematoda.tsv --gencode 5 --syn --syn4f --outdir data/processed/nematoda/dif_approaches/simple
+python scripts/3.collect_mutations.py --tree data/example_nematoda/anc.treefile.rooted --states data/example_nematoda/nematoda_anc_HKY_part/genes_states.tsv --states data/example_nematoda/leaves_states_nematoda.tsv --gencode 5 --syn --syn4f --outdir data/processed/nematoda/dif_approaches/simple
 # mutspec using IQTREE probabilities WITH phylogenetic coefficient
-python mutspec/3.calculate_mutspec.py --tree data/example_nematoda/anc.treefile.rooted --states data/example_nematoda/nematoda_anc_HKY_part/genes_states.tsv --states data/example_nematoda/leaves_states_nematoda.tsv --gencode 5 --syn --syn4f --outdir data/processed/nematoda/dif_approaches/iqtree --proba --phylocoef
+python scripts/3.collect_mutations.py --tree data/example_nematoda/anc.treefile.rooted --states data/example_nematoda/nematoda_anc_HKY_part/genes_states.tsv --states data/example_nematoda/leaves_states_nematoda.tsv --gencode 5 --syn --syn4f --outdir data/processed/nematoda/dif_approaches/iqtree --proba --phylocoef
 # mutspec using PASTML probabilities without phylogenetic coefficient
-python mutspec/3.calculate_mutspec.py --tree data/example_nematoda/anc.treefile.rooted --states data/example_nematoda/genes_states.pastml_HKY.tsv --gencode 5 --syn --syn4f --outdir data/processed/nematoda/dif_approaches/pastml --proba --no-phylocoef
+python scripts/3.collect_mutations.py --tree data/example_nematoda/anc.treefile.rooted --states data/example_nematoda/genes_states.pastml_HKY.tsv --gencode 5 --syn --syn4f --outdir data/processed/nematoda/dif_approaches/pastml --proba --no-phylocoef
 ```
 
 ## PastML

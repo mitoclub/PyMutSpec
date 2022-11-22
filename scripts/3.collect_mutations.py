@@ -88,6 +88,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
             file.close()
         logger.info("Handles closed")
 
+    @profiler
     def extract_mutspec_from_tree(self):
         logger.info("Start mutation extraction from tree")
         add_header = defaultdict(lambda: True)
@@ -234,6 +235,9 @@ class MutSpec(CodonAnnotation, GenomeStates):
                     self.dump_table(mutspec12,  self.handle["ms12"],  add_header["ms"])
                     self.dump_table(mutspec192, self.handle["ms192"], add_header["ms"])
                     add_header["ms"] = False
+            
+            if ei == 10:
+                break
 
         logger.info(f"Processed {ei} tree edges")
         logger.info(f"Observed {total_mut_num:.3f} substitutions")
