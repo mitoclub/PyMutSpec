@@ -123,7 +123,16 @@ def __label_group_bar_table(ax, df):
         ypos -= .05
 
 
-def plot_mutspec192(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutational spectrum", show=True, figsize=(24, 10), filepath=None):
+def plot_mutspec192(
+        mutspec192: pd.DataFrame, 
+        ylabel="MutSpec", 
+        title="Mutational spectrum", 
+        figsize=(24, 10), 
+        filepath=None, 
+        fontsize=8,
+        fontname="Times New Roman",
+        show=True, 
+    ):
     """
     Plot barblot of given mutational spectrum calculated from single nucleotide substitutions
 
@@ -168,7 +177,10 @@ def plot_mutspec192(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutationa
         bar.set_width(width)
         bar.set_x(bar.get_x() + shift)
 
-    plt.xticks(rotation=90, fontsize=6)
+    plt.xticks(rotation=90, fontsize=fontsize, fontname=fontname)
+    # labels = ax.get_xticklabels()  # + ax.get_yticklabels()
+    # [label.set_fontweight('bold') for label in labels]
+
     # labels = ['' for _ in ax.get_xticklabels()]
     # ax.set_xticklabels(labels)
     # __label_group_bar_table(ax, df)
@@ -192,7 +204,7 @@ def plot_mutspec192kk(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutatio
         order=order, 
         errwidth=1, ax=fig.gca(), 
     )
-    plt.xticks(rotation=90, fontsize=7)
+    plt.xticks(rotation=90, fontsize=7, fontname="Times New Roman")
     ax.set_title(title)
     ax.set_xlabel("")
     ax.set_ylabel("Mutational spectrum")
