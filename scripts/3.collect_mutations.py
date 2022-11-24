@@ -88,7 +88,6 @@ class MutSpec(CodonAnnotation, GenomeStates):
             file.close()
         logger.info("Handles closed")
 
-    @profiler
     def extract_mutspec_from_tree(self):
         logger.info("Start mutation extraction from tree")
         add_header = defaultdict(lambda: True)

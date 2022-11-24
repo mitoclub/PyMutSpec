@@ -1,6 +1,7 @@
 #!/bin/bash
 
-cd /home/kpotoh/mutspec-utils/tmp/evolve_sc
+# mkdir  /home/kpotoh/mutspec-utils/tmp/evolve_sc_raxml
+cd /home/kpotoh/mutspec-utils/tmp/evolve_sc_raxml
 
 raw_tree=../evolve/iqtree_anc_tree.nwk
 spectra=../evolve/ms12syn_iqtree.tsv
@@ -17,6 +18,15 @@ scale_tree=1
 
 tree=tree.nwk
 nw_prune $raw_tree OUTGRP > $tree
+echo "Outgroup removed"
+
+nw_labels -L $tree | grep -v ROOT | xargs -I{} echo -e "{}\tNode{}" > map.tsv
+if [ `grep -c NodeNode map.tsv` -eq 0 ]; then
+	cat $tree | nw_rename - map.tsv > $tree.tmp
+	cat $tree.tmp > $tree
+	echo "Internal nodes renamed"
+fi
+
 python3 ../../scripts/pyvolve_process.py -a $mulal -t $tree -s $spectra -o seqfile.fasta -r $replics --write_anc -c $GENCODE -l $scale_tree
 
 echo > pyvolve_full_$label.log
