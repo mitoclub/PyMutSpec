@@ -234,9 +234,6 @@ class MutSpec(CodonAnnotation, GenomeStates):
                     self.dump_table(mutspec12,  self.handle["ms12"],  add_header["ms"])
                     self.dump_table(mutspec192, self.handle["ms192"], add_header["ms"])
                     add_header["ms"] = False
-            
-            if ei == 10:
-                break
 
         logger.info(f"Processed {ei} tree edges")
         logger.info(f"Observed {total_mut_num:.3f} substitutions")
