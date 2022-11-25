@@ -59,7 +59,29 @@ def __prepare_nice_labels(ordered_sbs192):
     return _nice_order
 
 
-def plot_mutspec12(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutational spectrum", show=True, savepath=None):
+def plot_mutspec12bar(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutational spectrum", show=True, savepath=None):
+    fig = plt.figure(figsize=(6, 4))
+    ax = fig.add_subplot(111)
+    ax = sns.barplot(x="Mut", y=ylabel, data=mutspec, order=sbs12_ordered, ax=fig.gca())
+
+    # map colors to bars
+    for bar, clr in zip(ax.patches, colors12):
+        bar.set_color(clr)
+
+    ax.set_title(title)
+    ax.set_ylabel("")
+    ax.set_xlabel("")
+
+    if savepath is not None:
+        plt.savefig(savepath)
+    if show:
+        plt.show()
+    else:
+        plt.close()
+    return ax
+
+
+def plot_mutspec12vio(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutational spectrum", show=True, savepath=None):
     fig = plt.figure(figsize=(6, 4))
     ax = fig.add_subplot(111)
     ax = sns.violinplot(x="Mut", y=ylabel, data=mutspec, order=sbs12_ordered, ax=fig.gca())
@@ -184,6 +206,12 @@ def main(path_to_obs, path_to_exp, outdir, label, use_proba, proba_min, exclude,
 
     # exclude ROOT node because RAxML don't change input tree that contains one node more than it's need
     obs = obs[~obs.AltNode.isin(exclude)]
+    
+    plot_mutspec12_func = plot_mutspec12vio
+    if "Replica" not in obs.columns:
+        obs["Replica"] = 1
+        plot_mutspec12_func = plot_mutspec12bar
+
     if use_proba:
         obs = obs[(obs.ProbaFull > proba_min)]
 
@@ -197,10 +225,8 @@ def main(path_to_obs, path_to_exp, outdir, label, use_proba, proba_min, exclude,
 
         if lbl not in exp.index:
             continue
+
         cur_exp = exp.loc[lbl].to_dict()
-        
-        if "Replica" not in cur_obs_lbl.columns:
-            cur_obs_lbl["Replica"] = 1
 
         ms12_collection = []
         ms192_collection = []
@@ -222,7 +248,7 @@ def main(path_to_obs, path_to_exp, outdir, label, use_proba, proba_min, exclude,
             ms12 = pd.concat(ms12_collection)
             ms12.to_csv(path_to_ms12.format(lbl, label), sep="\t", index=None)
             if plot:
-                plot_mutspec12(
+                plot_mutspec12_func(
                     ms12, title=f"{lbl} mutational spectrum", 
                     savepath=path_to_ms12plot.format(lbl, label, image_extension), 
                     show=False
