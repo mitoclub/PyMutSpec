@@ -243,6 +243,8 @@ def main(path_to_obs, path_to_exp, outdir, label, use_proba, proba_min, exclude,
                 ms192 = calculate_mutspec(cur_obs_lbl_repl, cur_exp, use_context=True, use_proba=use_proba)
                 ms192["Mut"] = ms192["Mut"].apply(rev_comp)
                 ms192.drop("RawMutSpec", axis=1, inplace=True)
+                ms192_collection.append(ms192)
+                
         
         if ms12_collection:
             ms12 = pd.concat(ms12_collection)
