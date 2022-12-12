@@ -192,6 +192,70 @@ def plot_mutspec192(
     else:
         plt.close()
 
+def plot_mutspec192box(
+        mutspec192: pd.DataFrame, 
+        ylabel="MutSpec", 
+        title="Mutational spectrum", 
+        figsize=(24, 10), 
+        filepath=None, 
+        fontsize=8,
+        fontname="Times New Roman",
+        show=True, 
+    ):
+    """
+    Plot barblot of given mutational spectrum calculated from single nucleotide substitutions
+
+    Arguments
+    ---------
+    mutspec192: pd.DataFrame
+        table, containing 192 component mutational spectrum for one or many species, all substitutions must be presented in the table
+    title: str, default = 'Mutational spectrum'
+        Title on the plot
+    filepath: str, default = None
+        Path to output plot file. If None no images will be written
+    """
+    # TODO add checks of mutspec192
+    ms192 = mutspec192.copy()
+    ms192["MutBase"] = ms192.Mut.str.slice(2, 5)
+    ms192["Context"] = ms192.Mut.str.get(0) + ms192.Mut.str.get(2) + ms192.Mut.str.get(-1)
+    ms192["long_lbl"] = ms192.Mut.str.get(2) + ms192.Mut.str.get(4) + ": " + ms192.Mut.str.get(0) + ms192.Mut.str.get(2) + ms192.Mut.str.get(-1)
+    order = __prepare_nice_labels(ordered_sbs192_kp)
+
+    df = ms192.groupby(["MutBase", "Context"]).mean()
+    fig = plt.figure(figsize=figsize)
+    ax = fig.add_subplot(111)
+    ax.grid(axis="y", alpha=.7, linewidth=0.5)
+    sns.boxplot(
+        x="long_lbl", y=ylabel, data=ms192,
+        order=order, ax=fig.gca(),
+    )
+    ax.set_title(title)
+    ax.set_xlabel("")
+    ax.set_ylabel("")
+    # map colors to bars
+    for bar, sbs in zip(ax.patches, order):
+        if len(sbs):
+            if "long_lbl":
+                s = sbs[0] + ">" + sbs[1]
+                bar.set_color(color_mapping12[s])
+            bar.set_alpha(alpha=0.9)
+
+    plt.xticks(rotation=90, fontsize=fontsize, fontname=fontname)
+    # labels = ax.get_xticklabels()  # + ax.get_yticklabels()
+    # [label.set_fontweight('bold') for label in labels]
+
+    # labels = ['' for _ in ax.get_xticklabels()]
+    # ax.set_xticklabels(labels)
+    # __label_group_bar_table(ax, df)
+    # fig.subplots_adjust(bottom=0.1 * df.index.nlevels)
+    if filepath is not None:
+        plt.savefig(filepath)
+    if show:
+        plt.show()
+    else:
+        plt.close()
+
+
 def plot_mutspec192kk(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutational spectrum", show=True, figsize=(24, 6), filepath=None):
     ms192 = mutspec192.copy()
     ms192["long_lbl"] = ms192.Mut.str.get(2) + ms192.Mut.str.get(4) + ": " + ms192.Mut.str.get(0) + ms192.Mut.str.get(2) + ms192.Mut.str.get(-1)

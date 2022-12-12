@@ -4,6 +4,7 @@ import os
 
 import click
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import seaborn as sns
 
@@ -202,7 +203,6 @@ def main(path_to_obs, path_to_exp, outdir, label, use_proba, proba_min, exclude,
     path_to_ms192 = os.path.join(outdir, "ms192{}_{}.tsv")
 
     obs = pd.read_csv(path_to_obs, sep="\t")
-    exp_raw = pd.read_csv(path_to_exp, sep="\t")
 
     # exclude ROOT node because RAxML don't change input tree that contains one node more than it's need
     obs = obs[~obs.AltNode.isin(exclude)]
@@ -215,8 +215,15 @@ def main(path_to_obs, path_to_exp, outdir, label, use_proba, proba_min, exclude,
     if use_proba:
         obs = obs[(obs.ProbaFull > proba_min)]
 
-    exp = exp_raw.drop_duplicates().drop(["Node", "Gene"], axis=1).groupby("Label").mean()
-    dump_expected(exp, path_to_united_exp)
+    exp_raw = pd.read_csv(path_to_exp, sep="\t")
+    # if random codons in columns
+    if "ATA" in exp_raw.columns and "TTT" in exp_raw.columns:
+        exp = exp_raw.drop_duplicates().drop(["Node", "Gene"], axis=1, errors="ignore").groupby("Label").mean()
+        dump_expected(exp, path_to_united_exp)
+    elif np.all(exp_raw.columns == ["Label", "Mut", "Count"]):
+        exp = exp_raw.pivot("Label", "Mut", "Count")
+    else:
+        raise RuntimeError("Expected another columns in the table {}".format(path_to_exp))
 
     for lbl_code, lbl in zip(label_codes, labels):
         cur_obs_lbl = obs[obs.Label >= lbl_code]
