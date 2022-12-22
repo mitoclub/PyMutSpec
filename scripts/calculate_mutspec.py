@@ -169,9 +169,15 @@ def dump_expected(exp, path):
             .to_csv(path, sep="\t", index=None)
 
 
+def read_rates(path: str):
+    rates = pd.read_csv(path, sep="\t", comment="#")
+    return rates
+
+
 @click.command("MutSpec calculator", help="Calculate and visualize mutational spectra")
 @click.option("-b", "--observed", "path_to_obs", type=click.Path(True),  show_default=True, help="Path to observed mutations table")
 @click.option("-e", "--expected", "path_to_exp", type=click.Path(True), help="Path to expected mutations table")
+@click.option("--rates", "path_to_rates", default=None, type=click.Path(True), help="Path to rates from IQTREE2")
 @click.option("-o", '--outdir', type=click.Path(True), default=".", show_default=True, help="Path to output directory for files (must exist)")
 @click.option("-l", '--label', default="", show_default=True, help="Label for files naming")
 @click.option("-p", '--proba', "use_proba", is_flag=True, help="Use probabilities of mutations")
@@ -182,7 +188,7 @@ def dump_expected(exp, path):
 @click.option('--mnum192', "mut_num_for_192", default=16, show_default=True, help="Number of mutation types (maximum 192) required to calculate and plot 192-component mutational spectra")
 @click.option('--plot', is_flag=True, help="Plot spectra plots")
 @click.option("-x", '--ext', "image_extension", default="pdf", show_default=True, type=click.Choice(['pdf', 'png', 'jpg'], case_sensitive=False), help="Images format to save")
-def main(path_to_obs, path_to_exp, outdir, label, use_proba, proba_min, exclude, syn, syn4f, mut_num_for_192, plot, image_extension):
+def main(path_to_obs, path_to_exp, path_to_rates, outdir, label, use_proba, proba_min, exclude, syn, syn4f, mut_num_for_192, plot, image_extension):
     if mut_num_for_192 > 192:
         raise RuntimeError("Number of mutation types must be less then 192, but passed {}".format(mut_num_for_192))
 
@@ -203,6 +209,7 @@ def main(path_to_obs, path_to_exp, outdir, label, use_proba, proba_min, exclude,
     path_to_ms192 = os.path.join(outdir, "ms192{}_{}.tsv")
 
     obs = pd.read_csv(path_to_obs, sep="\t")
+    rates = read_rates(path_to_rates) if path_to_rates else None
 
     # exclude ROOT node because RAxML don't change input tree that contains one node more than it's need
     obs = obs[~obs.AltNode.isin(exclude)]
