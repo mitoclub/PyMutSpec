@@ -16,7 +16,7 @@ class GenomeStates:
     - use mode="dict" if your mtDNA tree is small (~1500 nodes require ~350MB of RAM); 
     big trees with 100000 nodes require tens GB of RAM, therefore use mode="db"
     """
-    def __init__(self, path_states: List[str], path_to_db=None, mode="dict", rewrite=False, use_proba=True):
+    def __init__(self, path_states: List[str], path_to_db=None, mode="dict", rewrite=False, use_proba=True, path_to_rates=None):
         self.mode = mode
         self.use_proba = use_proba
         print(f"Genome states storage mode = '{mode}'", file=sys.stderr)
@@ -32,6 +32,7 @@ class GenomeStates:
             raise ValueError("Mode must be 'dict' or 'db'")
         
         self.genome_size = sum([len(part) for _, part in self.get_random_genome().items()])
+        self.category = self.read_rates(path_to_rates) if path_to_rates else None
     
     def get_genome(self, node: str):
         if self.mode == "dict":
@@ -155,6 +156,13 @@ class GenomeStates:
 
         self.node2genome = node2genome
         self.nodes = set(node2genome.keys())
+
+    def read_rates(self, path: str):
+        """ TODO write for many genes """
+        df = pd.read_csv(path, sep="\t", comment="#").sort_values("Site")
+        category = df.Cat.values
+        category = {1: category}  # for each aln part
+        return category
     
     def close_db(self):
         self.con.close()

@@ -191,17 +191,19 @@ class CodonAnnotation:
         mut_df = pd.DataFrame(mutations)
         return mut_df
 
-    def collect_exp_mut_freqs(self, cds: Union[str, Iterable[str]], labels=["all", "syn", "ff"]):
+    def collect_exp_mut_freqs(self, cds: Union[str, Iterable[str]], mask: Iterable[Union[int, bool]] = None, labels=["all", "syn", "ff"]):
         """
         Calculate potential expected mutation counts for nucleotides and trinucleotides (context) 
         in cds gene
 
         Arguments
         ---------
-        cds: string or iterable of strings, length must be divisible by 3
+        cds: string or iterable of strings, if len is not divisible by 3, last codon is not used in syn, syn4f and pos3 modes
             cds sequence with codon structure; 
         labels: List of label strings
-            label could be one of ["all", "syn", "ff", "pos3"]
+            label could be one of ["all", "syn", "ff", "pos3"];
+        mask:
+            iterable that mask invariant positions in the cds;
 
         Return
         ---------
@@ -211,13 +213,16 @@ class CodonAnnotation:
                 for each label collected expected single nucleotide substitutions frequencies with contexts
         """
         n = len(cds)
-        # assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
-        labels = set(labels)
+        if mask and len(mask) != n:
+            raise ValueError("Mask must have same lenght as cds")
 
+        labels = set(labels)
         sbs12_freqs = {lbl: defaultdict(int) for lbl in labels}
         sbs192_freqs = {lbl: defaultdict(int) for lbl in labels}
 
         for pos in range(1, n - 1):
+            if mask and not mask[pos]:
+                continue
             pic = pos % 3
             nuc = cds[pos]
             cdn = cds[pos - pic: pos - pic + 3]

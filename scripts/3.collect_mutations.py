@@ -8,6 +8,7 @@ import os
 import sys
 from collections import defaultdict
 from shutil import rmtree
+from typing import Iterable, Union
 
 import click
 import numpy as np
@@ -30,6 +31,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
             gcode=2, db_mode="dict", path_to_db=None,
             rewrite_db=None, use_proba=False, proba_cutoff=0.01, 
             use_phylocoef=False, syn=False, syn4f=False, no_mutspec=False,
+            path_to_rates=None,
         ):
         for path in list(path_to_states) + [path_to_tree]:
             if not os.path.exists(path):
@@ -37,7 +39,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
 
         CodonAnnotation.__init__(self, gcode)
         GenomeStates.__init__(
-            self, path_to_states, path_to_db, db_mode, rewrite_db, use_proba
+            self, path_to_states, path_to_db, db_mode, rewrite_db, use_proba, path_to_rates,
         )
         self.gcode = gcode
         logger.info(f"Using gencode {gcode}")
@@ -124,9 +126,9 @@ class MutSpec(CodonAnnotation, GenomeStates):
 
                 # collect state frequencies
                 if self.use_proba:
-                    gene_exp_sbs12, gene_exp_sbs192 = self.collect_exp_mut_freqs_proba(ref_seq, phylocoef, self.MUT_LABELS)
+                    gene_exp_sbs12, gene_exp_sbs192 = self.collect_exp_mut_freqs_proba(ref_seq, phylocoef, self.category, self.MUT_LABELS)
                 else:
-                    gene_exp_sbs12, gene_exp_sbs192 = self.collect_exp_mut_freqs(ref_seq)
+                    gene_exp_sbs12, gene_exp_sbs192 = self.collect_exp_mut_freqs(ref_seq, self.category, self.MUT_LABELS)
 
                 # dump state frequencies
                 if ref_node.name not in dists_to_leafs:
@@ -297,25 +299,30 @@ class MutSpec(CodonAnnotation, GenomeStates):
         mut_df = pd.DataFrame(mutations)
         return mut_df
 
-    def collect_exp_mut_freqs_proba(self, genome: np.ndarray, phylocoef: float, labels = ["all", "syn", "ff"],  proba_cutoff=0.001):
-        n = len(genome)
+    def collect_exp_mut_freqs_proba(self, cds: np.ndarray, phylocoef: float, mask: Iterable[Union[int, bool]] = None, labels = ["all", "syn", "ff"],  proba_cutoff=0.001):
+        n = len(cds)
+        if mask and len(mask) != n:
+            raise ValueError("Mask must have same lenght as cds")
+
         assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
         assert 0 <= phylocoef <= 1, "Evol coefficient must be between 0 and 1"
 
+        labels = set(labels)
         sbs12_freqs = {lbl: defaultdict(int) for lbl in labels}
         sbs192_freqs = {lbl: defaultdict(int) for lbl in labels}
-        labels = set(labels)
 
         for pos in range(1, n - 1):
+            if mask and not mask[pos]:
+                continue
             pic = pos % 3  # 0-based
-            for cdn_tuple, cxt, proba in self.sample_context(pos, pic, genome, proba_cutoff):
+            for cdn_tuple, cxt, proba in self.sample_context(pos, pic, cds, proba_cutoff):
                 cdn = "".join(cdn_tuple)
                 proba *= phylocoef  # adjusted proba
                 nuc = cxt[1]
                 mut_base12 = nuc + ">" + "{}"
                 mut_base192 = cxt[0] + "[" + nuc + ">{}]" + cxt[-1]
 
-                if "syn" in labels:
+                if "syn" in labels and len(cdn) == 3:
                     syn_codons = self.get_syn_codons(cdn, pic)
                     for alt_cdn in syn_codons:
                         alt_nuc = alt_cdn[pic]
@@ -387,7 +394,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
             sbs192 = "\t".join([str(gene_exp_sbs192[lbl][x]) for x in possible_sbs192])
             row = f"{node}\t{gene}\t{lbl}\t{sbs12}\t{sbs192}\n"
             handle.write(row)
-    
+
 
 @click.command("MutSpec calculator", help="TODO")
 @click.option("--tree", "path_to_tree", required=True, type=click.Path(True), help="Path to phylogenetic tree to collect mutations from")
@@ -400,6 +407,7 @@ class MutSpec(CodonAnnotation, GenomeStates):
 @click.option("--pcutoff", "proba_cutoff", default=0.01, show_default=True, type=float, help="Cutoff of tri/tetranucleotide state probability, states with lower values will not be used in mutation collecting")
 @click.option("--phylocoef/--no-phylocoef", is_flag=True, default=True, show_default=True, help="Use or don't use phylogenetic uncertainty coefficient. Use only with --proba")
 @click.option("--no-mutspec", is_flag=True, default=False, show_default=True, help="Don't calculate mutspec, only mutations extraction")
+@click.option("--rates", "path_to_rates", default=None, type=click.Path(True), help="Path to rates from IQTREE2")
 @click.option("--write_db", is_flag=True, help="Write sqlite3 database instead of using dictionary for states. Usefull if you have low RAM. Time expensive")
 @click.option("--db_path", "path_to_db", type=click.Path(writable=True), default="/tmp/states.db", show_default=True, help="Path to database with states. Use only with --write_db")
 @click.option("--rewrite_db",  is_flag=True, default=False, help="Rewrite existing states database. Use only with --write_db")  # drop argument, replace by question
@@ -408,9 +416,9 @@ class MutSpec(CodonAnnotation, GenomeStates):
 @click.option("--config", default=None, type=click.Path(True), help="Path to log-config file")
 def main(
         path_to_tree, path_to_states, outdir, 
-        gencode, syn, syn4f, proba, proba_cutoff, 
+        gencode, syn, syn4f, proba, proba_cutoff,
         write_db, path_to_db, rewrite_db, 
-        phylocoef, no_mutspec, 
+        phylocoef, no_mutspec, path_to_rates,
         force, quiet, config,
     ):
 
@@ -439,7 +447,7 @@ def main(
         path_to_tree, path_to_states, outdir, gcode=gencode, 
         db_mode=db_mode, path_to_db=path_to_db, rewrite_db=rewrite_db, 
         use_proba=proba, proba_cutoff=proba_cutoff, use_phylocoef=phylocoef,
-        syn=syn, syn4f=syn4f, no_mutspec=no_mutspec,
+        syn=syn, syn4f=syn4f, no_mutspec=no_mutspec, path_to_rates=path_to_rates,
     )
 
 
