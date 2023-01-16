@@ -7,8 +7,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from mutspec_utils.annotation import calculate_mutspec, rev_comp, transcriptor
-from mutspec_utils.constants import possible_sbs192
+from pymutspec.annotation import calculate_mutspec, rev_comp, transcriptor
+from pymutspec.constants import possible_sbs192
 
 OUTGRP = "OUTGRP"
 MUT_NUM_FOR_192 = 16

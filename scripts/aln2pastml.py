@@ -8,7 +8,7 @@ import tqdm
 import pandas as pd
 from Bio import SeqIO
 
-from mutspec_utils.io import load_scheme, get_aln_files
+from pymutspec.io import load_scheme, get_aln_files
 
 NGENES = 12
 GAP_CUTOFF = 0.05

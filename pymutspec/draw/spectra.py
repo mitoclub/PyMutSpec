@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 
-from mutspec_utils.constants import possible_sbs192
+from pymutspec.constants import possible_sbs192
 
 from .sbs_orders import ordered_sbs192_kk, ordered_sbs192_kp
 

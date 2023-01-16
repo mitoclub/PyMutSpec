@@ -12,7 +12,7 @@ import click
 import numpy as np
 import pandas as pd
 
-from mutspec_utils.io import load_scheme
+from pymutspec.io import load_scheme
 
 dtypes = {
     "Site": np.int32,

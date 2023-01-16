@@ -8,8 +8,8 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-from mutspec_utils.annotation import calculate_mutspec, rev_comp, transcriptor
-from mutspec_utils.constants import possible_sbs192
+from pymutspec.annotation import calculate_mutspec, rev_comp, transcriptor
+from pymutspec.constants import possible_sbs192
 
 color_mapping12 = {
     "C>A": "deepskyblue",

@@ -1,7 +1,7 @@
 import pytest
 
-from mutspec_utils.annotation import CodonAnnotation
-from mutspec_utils.io import GenomeStates
+from pymutspec.annotation import CodonAnnotation
+from pymutspec.io import GenomeStates
 
 path_to_states = "./tests/data/states_sample.tsv"
 path_to_db = './tests/data/states_sample.db'

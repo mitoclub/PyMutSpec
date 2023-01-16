@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from mutspec_utils.io import GenomeStates
+from pymutspec.io import GenomeStates
 
 path_to_states = ["./tests/data/states_sample.tsv"]
 path_to_db = './tests/data/states_sample.db'
