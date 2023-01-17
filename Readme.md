@@ -1,4 +1,8 @@
-# Calculate mutational spectra using ancestral states from phylogenetic tree
+# PyMutSpec
+
+Python library for mutational spectra analysis
+
+<!-- Calculate mutational spectra using ancestral states from phylogenetic tree -->
 
 ## Environment
 
