@@ -1,7 +1,7 @@
 import pandas as pd
 
-from mutspec_utils.constants import possible_sbs192
-from mutspec_utils.annotation import rev_comp, transcriptor
+from pymutspec.constants import possible_sbs192
+from pymutspec.annotation import rev_comp, transcriptor
 
 kk_lbls = "A>C A>G A>T C>T G>C G>T".split()
 cosmic_lbls = "C>A C>G C>T T>A T>C T>G".split()

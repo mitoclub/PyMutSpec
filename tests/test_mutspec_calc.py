@@ -3,8 +3,8 @@ import pytest
 
 import pandas as pd
 
-from mutspec_utils.annotation import calculate_mutspec
-from mutspec_utils.constants import possible_sbs12, possible_sbs192
+from pymutspec.annotation import calculate_mutspec
+from pymutspec.constants import possible_sbs12, possible_sbs192
 
 
 @pytest.fixture

@@ -5,7 +5,7 @@ import pyvolve
 import pandas as pd
 from Bio import SeqIO
 
-from mutspec_utils.annotation import transcriptor
+from pymutspec.annotation import transcriptor
 
 DEFAULT_REPLICS = 10
 DEFAULT_GENCODE = 2
