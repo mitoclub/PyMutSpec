@@ -3,20 +3,20 @@ import sys
 import sqlite3
 from collections import defaultdict
 from typing import List
+from unicodedata import category
 
 import numpy as np
 import pandas as pd
-from Bio import SeqIO
 import tqdm
 
 
-class GenomeStates:
+class GenesStates:
     """
     tips:
-    - use mode="dict" if your mtDNA tree is small (~1500 nodes require ~350MB of RAM); 
-    big trees with 100000 nodes require tens GB of RAM, therefore use mode="db"
+    - use mode="dict" if your mtDNA tree is small (~1500 nodes x 10,000 nucleotides require ~350MB of RAM); 
+    big trees with 100,000 nodes require tens of GB of RAM, therefore use mode="db"
     """
-    def __init__(self, path_states: List[str], path_to_db=None, mode="dict", rewrite=False, use_proba=True, path_to_rates=None):
+    def __init__(self, path_states: List[str], path_to_db=None, mode="dict", rewrite=False, use_proba=True, path_to_rates=None, cat_cutoff=2):
         self.mode = mode
         self.use_proba = use_proba
         print(f"Genome states storage mode = '{mode}'", file=sys.stderr)
@@ -31,8 +31,16 @@ class GenomeStates:
         else:
             raise ValueError("Mode must be 'dict' or 'db'")
         
-        self.genome_size = sum([len(part) for _, part in self.get_random_genome().items()])
+        genes_sizes = {part: len(x) for part, x in self.get_random_genome().items()}
+        self.genome_size = sum(genes_sizes.values())
         self.category = self.read_rates(path_to_rates) if path_to_rates else None
+        self.mask = None
+
+        if self.category: 
+            for part in genes_sizes:
+                if genes_sizes[part] != len(self.category[part]):
+                    raise RuntimeError("Wrong rates: number of positions in alignment are not equal to number of rates", file=sys.stderr)
+            self.mask = self.get_mask(self.category, cat_cutoff)
     
     def get_genome(self, node: str):
         if self.mode == "dict":
@@ -157,12 +165,18 @@ class GenomeStates:
         self.node2genome = node2genome
         self.nodes = set(node2genome.keys())
 
-    def read_rates(self, path: str):
+    @staticmethod
+    def read_rates(path: str):
         """ TODO write for many genes """
         df = pd.read_csv(path, sep="\t", comment="#").sort_values("Site")
         category = df.Cat.values
         category = {1: category}  # for each aln part
         return category
     
+    @staticmethod
+    def get_mask(category: dict, cat_cutoff=2):
+        mask = {part: np.array(cats) >= cat_cutoff for part, cats in category.items()}
+        return mask
+
     def close_db(self):
         self.con.close()

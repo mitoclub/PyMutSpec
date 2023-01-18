@@ -19,27 +19,28 @@ from pymutspec.annotation import (CodonAnnotation, calculate_mutspec,
                                       get_farthest_leaf, iter_tree_edges,
                                       lbl2lbl_id)
 from pymutspec.constants import possible_sbs12, possible_sbs192
-from pymutspec.io import GenomeStates
+from pymutspec.io import GenesStates
 from pymutspec.utils import load_logger, profiler
 
 logger = None
 
 
-class MutSpec(CodonAnnotation, GenomeStates):    
+class MutSpec(CodonAnnotation, GenesStates):    
     def __init__(
             self, path_to_tree, path_to_states, out_dir, 
             gcode=2, db_mode="dict", path_to_db=None,
             rewrite_db=None, use_proba=False, proba_cutoff=0.01, 
             use_phylocoef=False, syn=False, syn4f=False, no_mutspec=False,
-            path_to_rates=None,
+            path_to_rates=None, cat_cutoff = 2,
         ):
         for path in list(path_to_states) + [path_to_tree]:
             if not os.path.exists(path):
                 raise ValueError(f"Path doesn't exist: {path}")
 
         CodonAnnotation.__init__(self, gcode)
-        GenomeStates.__init__(
-            self, path_to_states, path_to_db, db_mode, rewrite_db, use_proba, path_to_rates,
+        GenesStates.__init__(
+            self, path_to_states, path_to_db, db_mode, rewrite_db, use_proba, 
+            path_to_rates, cat_cutoff,
         )
         self.gcode = gcode
         logger.info(f"Using gencode {gcode}")
@@ -126,9 +127,9 @@ class MutSpec(CodonAnnotation, GenomeStates):
 
                 # collect state frequencies
                 if self.use_proba:
-                    gene_exp_sbs12, gene_exp_sbs192 = self.collect_exp_mut_freqs_proba(ref_seq, phylocoef, self.category, self.MUT_LABELS)
+                    gene_exp_sbs12, gene_exp_sbs192 = self.collect_exp_mut_freqs_proba(ref_seq, phylocoef, self.mask, self.MUT_LABELS)
                 else:
-                    gene_exp_sbs12, gene_exp_sbs192 = self.collect_exp_mut_freqs(ref_seq, self.category, self.MUT_LABELS)
+                    gene_exp_sbs12, gene_exp_sbs192 = self.collect_exp_mut_freqs(ref_seq, self.mask, self.MUT_LABELS)
 
                 # dump state frequencies
                 if ref_node.name not in dists_to_leafs:
