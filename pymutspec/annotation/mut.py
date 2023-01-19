@@ -213,7 +213,7 @@ class CodonAnnotation:
                 for each label collected expected single nucleotide substitutions frequencies with contexts
         """
         n = len(cds)
-        if mask and len(mask) != n:
+        if mask is not None and len(mask) != n:
             raise ValueError("Mask must have same lenght as cds")
 
         labels = set(labels)
@@ -221,7 +221,7 @@ class CodonAnnotation:
         sbs192_freqs = {lbl: defaultdict(int) for lbl in labels}
 
         for pos in range(1, n - 1):
-            if mask and not mask[pos]:
+            if mask is not None and not mask[pos]:
                 continue
             pic = pos % 3
             nuc = cds[pos]

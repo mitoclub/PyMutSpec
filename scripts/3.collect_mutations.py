@@ -302,7 +302,7 @@ class MutSpec(CodonAnnotation, GenesStates):
 
     def collect_exp_mut_freqs_proba(self, cds: np.ndarray, phylocoef: float, mask: Iterable[Union[int, bool]] = None, labels = ["all", "syn", "ff"],  proba_cutoff=0.001):
         n = len(cds)
-        if mask and len(mask) != n:
+        if mask is not None and len(mask) != n:
             raise ValueError("Mask must have same lenght as cds")
 
         assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
@@ -313,7 +313,7 @@ class MutSpec(CodonAnnotation, GenesStates):
         sbs192_freqs = {lbl: defaultdict(int) for lbl in labels}
 
         for pos in range(1, n - 1):
-            if mask and not mask[pos]:
+            if mask is not None and not mask[pos]:
                 continue
             pic = pos % 3  # 0-based
             for cdn_tuple, cxt, proba in self.sample_context(pos, pic, cds, proba_cutoff):
