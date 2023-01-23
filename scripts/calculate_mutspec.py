@@ -85,7 +85,7 @@ def plot_mutspec12bar(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutat
 def plot_mutspec12vio(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutational spectrum", show=True, savepath=None):
     fig = plt.figure(figsize=(6, 4))
     ax = fig.add_subplot(111)
-    ax = sns.violinplot(x="Mut", y=ylabel, data=mutspec, order=sbs12_ordered, ax=fig.gca())
+    ax = sns.boxplot(x="Mut", y=ylabel, data=mutspec, order=sbs12_ordered, ax=fig.gca())
 
     # map colors to bars
     for bar, clr in zip(ax.patches, colors12):
@@ -129,9 +129,9 @@ def plot_mutspec192(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutationa
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111)
     ax.grid(axis="y", alpha=.7, linewidth=0.5)
-    sns.barplot(
+    sns.boxplot(
         x="Mut", y=ylabel, data=ms192,
-        order=order, errwidth=1, ax=fig.gca(),
+        order=order, ax=fig.gca(),
     )
     ax.set_title(title)
     ax.set_xlabel("")
@@ -140,13 +140,13 @@ def plot_mutspec192(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutationa
     width = 0.4
     shift = None
     for bar, sbs in zip(ax.patches, order):
-        if not shift:
-            shift = (bar.get_width() - width) / 2
+        # if not shift:
+        #     shift = (bar.get_width() - width) / 2
+        # bar.set_width(width)
+        # bar.set_x(bar.get_x() + shift)
         if len(sbs):
             bar.set_color(color_mapping12[sbs[2:5]])
             bar.set_alpha(alpha=0.9)
-        bar.set_width(width)
-        bar.set_x(bar.get_x() + shift)
 
     plt.xticks(rotation=90, fontsize=6)
     # labels = ['' for _ in ax.get_xticklabels()]
@@ -173,16 +173,22 @@ def dump_expected(exp, path):
 @click.option("-b", "--observed", "path_to_obs", type=click.Path(True),  show_default=True, help="Path to observed mutations table")
 @click.option("-e", "--expected", "path_to_exp", type=click.Path(True), help="Path to expected mutations table")
 @click.option("-o", '--outdir', type=click.Path(True), default=".", show_default=True, help="Path to output directory for files (must exist)")
-@click.option("-l", '--label', default="", show_default=True, help="Label for files naming")
+@click.option("-l", '--label', default=None, show_default=True, help="Label for files naming. By default no label")
 @click.option("-p", '--proba', "use_proba", is_flag=True, help="Use probabilities of mutations")
 @click.option('--proba_min', default=0.1, show_default=True, help="Minimal mutation probability to consider in mutspec calculation. Used only with --use_proba")
 @click.option('--exclude', default="OUTGRP,ROOT", show_default=True, help="Name of source nodes to exclude from mutations set. Use comma to pass several names")
 @click.option('--syn', is_flag=True, help="")
 @click.option('--syn4f', is_flag=True, help="")
 @click.option('--mnum192', "mut_num_for_192", default=16, show_default=True, help="Number of mutation types (maximum 192) required to calculate and plot 192-component mutational spectra")
+@click.option('--substract12', "path_to_substract12",   type=click.Path(True), default=None, help="Mutational spectrum that will be substracted from calculated spectra 12 component")
+@click.option('--substract192', "path_to_substract192", type=click.Path(True), default=None, help="Mutational spectrum that will be substracted from calculated spectra 192 component")
 @click.option('--plot', is_flag=True, help="Plot spectra plots")
 @click.option("-x", '--ext', "image_extension", default="pdf", show_default=True, type=click.Choice(['pdf', 'png', 'jpg'], case_sensitive=False), help="Images format to save")
-def main(path_to_obs, path_to_exp, outdir, label, use_proba, proba_min, exclude, syn, syn4f, mut_num_for_192, plot, image_extension):
+def main(
+    path_to_obs, path_to_exp, outdir, label, use_proba, proba_min, exclude, 
+    syn, syn4f, mut_num_for_192, path_to_substract12, path_to_substract192, 
+    plot, image_extension,
+    ):
     if mut_num_for_192 > 192:
         raise RuntimeError("Number of mutation types must be less then 192, but passed {}".format(mut_num_for_192))
 
@@ -195,12 +201,12 @@ def main(path_to_obs, path_to_exp, outdir, label, use_proba, proba_min, exclude,
         labels.append("ff")
 
     exclude = exclude.split(",")
-
-    path_to_united_exp = os.path.join(outdir, "mean_expexted_mutations_{}.tsv".format(label))
-    path_to_ms12 = os.path.join(outdir, "ms12{}_{}.tsv")
-    path_to_ms12plot = os.path.join(outdir, "ms12{}_{}.{}")
-    path_to_ms192plot = os.path.join(outdir, "ms192{}_{}.{}")
-    path_to_ms192 = os.path.join(outdir, "ms192{}_{}.tsv")
+    
+    label = "" if label is None else "_" + label
+    path_to_ms12 = os.path.join(outdir, "ms12{}{}.tsv")
+    path_to_ms12plot = os.path.join(outdir, "ms12{}{}.{}")
+    path_to_ms192plot = os.path.join(outdir, "ms192{}{}.{}")
+    path_to_ms192 = os.path.join(outdir, "ms192{}{}.tsv")
 
     obs = pd.read_csv(path_to_obs, sep="\t")
 
@@ -219,11 +225,15 @@ def main(path_to_obs, path_to_exp, outdir, label, use_proba, proba_min, exclude,
     # if random codons in columns
     if "ATA" in exp_raw.columns and "TTT" in exp_raw.columns:
         exp = exp_raw.drop_duplicates().drop(["Node", "Gene"], axis=1, errors="ignore").groupby("Label").mean()
+        path_to_united_exp = os.path.join(outdir, "mean_expexted_mutations{}.tsv".format(label))
         dump_expected(exp, path_to_united_exp)
     elif np.all(exp_raw.columns == ["Label", "Mut", "Count"]):
         exp = exp_raw.pivot("Label", "Mut", "Count")
     else:
         raise RuntimeError("Expected another columns in the table {}".format(path_to_exp))
+
+    substract12 = pd.read_csv(path_to_substract12, sep="\t") if path_to_substract12 is not None else None
+    substract192 = pd.read_csv(path_to_substract192, sep="\t") if path_to_substract192 is not None else None
 
     for lbl_code, lbl in zip(label_codes, labels):
         cur_obs_lbl = obs[obs.Label >= lbl_code]
@@ -257,21 +267,43 @@ def main(path_to_obs, path_to_exp, outdir, label, use_proba, proba_min, exclude,
             ms12 = pd.concat(ms12_collection)
             ms12.to_csv(path_to_ms12.format(lbl, label), sep="\t", index=None)
             if plot:
-                plot_mutspec12_func(
-                    ms12, title=f"{lbl} mutational spectrum", 
-                    savepath=path_to_ms12plot.format(lbl, label, image_extension), 
-                    show=False
-                )
+                if substract12 is None:
+                    plot_mutspec12_func(
+                        ms12, 
+                        title=f"{lbl} mutational spectrum", 
+                        savepath=path_to_ms12plot.format(lbl, label, image_extension), 
+                        show=False,
+                    )
+                else:
+                    ms12 = ms12.merge(substract12[["Mut", "MutSpec"]], on="Mut")
+                    ms12["MutSpec"] = ms12["MutSpec_x"] - ms12["MutSpec_y"]
+                    plot_mutspec12_func(
+                        ms12, 
+                        title=f"{lbl} mutational spectrum difference (simulated - reconstructed)", 
+                        savepath=path_to_ms12plot.format(lbl, label, image_extension), 
+                        show=False,
+                    )
 
         if ms192_collection:
             ms192 = pd.concat(ms192_collection)
             ms192.to_csv(path_to_ms192.format(lbl, label), sep="\t", index=None)
             if plot:
-                plot_mutspec192(
-                    ms192, title=f"{lbl} mutational spectrum",
-                    filepath=path_to_ms192plot.format(lbl, label, image_extension), 
-                    show=False
-                )
+                if substract192 is None:
+                    plot_mutspec192(
+                        ms192, 
+                        title=f"{lbl} mutational spectrum",
+                        filepath=path_to_ms192plot.format(lbl, label, image_extension), 
+                        show=False,
+                    )
+                else:
+                    ms192 = ms192.merge(substract192[["Mut", "MutSpec"]], on="Mut")
+                    ms192["MutSpec"] = ms192["MutSpec_x"] - ms192["MutSpec_y"]
+                    plot_mutspec192(
+                        ms192, 
+                        title=f"{lbl} mutational spectrum difference (simulated - reconstructed)",
+                        filepath=path_to_ms192plot.format(lbl, label, image_extension), 
+                        show=False,
+                    )
 
 
 if __name__ == "__main__":

@@ -38,7 +38,7 @@ def get_root_seq(path_to_fasta):
 @click.option("-r", "--replics", "number_of_replics", default=DEFAULT_REPLICS, show_default=True, type=int, help="")
 @click.option("-w", "--write_anc", is_flag=True, help="")
 @click.option("-c", "--gencode", default=DEFAULT_GENCODE, show_default=True, help="")
-@click.option("-l", "--scale_tree", default=10, show_default=True, help="")
+@click.option("-l", "--scale_tree", default=1., show_default=True, help="")
 def main(path_to_mulal, path_to_tree, path_to_mutspec, out, outcount, number_of_replics, write_anc, gencode, scale_tree):
     tree = pyvolve.read_tree(file=path_to_tree, scale_tree=scale_tree)
     custom_mutation_asym = get_rates(path_to_mutspec)
