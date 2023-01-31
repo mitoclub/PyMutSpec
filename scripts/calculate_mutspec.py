@@ -278,12 +278,12 @@ def main(
                         show=False,
                     )
                 else:
-                    ms12 = ms12.rename(columns={"MutSpec": "MutSpec_obs"})\
-                        .merge(substract12.rename(columns={"MutSpec": "MutSpec_exp"})[["Mut", "MutSpec_exp"]], on="Mut")
+                    ms12 = ms12.rename(columns={"MutSpec": "MutSpec_exp"})\
+                        .merge(substract12.rename(columns={"MutSpec": "MutSpec_obs"})[["Mut", "MutSpec_obs"]], on="Mut")
                     ms12["MutSpec"] = ms12["MutSpec_obs"] - ms12["MutSpec_exp"]
                     plot_mutspec12_func(
                         ms12, 
-                        title=f"{lbl} mutational spectrum difference (simulated - reconstructed)", 
+                        title=f"{lbl} mutational spectrum difference\n(reconstructed - simulated (obs - exp))", 
                         savepath=path_to_ms12plot.format(lbl, label, image_extension), 
                         show=False,
                     )
@@ -300,12 +300,12 @@ def main(
                         show=False,
                     )
                 else:
-                    ms192 = ms192.rename(columns={"MutSpec": "MutSpec_obs"})\
-                        .merge(substract192.rename(columns={"MutSpec": "MutSpec_exp"})[["Mut", "MutSpec_exp"]], on="Mut")
+                    ms192 = ms192.rename(columns={"MutSpec": "MutSpec_exp"})\
+                        .merge(substract192.rename(columns={"MutSpec": "MutSpec_obs"})[["Mut", "MutSpec_obs"]], on="Mut")
                     ms192["MutSpec"] = ms192["MutSpec_obs"] - ms192["MutSpec_exp"]
                     plot_mutspec192(
                         ms192, 
-                        title=f"{lbl} mutational spectrum difference (simulated - reconstructed)",
+                        title=f"{lbl} mutational spectrum difference\n(simulated - reconstructed (obs - exp))",
                         filepath=path_to_ms192plot.format(lbl, label, image_extension), 
                         show=False,
                     )

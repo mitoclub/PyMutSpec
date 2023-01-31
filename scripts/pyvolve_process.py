@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-from typing import List
+from typing import Dict
 
 import click
 import pyvolve
 import numpy as np
 import pandas as pd
 from Bio import SeqIO
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
 
 from pymutspec.annotation import transcriptor
 from pymutspec.io import read_rates
@@ -41,94 +43,121 @@ def codon_masking(seq, codons):
     codons: array
         codon mask, 1-based
     """
-    if len(seq) != codons:
-        raise RuntimeError("lenghts of codon mask and seq are not equal")
+    if len(seq) // 3 < max(codons):
+        raise ValueError("codon mask don't fit to sequence")
 
     masked_codons = []
     codons = set(codons)
-    j = 1
+    codon_idx = 1
     for i in range(0, len(seq), 3):
-        codon = seq[i: i+3]
-        if len(codon) != 3:
-            continue
-
-        if j in codons:
+        if codon_idx in codons:
+            codon = seq[i: i+3]
+            assert len(codon) == 3
             masked_codons.append(codon)
-        j += 1
+        codon_idx += 1
 
     return "".join(masked_codons)
 
 
-def codon_unmasking(seq_base, codons, aln: List[str]):
+def codon_unmasking(seq_common, codons, aln_dct: Dict[str, str]) -> Dict[str, str]:
     """
     Arguments
     ---------
-    seq_base: str
+    seq_common: str
         root seq
     codons: array
         codon mask, 1-based
     aln: List[str]
         simulated sequences without masked codons
     """
-    if len(seq_base) != codons:
-        raise RuntimeError("lenghts of codon mask and seq are not equal")
+    if len(seq_common) // 3 < max(codons):
+        raise ValueError("codon mask don't fit to sequence")
 
     unmasked_codons = []
     codons = set(codons)
+    aln = list(aln_dct.values())
     n_aln = len(aln)
-    j = 1
-    for i in range(0, len(seq_base), 3):
-        codon_basic = seq_base[i: i+3]
-        aln_codons = [x[i: i+3] for x in aln]
+    codon_idx_in_common = 1
+    shift = 0
+    for i in range(0, len(seq_common), 3):
+        codon_basic = seq_common[i: i+3]
         if len(codon_basic) != 3:
-            continue
+            raise ValueError("Codon length != 3")
 
-        if j in codons:
+        if codon_idx_in_common in codons:
+            aln_codons = [x[i - shift: i - shift + 3] for x in aln]
             unmasked_codons.append(aln_codons)
         else:
             unmasked_codons.append([codon_basic for _ in range(n_aln)])
-        j += 1
+            shift += 3
+        codon_idx_in_common += 1
+    
+    seqs = ["".join([x[i] for x in unmasked_codons]) for i in range(len(unmasked_codons[0]))]
+    headers = list(aln_dct.keys())
+    unmasked_dct = dict(zip(headers, seqs))
+    return unmasked_dct
 
-    for codon_pos in range(len(unmasked_codons[0])):
-        
-    return ["".join() for x in range(len(unmasked_codons[0]))]
+
+def write_seqs(seqdict: Dict[str, str], seqfile, seqfmt="fasta-2line"):
+    alignment = []
+    for entry in seqdict:
+        seq_entry = Seq( seqdict[entry])
+        seq_object = SeqRecord(seq_entry, id = entry, description = "", annotations={"molecule_type": "DNA"}) 
+        alignment.append(seq_object)     
+
+    SeqIO.write(alignment, seqfile, seqfmt)
 
 
 @click.command("MutSel simulation", help="")
 @click.option("-a", "--alignment", "path_to_mulal", type=click.Path(True), help="")
 @click.option("-t", "--tree", "path_to_tree", type=click.Path(True), help="")
 @click.option("-s", "--spectra", "path_to_mutspec", type=click.Path(True), help="")
+@click.option("--rates", type=click.Path(True), default=None, help="path to rates from iqtree that will be used for positions masking")
 @click.option("-o", "--out", type=click.Path(writable=True), help="Output sequences alignment (fasta)")
-@click.option("--outcount", type=click.Path(writable=True), default=None, show_default=True, help="")
+@click.option("--outcount", type=click.Path(writable=True), default=None, help="")
 @click.option("-r", "--replics", "number_of_replics", default=DEFAULT_REPLICS, show_default=True, type=int, help="")
 @click.option("-w", "--write_anc", is_flag=True, help="")
 @click.option("-c", "--gencode", default=DEFAULT_GENCODE, show_default=True, help="")
 @click.option("-l", "--scale_tree", default=1., show_default=True, help="")
-@click.option("--rates", type=click.Path(True), default=None, help="path to rates from iqtree that will be used for positions masking")
 def main(path_to_mulal, path_to_tree, path_to_mutspec, out, outcount, number_of_replics, write_anc, gencode, scale_tree, rates):
     tree = pyvolve.read_tree(file=path_to_tree, scale_tree=scale_tree)
     custom_mutation_asym = get_rates(path_to_mutspec)
     if rates is None:
-        mask = codons = None
+        mask = codons = columns = None
     else:
         mask = (read_rates(rates) > 1).astype(np.int8)  # gamma distribution category is one of [2,3,4,5]
-        codons = np.where(np.reshape(mask[:len(mask) - len(mask)%3], (-1, 3)).sum(axis=1) > 0) + 1 # numbers of codons that changed
-    codon_freqs = pyvolve.ReadFrequencies("codon", file=path_to_mulal, gencode=gencode, columns=codons).compute_frequencies(type="codon")
+        codons = np.where(np.reshape(mask[:len(mask) - len(mask)%3], (-1, 3)).sum(axis=1) > 0)[0] + 1 # indexes of codons that changed
+        columns=list(codons)
+    codon_freqs = pyvolve.ReadFrequencies("codon", file=path_to_mulal, gencode=gencode, columns=columns).compute_frequencies(type="codon")
     model = pyvolve.Model("mutsel", {"state_freqs": codon_freqs, "mu": custom_mutation_asym}, gencode=gencode)
     root_seq = get_root_seq(path_to_mulal)
-    partition = pyvolve.Partition(models=model, root_sequence=root_seq)
+    root_seq_masked = root_seq if codons is None else codon_masking(root_seq, codons)
+    partition = pyvolve.Partition(models=model, root_sequence=root_seq_masked)
     evolver = pyvolve.Evolver(partitions=partition, tree=tree, gencode=gencode)
 
     for i in range(number_of_replics):
         print("Generating {} replica".format(i))
-        evolver(
-            seqfile=out.replace(".fasta", "_sample-{:04}.fasta".format(i)), 
-            countfile=outcount,
-            ratefile=None, infofile=None,
-            write_anc=write_anc,
-        )
+        seqfile = out.replace(".fasta", "_sample-{:04}.fasta".format(i))
+        if codons is None:
+            evolver(
+                seqfile=seqfile, 
+                countfile=outcount,
+                ratefile=None, infofile=None,
+                write_anc=write_anc,
+            )
+        else:
+            evolver(
+                countfile=outcount,
+                ratefile=None, infofile=None,
+                write_anc=write_anc,
+            )
+            aln_dct = evolver.get_sequences(True)
+            unmasked_aln = codon_unmasking(root_seq, codons, aln_dct)
+            write_seqs(unmasked_aln, seqfile)
 
 
 if __name__ == "__main__":
-    # main("-a ./tmp/evolve/alignment_checked.fasta -t ./tmp/evolve/iqtree_anc_tree.nwk -s ./tmp/ms12syn_.tsv -w -o ./tmp/evolve/seqfile.fasta".split())
+    # main("-a data/exposure/human_cytb/pyvolve/mulal.fasta.clean -t data/exposure/human_cytb/pyvolve/tree.nwk.ingroup " 
+    #      "-s data/exposure/human_cytb/ms/ms12syn.tsv -o data/tmp/seqfile.fasta -w -r 2 -c 2 "
+    #      "--rates data/exposure/human_cytb/CYTB.rate".split())
     main()
