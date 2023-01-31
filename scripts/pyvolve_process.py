@@ -147,6 +147,7 @@ def main(path_to_mulal, path_to_tree, path_to_mutspec, out, outcount, number_of_
             )
         else:
             evolver(
+                seqfile=None,
                 countfile=outcount,
                 ratefile=None, infofile=None,
                 write_anc=write_anc,
