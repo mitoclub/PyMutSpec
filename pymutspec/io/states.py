@@ -168,8 +168,7 @@ class GenesStates:
     @staticmethod
     def read_rates(path: str):
         """ TODO write for many genes """
-        df = pd.read_csv(path, sep="\t", comment="#").sort_values("Site")
-        category = df.Cat.values
+        category = read_rates(path)
         category = {1: category}  # for each aln part
         return category
     
@@ -180,3 +179,10 @@ class GenesStates:
 
     def close_db(self):
         self.con.close()
+
+
+def read_rates(path: str):
+    """ TODO write for many genes """
+    df = pd.read_csv(path, sep="\t", comment="#").sort_values("Site")
+    category = df.Cat.values
+    return category

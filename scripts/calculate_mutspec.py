@@ -129,9 +129,9 @@ def plot_mutspec192(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutationa
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111)
     ax.grid(axis="y", alpha=.7, linewidth=0.5)
-    sns.boxplot(
+    sns.barplot(
         x="Mut", y=ylabel, data=ms192,
-        order=order, ax=fig.gca(),
+        order=order, ax=fig.gca(), errwidth=1,
     )
     ax.set_title(title)
     ax.set_xlabel("")
@@ -140,10 +140,10 @@ def plot_mutspec192(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutationa
     width = 0.4
     shift = None
     for bar, sbs in zip(ax.patches, order):
-        # if not shift:
-        #     shift = (bar.get_width() - width) / 2
-        # bar.set_width(width)
-        # bar.set_x(bar.get_x() + shift)
+        if not shift:
+            shift = (bar.get_width() - width) / 2
+        bar.set_width(width)
+        bar.set_x(bar.get_x() + shift)
         if len(sbs):
             bar.set_color(color_mapping12[sbs[2:5]])
             bar.set_alpha(alpha=0.9)
@@ -235,6 +235,9 @@ def main(
     substract12 = pd.read_csv(path_to_substract12, sep="\t") if path_to_substract12 is not None else None
     substract192 = pd.read_csv(path_to_substract192, sep="\t") if path_to_substract192 is not None else None
 
+    if substract12 is not None:
+        plot_mutspec12_func = plot_mutspec12bar
+
     for lbl_code, lbl in zip(label_codes, labels):
         cur_obs_lbl = obs[obs.Label >= lbl_code]
         if not cur_obs_lbl.shape[0]:
@@ -275,8 +278,9 @@ def main(
                         show=False,
                     )
                 else:
-                    ms12 = ms12.merge(substract12[["Mut", "MutSpec"]], on="Mut")
-                    ms12["MutSpec"] = ms12["MutSpec_x"] - ms12["MutSpec_y"]
+                    ms12 = ms12.rename(columns={"MutSpec": "MutSpec_obs"})\
+                        .merge(substract12.rename(columns={"MutSpec": "MutSpec_exp"})[["Mut", "MutSpec_exp"]], on="Mut")
+                    ms12["MutSpec"] = ms12["MutSpec_obs"] - ms12["MutSpec_exp"]
                     plot_mutspec12_func(
                         ms12, 
                         title=f"{lbl} mutational spectrum difference (simulated - reconstructed)", 
@@ -296,8 +300,9 @@ def main(
                         show=False,
                     )
                 else:
-                    ms192 = ms192.merge(substract192[["Mut", "MutSpec"]], on="Mut")
-                    ms192["MutSpec"] = ms192["MutSpec_x"] - ms192["MutSpec_y"]
+                    ms192 = ms192.rename(columns={"MutSpec": "MutSpec_obs"})\
+                        .merge(substract192.rename(columns={"MutSpec": "MutSpec_exp"})[["Mut", "MutSpec_exp"]], on="Mut")
+                    ms192["MutSpec"] = ms192["MutSpec_obs"] - ms192["MutSpec_exp"]
                     plot_mutspec192(
                         ms192, 
                         title=f"{lbl} mutational spectrum difference (simulated - reconstructed)",
