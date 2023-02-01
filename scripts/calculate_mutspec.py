@@ -305,7 +305,7 @@ def main(
                     ms192["MutSpec"] = ms192["MutSpec_obs"] - ms192["MutSpec_exp"]
                     plot_mutspec192(
                         ms192, 
-                        title=f"{lbl} mutational spectrum difference\n(simulated - reconstructed (obs - exp))",
+                        title=f"{lbl} mutational spectrum difference\n(reconstructed - simulated (obs - exp))",
                         filepath=path_to_ms192plot.format(lbl, label, image_extension), 
                         show=False,
                     )
