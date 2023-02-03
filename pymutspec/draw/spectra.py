@@ -2,14 +2,13 @@
 Functionality to plot mutational spectrums
 """
 
-from itertools import groupby
+from typing import Iterable
 
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 
 from pymutspec.constants import possible_sbs192
-
 from .sbs_orders import ordered_sbs192_kk, ordered_sbs192_kp
 
 color_mapping6 = {
@@ -26,7 +25,7 @@ color_mapping12 = {
     "C>G": "black",
     "G>C": "black",
     "C>T": "red",
-    "G>A": "red",  # salmon
+    "G>A": "red",
     "T>A": "silver",
     "A>T": "silver",
     "T>C": "yellowgreen",
@@ -42,15 +41,16 @@ colors192 = _smpl.sort_values(["MutBase", "Context"])["MutBase"].map(color_mappi
 colors12 = [color_mapping12[sbs] for sbs in sbs12_ordered]
 
 
-def __prepare_nice_labels(ordered_sbs192):
-    _nice_order = []
+def __prepare_nice_labels(sbs192: Iterable[str], kk=False):
+    _nice_sbs = []
     prev = None
-    for sbs in ordered_sbs192:
+    for sbs in sbs192:
         if prev is not None and sbs[2:5] != prev[2:5]:
-            _nice_order.append("")
-        _nice_order.append(sbs[2] + sbs[4] + ": " + sbs[0] + sbs[2] + sbs[-1])
+            _nice_sbs.append("")
+        sbs_nice = sbs[2] + sbs[4] + ": " + sbs[0] + sbs[2] + sbs[-1] if kk else sbs
+        _nice_sbs.append(sbs_nice)
         prev = sbs
-    return _nice_order
+    return _nice_sbs
 
 
 def _coloring192kk():
@@ -60,12 +60,18 @@ def _coloring192kk():
             yield clr
 
 
-def plot_mutspec12(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutational spectrum", figsize=(6, 4), show=True, savepath=None):
+def plot_mutspec12(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutational spectrum", figsize=(6, 4), style="bar", show=True, savepath=None):
     # TODO add checks of mutspec12
     # TODO add description to all plot* functions
+    if style == "bar":
+        plot_func = sns.barplot
+    elif style == "box":
+        plot_func = sns.boxplot
+    else:
+        raise NotImplementedError
+
     fig = plt.figure(figsize=figsize)
-    ax = fig.add_subplot(111)
-    ax = sns.barplot(x="Mut", y=ylabel, data=mutspec, order=sbs12_ordered, ax=fig.gca())
+    ax = plot_func(x="Mut", y=ylabel, data=mutspec, order=sbs12_ordered, ax=fig.gca())
 
     # map colors to bars
     for bar, clr in zip(ax.patches, colors12):
@@ -84,54 +90,19 @@ def plot_mutspec12(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutation
     return ax
 
 
-def __add_line(ax, xpos, ypos):
-    line = plt.Line2D([xpos, xpos], [ypos + .1, ypos],
-                      transform=ax.transAxes, color='black', linewidth=1)
-    line.set_clip_on(False)
-    ax.add_line(line)
-
-
-def __label_len(my_index, level):
-    labels = my_index.get_level_values(level)
-    return [(k, sum(1 for i in g)) for k, g in groupby(labels)]
-
-
-def __label_group_bar_table(ax, df):
-    font = {
-        'color':  'black',
-        'weight': 'normal',
-        'size': 7,
-    }
-    rotation = 90
-    ypos = -.05
-    scale = 1. / df.index.size
-    for level in range(df.index.nlevels)[::-1]:
-        if level == 0:
-            rotation = 0
-            font['size'] = 12
-
-        pos = 0
-        for label, rpos in __label_len(df.index, level):
-            lxpos = (pos + .5 * rpos)*scale
-            ax.text(lxpos, ypos, label, ha='center', rotation=rotation,
-                    fontdict=font, transform=ax.transAxes)
-            if level == 0:
-                __add_line(ax, pos*scale, ypos)
-            pos += rpos
-        if level == 0:
-            __add_line(ax, pos*scale, ypos)
-        ypos -= .05
-
-
 def plot_mutspec192(
         mutspec192: pd.DataFrame, 
         ylabel="MutSpec", 
         title="Mutational spectrum", 
-        figsize=(24, 10), 
-        filepath=None, 
-        fontsize=8,
+        figsize=(24, 8), 
+        style="bar",
+        labels_style="cosmic",
+        sbs_order=ordered_sbs192_kp,
+        savepath=None,
+        fontsize=6,
         fontname="Times New Roman",
         show=True, 
+        **kwargs,
     ):
     """
     Plot barblot of given mutational spectrum calculated from single nucleotide substitutions
@@ -142,24 +113,38 @@ def plot_mutspec192(
         table, containing 192 component mutational spectrum for one or many species, all substitutions must be presented in the table
     title: str, default = 'Mutational spectrum'
         Title on the plot
-    filepath: str, default = None
+    savepath: str, default = None
         Path to output plot file. If None no images will be written
+    labels_style: str, default = 'cosmic'
+        'cosmic': A[C>T]T, 'long': CT: ACT
     """
+    if "filepath" in kwargs:
+        savepath = kwargs["filepath"]
+        print("savepath =", savepath)
+    
     # TODO add checks of mutspec192
     ms192 = mutspec192.copy()
-    ms192["MutBase"] = ms192.Mut.str.slice(2, 5)
-    ms192["Context"] = ms192.Mut.str.get(0) + ms192.Mut.str.get(2) + ms192.Mut.str.get(-1)
-    ms192["long_lbl"] = ms192.Mut.str.get(2) + ms192.Mut.str.get(4) + ": " + ms192.Mut.str.get(0) + ms192.Mut.str.get(2) + ms192.Mut.str.get(-1)
-    order = __prepare_nice_labels(ordered_sbs192_kp)
+    if labels_style == "long":
+        ms192["long_lbl"] = ms192.Mut.str.get(2) + ms192.Mut.str.get(4) + ": " + ms192.Mut.str.get(0) + ms192.Mut.str.get(2) + ms192.Mut.str.get(-1)
+        order = __prepare_nice_labels(sbs_order, kk=True)
+        x_col = "long_lbl"
+    elif labels_style == "cosmic":
+        order = __prepare_nice_labels(sbs_order, kk=False)
+        x_col = "Mut"
+    else:
+        raise ValueError("Available labels_style are: 'cosmic' and 'long'")
 
-    df = ms192.groupby(["MutBase", "Context"]).mean()
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111)
     ax.grid(axis="y", alpha=.7, linewidth=0.5)
-    sns.barplot(
-        x="long_lbl", y=ylabel, data=ms192,
-        order=order, errwidth=1, ax=fig.gca(),
-    )
+    if style == "bar":
+        sns.barplot(
+            x=x_col, y=ylabel, data=ms192, order=order, errwidth=1, ax=fig.gca(),
+        )
+    elif style == "box":
+        sns.boxplot(
+            x=x_col, y=ylabel, data=ms192, order=order, ax=fig.gca(),
+        )
     ax.set_title(title)
     ax.set_xlabel("")
     ax.set_ylabel("")
@@ -168,88 +153,20 @@ def plot_mutspec192(
     shift = None
     for bar, sbs in zip(ax.patches, order):
         if not shift:
+            # calculate one time instead of 192
             shift = (bar.get_width() - width) / 2
         if len(sbs):
-            if "long_lbl":
-                s = sbs[0] + ">" + sbs[1]
-                bar.set_color(color_mapping12[s])
+            s = sbs[0] + ">" + sbs[1] if labels_style == "long" else sbs[2:5]
+            bar.set_color(color_mapping12[s])
             bar.set_alpha(alpha=0.9)
-        bar.set_width(width)
-        bar.set_x(bar.get_x() + shift)
+        if style == "bar":
+            bar.set_width(width)
+            bar.set_x(bar.get_x() + shift)
 
     plt.xticks(rotation=90, fontsize=fontsize, fontname=fontname)
-    # labels = ax.get_xticklabels()  # + ax.get_yticklabels()
-    # [label.set_fontweight('bold') for label in labels]
 
-    # labels = ['' for _ in ax.get_xticklabels()]
-    # ax.set_xticklabels(labels)
-    # __label_group_bar_table(ax, df)
-    # fig.subplots_adjust(bottom=0.1 * df.index.nlevels)
-    if filepath is not None:
-        plt.savefig(filepath)
-    if show:
-        plt.show()
-    else:
-        plt.close()
-
-def plot_mutspec192box(
-        mutspec192: pd.DataFrame, 
-        ylabel="MutSpec", 
-        title="Mutational spectrum", 
-        figsize=(24, 10), 
-        filepath=None, 
-        fontsize=8,
-        fontname="Times New Roman",
-        show=True, 
-    ):
-    """
-    Plot barblot of given mutational spectrum calculated from single nucleotide substitutions
-
-    Arguments
-    ---------
-    mutspec192: pd.DataFrame
-        table, containing 192 component mutational spectrum for one or many species, all substitutions must be presented in the table
-    title: str, default = 'Mutational spectrum'
-        Title on the plot
-    filepath: str, default = None
-        Path to output plot file. If None no images will be written
-    """
-    # TODO add checks of mutspec192
-    ms192 = mutspec192.copy()
-    ms192["MutBase"] = ms192.Mut.str.slice(2, 5)
-    ms192["Context"] = ms192.Mut.str.get(0) + ms192.Mut.str.get(2) + ms192.Mut.str.get(-1)
-    ms192["long_lbl"] = ms192.Mut.str.get(2) + ms192.Mut.str.get(4) + ": " + ms192.Mut.str.get(0) + ms192.Mut.str.get(2) + ms192.Mut.str.get(-1)
-    order = __prepare_nice_labels(ordered_sbs192_kp)
-
-    df = ms192.groupby(["MutBase", "Context"]).mean()
-    fig = plt.figure(figsize=figsize)
-    ax = fig.add_subplot(111)
-    ax.grid(axis="y", alpha=.7, linewidth=0.5)
-    sns.boxplot(
-        x="long_lbl", y=ylabel, data=ms192,
-        order=order, ax=fig.gca(),
-    )
-    ax.set_title(title)
-    ax.set_xlabel("")
-    ax.set_ylabel("")
-    # map colors to bars
-    for bar, sbs in zip(ax.patches, order):
-        if len(sbs):
-            if "long_lbl":
-                s = sbs[0] + ">" + sbs[1]
-                bar.set_color(color_mapping12[s])
-            bar.set_alpha(alpha=0.9)
-
-    plt.xticks(rotation=90, fontsize=fontsize, fontname=fontname)
-    # labels = ax.get_xticklabels()  # + ax.get_yticklabels()
-    # [label.set_fontweight('bold') for label in labels]
-
-    # labels = ['' for _ in ax.get_xticklabels()]
-    # ax.set_xticklabels(labels)
-    # __label_group_bar_table(ax, df)
-    # fig.subplots_adjust(bottom=0.1 * df.index.nlevels)
-    if filepath is not None:
-        plt.savefig(filepath)
+    if savepath is not None:
+        plt.savefig(savepath, dpi=300, bbox_inches="tight")
     if show:
         plt.show()
     else:
@@ -262,7 +179,7 @@ def plot_mutspec192kk(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutatio
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111)
     ax.grid(axis="y", alpha=.7, linewidth=0.5)
-    order = __prepare_nice_labels(ordered_sbs192_kk)
+    order = __prepare_nice_labels(ordered_sbs192_kk, True)
     sns.barplot(
         x="long_lbl", y=ylabel, data=ms192,
         order=order, 
