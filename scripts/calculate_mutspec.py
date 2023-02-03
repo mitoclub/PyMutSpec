@@ -60,10 +60,10 @@ def __prepare_nice_labels(ordered_sbs192):
     return _nice_order
 
 
-def plot_mutspec12bar(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutational spectrum", show=True, savepath=None):
+def plot_mutspec12bar(spectra: pd.DataFrame, ylabel="MutSpec", title="Full mutational spectrum", show=True, savepath=None):
     fig = plt.figure(figsize=(6, 4))
     ax = fig.add_subplot(111)
-    ax = sns.barplot(x="Mut", y=ylabel, data=mutspec, order=sbs12_ordered, ax=fig.gca())
+    ax = sns.barplot(x="Mut", y=ylabel, data=spectra, order=sbs12_ordered, ax=fig.gca())
 
     # map colors to bars
     for bar, clr in zip(ax.patches, colors12):
@@ -82,10 +82,10 @@ def plot_mutspec12bar(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutat
     return ax
 
 
-def plot_mutspec12vio(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutational spectrum", show=True, savepath=None):
+def plot_mutspec12vio(spectra: pd.DataFrame, ylabel="MutSpec", title="Full mutational spectrum", show=True, savepath=None):
     fig = plt.figure(figsize=(6, 4))
     ax = fig.add_subplot(111)
-    ax = sns.boxplot(x="Mut", y=ylabel, data=mutspec, order=sbs12_ordered, ax=fig.gca())
+    ax = sns.boxplot(x="Mut", y=ylabel, data=spectra, order=sbs12_ordered, ax=fig.gca())
 
     # map colors to bars
     for bar, clr in zip(ax.patches, colors12):
@@ -175,10 +175,12 @@ def dump_expected(exp, path):
 @click.option("-o", '--outdir', type=click.Path(True), default=".", show_default=True, help="Path to output directory for files (must exist)")
 @click.option("-l", '--label', default=None, show_default=True, help="Label for files naming. By default no label")
 @click.option("-p", '--proba', "use_proba", is_flag=True, help="Use probabilities of mutations")
-@click.option('--proba_min', default=0.1, show_default=True, help="Minimal mutation probability to consider in mutspec calculation. Used only with --use_proba")
+@click.option('--proba_min', default=0.1, show_default=True, help="Minimal mutation probability to consider in spectra calculation. Used only with --use_proba")
 @click.option('--exclude', default="OUTGRP,ROOT", show_default=True, help="Name of source nodes to exclude from mutations set. Use comma to pass several names")
-@click.option('--syn', is_flag=True, help="")
-@click.option('--syn4f', is_flag=True, help="")
+@click.option('--all', 'all_muts', is_flag=True, help="Calculate and plot spectra for all mutations; "
+                                                      "default if not specified at least one of --all, --syn, --syn4f")
+@click.option('--syn', is_flag=True, help="Calculate and plot spectra for synonymous mutations")
+@click.option('--syn4f', is_flag=True, help="Calculate and plot spectra for synonymous mutations in fourfols positions")
 @click.option('--mnum192', "mut_num_for_192", default=16, show_default=True, help="Number of mutation types (maximum 192) required to calculate and plot 192-component mutational spectra")
 @click.option('--substract12', "path_to_substract12",   type=click.Path(True), default=None, help="Mutational spectrum that will be substracted from calculated spectra 12 component")
 @click.option('--substract192', "path_to_substract192", type=click.Path(True), default=None, help="Mutational spectrum that will be substracted from calculated spectra 192 component")
@@ -186,19 +188,24 @@ def dump_expected(exp, path):
 @click.option("-x", '--ext', "image_extension", default="pdf", show_default=True, type=click.Choice(['pdf', 'png', 'jpg'], case_sensitive=False), help="Images format to save")
 def main(
     path_to_obs, path_to_exp, outdir, label, use_proba, proba_min, exclude, 
-    syn, syn4f, mut_num_for_192, path_to_substract12, path_to_substract192, 
+    all_muts, syn, syn4f, mut_num_for_192, path_to_substract12, path_to_substract192, 
     plot, image_extension,
     ):
     if mut_num_for_192 > 192:
         raise RuntimeError("Number of mutation types must be less then 192, but passed {}".format(mut_num_for_192))
 
-    label_codes, labels = [0], ["all"]
+    label_codes, labels = [], []
+    if all_muts:
+        label_codes.append(0)
+        labels.append("all")
     if syn:
         label_codes.append(1)
         labels.append("syn")
     if syn4f:
         label_codes.append(2)
         labels.append("ff")
+    if len(labels) == 0:
+        label_codes, labels = [0], ["all"]
 
     exclude = exclude.split(",")
     
