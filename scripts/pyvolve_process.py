@@ -120,14 +120,18 @@ def write_seqs(seqdict: Dict[str, str], seqfile, seqfmt="fasta-2line"):
 @click.option("-c", "--gencode", default=DEFAULT_GENCODE, show_default=True, help="")
 @click.option("-l", "--scale_tree", default=1., show_default=True, help="")
 def main(path_to_mulal, path_to_tree, path_to_mutspec, out, outcount, number_of_replics, write_anc, gencode, scale_tree, rates):
-    tree = pyvolve.read_tree(file=path_to_tree, scale_tree=scale_tree)
-    custom_mutation_asym = get_rates(path_to_mutspec)
     if rates is None:
         mask = codons = columns = None
+        scale_tree_factor = scale_tree
     else:
         mask = (read_rates(rates) > 1).astype(np.int8)  # gamma distribution category is one of [2,3,4,5]
         codons = np.where(np.reshape(mask[:len(mask) - len(mask)%3], (-1, 3)).sum(axis=1) > 0)[0] + 1 # indexes of codons that changed
         columns=list(codons)
+        scale_tree_factor = scale_tree * len(mask) / (len(codons) * 3)
+        print("Tree scaling factor = {:.2f}".format(scale_tree_factor))
+
+    tree = pyvolve.read_tree(file=path_to_tree, scale_tree=scale_tree_factor)
+    custom_mutation_asym = get_rates(path_to_mutspec)
     codon_freqs = pyvolve.ReadFrequencies("codon", file=path_to_mulal, gencode=gencode, columns=columns).compute_frequencies(type="codon")
     model = pyvolve.Model("mutsel", {"state_freqs": codon_freqs, "mu": custom_mutation_asym}, gencode=gencode)
     root_seq = get_root_seq(path_to_mulal)
