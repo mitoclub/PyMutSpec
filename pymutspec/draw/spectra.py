@@ -72,6 +72,7 @@ def plot_mutspec12(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutation
 
     fig = plt.figure(figsize=figsize)
     ax = plot_func(x="Mut", y=ylabel, data=mutspec, order=sbs12_ordered, ax=fig.gca())
+    ax.grid(axis="y", alpha=.7, linewidth=0.5)
 
     # map colors to bars
     for bar, clr in zip(ax.patches, colors12):
@@ -135,16 +136,15 @@ def plot_mutspec192(
         raise ValueError("Available labels_style are: 'cosmic' and 'long'")
 
     fig = plt.figure(figsize=figsize)
-    ax = fig.add_subplot(111)
-    ax.grid(axis="y", alpha=.7, linewidth=0.5)
     if style == "bar":
-        sns.barplot(
+        ax = sns.barplot(
             x=x_col, y=ylabel, data=ms192, order=order, errwidth=1, ax=fig.gca(),
         )
     elif style == "box":
-        sns.boxplot(
+        ax = sns.boxplot(
             x=x_col, y=ylabel, data=ms192, order=order, ax=fig.gca(),
         )
+    ax.grid(axis="y", alpha=.7, linewidth=0.5)
     ax.set_title(title)
     ax.set_xlabel("")
     ax.set_ylabel("")

@@ -406,14 +406,14 @@ class MutSpec(CodonAnnotation, GenesStates):
 @click.option("--syn4f", is_flag=True, default=False, help="Calculate synonymous fourfold mutspec")
 @click.option("--proba", is_flag=True, default=False, help="Use states probabilities while mutations collecting")
 @click.option("--pcutoff", "proba_cutoff", default=0.01, show_default=True, type=float, help="Cutoff of tri/tetranucleotide state probability, states with lower values will not be used in mutation collecting")
-@click.option("--phylocoef/--no-phylocoef", is_flag=True, default=True, show_default=True, help="Use or don't use phylogenetic uncertainty coefficient. Use only with --proba")
+@click.option("--phylocoef/--no-phylocoef", is_flag=True, default=True, show_default=True, help="Use or don't use phylogenetic uncertainty coefficient. Considered only with --proba")
 @click.option("--no-mutspec", is_flag=True, default=False, show_default=True, help="Don't calculate mutspec, only mutations extraction")
 @click.option("--rates", "path_to_rates", default=None, type=click.Path(True), help="Path to rates from IQTREE2")
 @click.option("--write_db", is_flag=True, help="Write sqlite3 database instead of using dictionary for states. Usefull if you have low RAM. Time expensive")
 @click.option("--db_path", "path_to_db", type=click.Path(writable=True), default="/tmp/states.db", show_default=True, help="Path to database with states. Use only with --write_db")
 @click.option("--rewrite_db",  is_flag=True, default=False, help="Rewrite existing states database. Use only with --write_db")  # drop argument, replace by question
 @click.option('-f', '--force', is_flag=True, help="Rewrite existing output directory")
-@click.option('-q', '--quiet', help="Quiet mode, suppress printing to screen (stderr) most of log messages")
+@click.option('-q', '--quiet', help="Quiet mode, suppress printing to screen (stderr)")
 @click.option("--config", default=None, type=click.Path(True), help="Path to log-config file")
 def main(
         path_to_tree, path_to_states, outdir, 

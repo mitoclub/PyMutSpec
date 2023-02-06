@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import sys
 from functools import partial
 
 import click
@@ -22,7 +23,7 @@ def dump_expected(exp, path):
 @click.option("-b", "--observed", "path_to_obs", type=click.Path(True),  show_default=True, help="Path to observed mutations table")
 @click.option("-e", "--expected", "path_to_exp", type=click.Path(True), help="Path to expected mutations table")
 @click.option("-o", '--outdir', type=click.Path(True), default=".", show_default=True, help="Path to output directory for files (must exist)")
-@click.option("-l", '--label', default=None, show_default=True, help="Label for files naming. By default no label")
+@click.option("-l", '--label', default=None, help="Label for files naming. By default no label")
 @click.option("-p", '--proba', "use_proba", is_flag=True, help="Use probabilities of mutations")
 @click.option('--proba_min', default=0.1, show_default=True, help="Minimal mutation probability to consider in spectra calculation. Used only with --use_proba")
 @click.option('--exclude', default="OUTGRP,ROOT", show_default=True, help="Name of source nodes to exclude from mutations set. Use comma to pass several names")
@@ -33,32 +34,38 @@ def dump_expected(exp, path):
 @click.option('--mnum192', "mut_num_for_192", default=16, show_default=True, help="Number of mutation types (maximum 192) required to calculate and plot 192-component mutational spectra")
 @click.option('--substract12', "path_to_substract12",   type=click.Path(True), default=None, help="Mutational spectrum that will be substracted from calculated spectra 12 component")
 @click.option('--substract192', "path_to_substract192", type=click.Path(True), default=None, help="Mutational spectrum that will be substracted from calculated spectra 192 component")
+@click.option('--branches', is_flag=True, help="Calculate and plot tree branch specific spectra")
+@click.option('--subset', default="full", show_default=True, type=click.Choice(["full", "internal", "terminal"]), help="Used subset of tree branches")
 @click.option('--plot', is_flag=True, help="Plot spectra plots")
 @click.option("-x", '--ext', "image_extension", default="pdf", show_default=True, type=click.Choice(['pdf', 'png', 'jpg'], case_sensitive=False), help="Images format to save")
 def main(
     path_to_obs, path_to_exp, outdir, label, use_proba, proba_min, exclude, 
     all_muts, syn, syn4f, mut_num_for_192, path_to_substract12, path_to_substract192, 
-    plot, image_extension,
+    branches, subset, plot, image_extension,
     ):
     if mut_num_for_192 > 192:
         raise RuntimeError("Number of mutation types must be less then 192, but passed {}".format(mut_num_for_192))
 
-    label_codes, labels = [], []
+    lbl_codes, lbls = [], []
     if all_muts:
-        label_codes.append(0)
-        labels.append("all")
+        lbl_codes.append(0)
+        lbls.append("all")
     if syn:
-        label_codes.append(1)
-        labels.append("syn")
+        lbl_codes.append(1)
+        lbls.append("syn")
     if syn4f:
-        label_codes.append(2)
-        labels.append("ff")
-    if len(labels) == 0:
-        label_codes, labels = [0], ["all"]
+        lbl_codes.append(2)
+        lbls.append("ff")
+    if len(lbls) == 0:
+        lbl_codes, lbls = [0], ["all"]
 
     exclude = exclude.split(",")
     
-    label = "" if label is None else "_" + label
+    if label is None:
+        label = "" if subset == "full" else "_" + subset
+    else:
+        label = "_" + label if subset == "full" else "_{}_{}".format(subset, label)
+
     path_to_ms12 = os.path.join(outdir, "ms12{}{}.tsv")
     path_to_ms12plot = os.path.join(outdir, "ms12{}{}.{}")
     path_to_ms192plot = os.path.join(outdir, "ms192{}{}.{}")
@@ -70,6 +77,10 @@ def main(
     obs = pd.read_csv(path_to_obs, sep="\t")
     # exclude ROOT node because RAxML don't change input tree that contains one node more than it's need
     obs = obs[~obs.AltNode.isin(exclude)]
+    if subset == "internal":
+        obs = obs[obs.AltNode.str.startswith("Node")]
+    elif subset == "terminal":
+        obs = obs[~obs.AltNode.str.startswith("Node")]
 
     exp_raw = pd.read_csv(path_to_exp, sep="\t")
     # if random codons in columns
@@ -78,19 +89,24 @@ def main(
         path_to_united_exp = os.path.join(outdir, "mean_expexted_mutations{}.tsv".format(label))
         dump_expected(exp, path_to_united_exp)
     elif list(exp_raw.columns) == ["Label", "Mut", "Count"]:
+        if branches:
+            raise ValueError("For branch specific spectra expected mutations required for every internal tree node")
+
         exp = exp_raw.pivot("Label", "Mut", "Count")
     else:
         raise RuntimeError("Expected another columns in the table {}".format(path_to_exp))
     
     plot_mutspec12_func = partial(plot_mutspec12, style="box")
-    if "Replica" not in obs.columns or substract12 is not None:
+    if "Replica" not in obs.columns:
         obs["Replica"] = 1
+        plot_mutspec12_func = partial(plot_mutspec12, style="bar")
+    if substract12 is not None:
         plot_mutspec12_func = partial(plot_mutspec12, style="bar")
 
     if use_proba:
         obs = obs[(obs.ProbaFull > proba_min)]
 
-    for lbl_code, lbl in zip(label_codes, labels):
+    for lbl_code, lbl in zip(lbl_codes, lbls):
         cur_obs_lbl = obs[obs.Label >= lbl_code]
         if not cur_obs_lbl.shape[0]:
             continue
@@ -102,7 +118,7 @@ def main(
 
         ms12_collection = []
         ms192_collection = []
-        for replica in cur_obs_lbl.Replica.unique():
+        for replica in cur_obs_lbl["Replica"].unique():
             cur_obs_lbl_repl = cur_obs_lbl[cur_obs_lbl["Replica"] == replica]
             if not cur_obs_lbl_repl.shape[0]:
                 continue
@@ -163,6 +179,31 @@ def main(
                         show=False,
                         fontsize=7,
                     )
+        if branches:
+            if substract12 is not None or substract192 is not None:
+                print("Ignoring substract agruments, substraction is not available for branch spectra", file=sys.stderr)
+            
+            branch_mutspec12, branch_mutspec192 = [], []
+            for alt_node in cur_obs_lbl["AltNode"].unique():
+                branch_muts = cur_obs_lbl[cur_obs_lbl["AltNode"] == alt_node]
+                if branch_muts.shape[0] < 10:
+                    continue
+                ms12 = calculate_mutspec(branch_muts, cur_exp, use_context=False, use_proba=use_proba)
+                ms12["Mut"] = ms12["Mut"].str.translate(transcriptor)
+                ms12.drop("RawMutSpec", axis=1, inplace=True)
+                branch_mutspec12.append(ms12)
+
+                if branch_muts.Mut.nunique() >= mut_num_for_192:
+                    ms192 = calculate_mutspec(branch_muts, cur_exp, use_context=True, use_proba=use_proba)
+                    ms192["Mut"] = ms192["Mut"].apply(rev_comp)
+                    ms192.drop("RawMutSpec", axis=1, inplace=True)
+                    branch_mutspec192.append(ms192)
+            
+            branch_mutspec12df  = pd.concat(branch_mutspec12)
+            branch_mutspec192df = pd.concat(branch_mutspec192)
+
+            branch_mutspec12df.to_csv(path_to_ms12.replace(".tsv", "_branches.tsv"))
+            branch_mutspec192df.to_csv(path_to_ms192.replace(".tsv", "_branches.tsv"))
 
 
 if __name__ == "__main__":

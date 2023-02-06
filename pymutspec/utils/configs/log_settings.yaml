@@ -11,7 +11,7 @@ handlers:
     class: logging.FileHandler
     filename: run.log
     level: DEBUG
-    formatter: extended_console_process
+    formatter: default_console_process
   stream_handler:
     class: logging.StreamHandler
     level: INFO
