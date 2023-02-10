@@ -43,14 +43,14 @@ class MutSpec(CodonAnnotation, GenesStates):
             path_to_rates, cat_cutoff,
         )
         self.gcode = gcode
-        logger.info(f"Using gencode {gcode}")
         self.use_proba = use_proba
-        logger.info(f"Use probabilities of genomic states: {use_proba}")
         self.proba_cutoff = proba_cutoff
-        self.use_phylocoef = use_phylocoef
+        self.use_phylocoef = use_phylocoef if use_proba else False
         self.no_mutspec = no_mutspec
-        if use_proba:
-            logger.info(f"Use phylogenetic uncertainty coefficient: {use_phylocoef}")
+        logger.info(f"Using gencode {gcode}")
+        logger.info(f"Use probabilities of genomic states: {use_proba}")
+        logger.info(f"Use phylogenetic uncertainty coefficient: {use_phylocoef}")
+        logger.info(f"Calculate spectra: {not no_mutspec}")
         self.MUT_LABELS = ["all"]
         if syn:
             self.MUT_LABELS.append("syn")
@@ -96,6 +96,7 @@ class MutSpec(CodonAnnotation, GenesStates):
         add_header = defaultdict(lambda: True)
         aln_size = self.genome_size
         dists_to_leafs = dict()
+        visited_nodes = set()
         total_mut_num = 0
         for ei, (ref_node, alt_node) in enumerate(iter_tree_edges(self.tree), 1):
             if alt_node.name not in self.nodes:
@@ -110,13 +111,17 @@ class MutSpec(CodonAnnotation, GenesStates):
             alt_genome = self.get_genome(alt_node.name)
 
             # calculate phylogenetic uncertainty correction
-            if ref_node.name in dists_to_leafs:
-                dist_to_closest_leaf = dists_to_leafs[ref_node.name]
-            else:
-                _, dist_to_closest_leaf = ref_node.get_closest_leaf()
+            if self.use_phylocoef:
+                if ref_node.name in dists_to_leafs:
+                    dist_to_closest_leaf = dists_to_leafs[ref_node.name]
+                else:
+                    _, dist_to_closest_leaf = ref_node.get_closest_leaf()
+                    dists_to_leafs[ref_node.name] = dist_to_closest_leaf
 
-            dist_to_closest_leaf = self.fp_format(dist_to_closest_leaf)
-            phylocoef = self.fp_format(1 - min(1, dist_to_closest_leaf / self.max_dist))
+                dist_to_closest_leaf = self.fp_format(dist_to_closest_leaf)
+                phylocoef = self.fp_format(1 - min(0.9999, dist_to_closest_leaf / self.max_dist))
+            else:
+                phylocoef = 1
 
             genome_nucl_freqs = {lbl: defaultdict(self.fp_format) for lbl in self.MUT_LABELS}
             genome_cxt_freqs  = {lbl: defaultdict(self.fp_format) for lbl in self.MUT_LABELS}
@@ -125,14 +130,17 @@ class MutSpec(CodonAnnotation, GenesStates):
                 ref_seq = ref_genome[gene]
                 alt_seq = alt_genome[gene]
 
-                # collect state frequencies
+                # collect state frequencies and
+                # extract mutations and put in order columns
                 if self.use_proba:
                     gene_exp_sbs12, gene_exp_sbs192 = self.collect_exp_mut_freqs_proba(ref_seq, phylocoef, self.mask, self.MUT_LABELS)
+                    gene_mut_df = self.extract_mutations_proba(ref_seq, alt_seq)
                 else:
                     gene_exp_sbs12, gene_exp_sbs192 = self.collect_exp_mut_freqs(ref_seq, self.mask, self.MUT_LABELS)
+                    gene_mut_df = self.extract_mutations_simple(ref_seq, alt_seq)
 
                 # dump state frequencies
-                if ref_node.name not in dists_to_leafs:
+                if ref_node.name not in visited_nodes:
                     self.dump_expected_mutations(
                         gene_exp_sbs12, gene_exp_sbs192, ref_node.name, 
                         gene, self.handle["freq"], add_header["freqs"],
@@ -146,20 +154,12 @@ class MutSpec(CodonAnnotation, GenesStates):
                     for trinucl, freq in gene_exp_sbs192[lbl].items():
                         genome_cxt_freqs[lbl][trinucl] += freq
 
-                # extract mutations and put in order columns
-                if self.use_proba:
-                    gene_mut_df = self.extract_mutations_proba(ref_seq, alt_seq)
-                else:
-                    gene_mut_df = self.extract_mutations_simple(ref_seq, alt_seq)
-
                 if gene_mut_df.shape[0] == 0:
                     continue
                 
                 if self.use_proba:
-                    if self.use_phylocoef:
-                        gene_mut_df["ProbaFull"] = phylocoef * gene_mut_df["ProbaMut"]
-                    else:
-                        gene_mut_df["ProbaFull"] = gene_mut_df["ProbaMut"]
+                    gene_mut_df["ProbaFull"] = phylocoef * gene_mut_df["ProbaMut"]
+
                 gene_mut_df["RefNode"] = ref_node.name
                 gene_mut_df["AltNode"] = alt_node.name
                 gene_mut_df["Gene"] = gene
@@ -194,9 +194,7 @@ class MutSpec(CodonAnnotation, GenesStates):
                             self.dump_table(mutspec192, self.handle["ms192g"], add_header["ms192g"])
                             add_header["ms192g"] = False
 
-            # save current node distance to closest leaf after genes processing
-            if ref_node.name not in dists_to_leafs:
-                dists_to_leafs[ref_node.name] = dist_to_closest_leaf
+            visited_nodes.add(ref_node.name)
             
             if len(genome_mutations) == 0:
                 logger.info(f"0 mutations from {ei:03} branch ({ref_node.name} - {alt_node.name})")
@@ -306,7 +304,7 @@ class MutSpec(CodonAnnotation, GenesStates):
             raise ValueError("Mask must have same lenght as cds")
 
         assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
-        assert 0 <= phylocoef <= 1, "Evol coefficient must be between 0 and 1"
+        assert 0 < phylocoef <= 1, "Evol coefficient must be between 0 and 1"
 
         labels = set(labels)
         sbs12_freqs = {lbl: defaultdict(int) for lbl in labels}
