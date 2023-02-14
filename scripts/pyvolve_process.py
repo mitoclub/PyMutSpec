@@ -115,11 +115,11 @@ def write_seqs(seqdict: Dict[str, str], seqfile, seqfmt="fasta-2line"):
 @click.option("--rates", type=click.Path(True), default=None, help="path to rates from iqtree that will be used for positions masking")
 @click.option("-o", "--out", type=click.Path(writable=True), help="Output sequences alignment (fasta)")
 @click.option("--outcount", type=click.Path(writable=True), default=None, help="")
-@click.option("-r", "--replics", "number_of_replics", default=DEFAULT_REPLICS, show_default=True, type=int, help="")
+@click.option("-r", "--replics", "nreplics", default=DEFAULT_REPLICS, show_default=True, type=int, help="")
 @click.option("-w", "--write_anc", is_flag=True, help="")
 @click.option("-c", "--gencode", default=DEFAULT_GENCODE, show_default=True, help="")
 @click.option("-l", "--scale_tree", default=1., show_default=True, help="")
-def main(path_to_mulal, path_to_tree, path_to_mutspec, out, outcount, number_of_replics, write_anc, gencode, scale_tree, rates):
+def main(path_to_mulal, path_to_tree, path_to_mutspec, out, outcount, nreplics, write_anc, gencode, scale_tree, rates):
     if rates is None:
         mask = codons = columns = None
         scale_tree_factor = scale_tree
@@ -139,7 +139,7 @@ def main(path_to_mulal, path_to_tree, path_to_mutspec, out, outcount, number_of_
     partition = pyvolve.Partition(models=model, root_sequence=root_seq_masked)
     evolver = pyvolve.Evolver(partitions=partition, tree=tree, gencode=gencode)
 
-    for i in range(number_of_replics):
+    for i in range(nreplics):
         print("Generating {} replica".format(i))
         seqfile = out.replace(".fasta", "_sample-{:04}.fasta".format(i))
         if codons is None:
