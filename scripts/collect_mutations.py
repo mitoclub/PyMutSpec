@@ -30,7 +30,7 @@ class MutSpec(CodonAnnotation, GenesStates):
             self, path_to_tree, path_to_states, out_dir, 
             gcode=2, db_mode="dict", path_to_db=None,
             rewrite_db=None, use_proba=False, proba_cutoff=0.01, 
-            use_phylocoef=False, syn=False, syn4f=False, no_mutspec=False,
+            use_phylocoef=False, syn=False, syn4f=False, derive_spectra=True,
             path_to_rates=None, cat_cutoff = 2,
         ):
         for path in list(path_to_states) + [path_to_tree]:
@@ -46,11 +46,11 @@ class MutSpec(CodonAnnotation, GenesStates):
         self.use_proba = use_proba
         self.proba_cutoff = proba_cutoff
         self.use_phylocoef = use_phylocoef if use_proba else False
-        self.no_mutspec = no_mutspec
+        self.derive_spectra = derive_spectra
         logger.info(f"Using gencode {gcode}")
         logger.info(f"Use probabilities of genomic states: {use_proba}")
         logger.info(f"Use phylogenetic uncertainty coefficient: {use_phylocoef}")
-        logger.info(f"Calculate spectra: {not no_mutspec}")
+        logger.info(f"Derive spectra: {derive_spectra}")
         self.MUT_LABELS = ["all"]
         if syn:
             self.MUT_LABELS.append("syn")
@@ -75,7 +75,7 @@ class MutSpec(CodonAnnotation, GenesStates):
         path_to_nucl_freqs = os.path.join(out_dir, "expected_mutations.tsv")
         self.handle["mut"] = open(path_to_mutations, "w")
         self.handle["freq"]   = open(path_to_nucl_freqs, "w")
-        if not self.no_mutspec:
+        if self.derive_spectra:
             path_to_mutspec12  = os.path.join(out_dir, "mutspec12.tsv")
             path_to_mutspec192 = os.path.join(out_dir, "mutspec192.tsv")
             path_to_mutspec_genes12  = os.path.join(out_dir, "mutspec12genes.tsv")
@@ -167,8 +167,8 @@ class MutSpec(CodonAnnotation, GenesStates):
                 # collect mutations of full genome
                 genome_mutations.append(gene_mut_df)
                 
-                # calculate gene mutational spectra for all labels
-                if not self.no_mutspec:
+                # calculate gene mutational spectra
+                if self.derive_spectra and len(ref_genome) > 1:
                     for lbl in self.MUT_LABELS:
                         mutspec12 = calculate_mutspec(
                             gene_mut_df[gene_mut_df.Label >= lbl2lbl_id(lbl)], gene_exp_sbs12[lbl], 
@@ -214,7 +214,7 @@ class MutSpec(CodonAnnotation, GenesStates):
             add_header["mut"] = False
             
             # calculate full genome mutational spectra for all labels
-            if not self.no_mutspec:
+            if self.derive_spectra:
                 for lbl in self.MUT_LABELS:
                     mutspec12 = calculate_mutspec(
                         genome_mutations_df[genome_mutations_df.Label >= lbl2lbl_id(lbl)],
@@ -405,7 +405,7 @@ class MutSpec(CodonAnnotation, GenesStates):
 @click.option("--proba", is_flag=True, default=False, help="Use states probabilities while mutations collecting")
 @click.option("--pcutoff", "proba_cutoff", default=0.01, show_default=True, type=float, help="Cutoff of tri/tetranucleotide state probability, states with lower values will not be used in mutation collecting")
 @click.option("--phylocoef/--no-phylocoef", is_flag=True, default=True, show_default=True, help="Use or don't use phylogenetic uncertainty coefficient. Considered only with --proba")
-@click.option("--no-mutspec", is_flag=True, default=False, show_default=True, help="Don't calculate mutspec, only mutations extraction")
+@click.option("--no-mutspec", "no_spectra", is_flag=True, default=False, show_default=True, help="Don't calculate mutspec, only mutations extraction")
 @click.option("--rates", "path_to_rates", default=None, type=click.Path(True), help="Path to rates from IQTREE2")
 @click.option("--write_db", is_flag=True, help="Write sqlite3 database instead of using dictionary for states. Usefull if you have low RAM. Time expensive")
 @click.option("--db_path", "path_to_db", type=click.Path(writable=True), default="/tmp/states.db", show_default=True, help="Path to database with states. Use only with --write_db")
@@ -417,7 +417,7 @@ def main(
         path_to_tree, path_to_states, outdir, 
         gencode, syn, syn4f, proba, proba_cutoff,
         write_db, path_to_db, rewrite_db, 
-        phylocoef, no_mutspec, path_to_rates,
+        phylocoef, no_spectra, path_to_rates,
         force, quiet, config,
     ):
 
@@ -441,12 +441,13 @@ def main(
     logger.debug(f"Output directory '{outdir}' created")
 
     db_mode = "db" if write_db else "dict"
+    derive_spectra = not no_spectra
     
     MutSpec(
         path_to_tree, path_to_states, outdir, gcode=gencode, 
         db_mode=db_mode, path_to_db=path_to_db, rewrite_db=rewrite_db, 
         use_proba=proba, proba_cutoff=proba_cutoff, use_phylocoef=phylocoef,
-        syn=syn, syn4f=syn4f, no_mutspec=no_mutspec, path_to_rates=path_to_rates,
+        syn=syn, syn4f=syn4f, derive_spectra=derive_spectra, path_to_rates=path_to_rates,
     )
 
 

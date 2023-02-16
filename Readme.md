@@ -74,47 +74,6 @@ python scripts/3.collect_mutations.py --tree data/example_nematoda/anc.treefile.
 python scripts/3.collect_mutations.py --tree data/example_nematoda/anc.treefile.rooted --states data/example_nematoda/genes_states.pastml_HKY.tsv --gencode 5 --syn --syn4f --outdir data/processed/nematoda/dif_approaches/pastml --proba --no-phylocoef
 ```
 
-## PastML
-
-Used for calc mutspec without using custom phylo score
-
-model подобрать
-
-1. Reformat alignment for input. Genes separating
-
-```bash
-python mutspec/aln2pastml.py --aln data/example_nematoda/alignments_nematoda_clean --scheme data/example_nematoda/scheme_devilworm.nex --outdir data/example_nematoda/leaves
-```
-
-2. Run pastml
-
-There are error ([log](./logs/pastml.log)) while minimizing some function during pastml run. Origin is scipy function in 
-file `env_ms/lib/python3.9/site-packages/scipy/optimize/_numdiff.py`.
-
-Lines 469-470 (`approx_derivative` func) replaced by
-
-```python
-    # if np.any((x0 < lb) | (x0 > ub)):
-        # raise ValueError("`x0` violates bound constraints.")
-    if np.any(((x0 < lb) | (x0 > ub)) & ~np.isclose(x0, lb) & ~np.isclose(x0, ub)):
-        raise ValueError(
-            "`x0` violates bound constraints. \nx0={}, \nlb={}, \nub={}, \n(x0 < lb)={}, \n(x0 > ub)={}, \nx0 type={}, \nlb type={}, \nub type={},"
-            .format(x0, lb, ub, x0 < lb, x0 > ub, x0.dtype, lb.dtype, ub.dtype)
-        )
-```
-
-```bash
-parallel  echo {/.} ';' mkdir -p data/pastml_n/{/.} ';' pastml --prediction_method MPPA -m HKY -t data/example_nematoda/anc.treefile.rooted -d {} --work_dir data/pastml_n/{/.} --html data/pastml_n/{/.}/tree.html --threads 2 ::: data/example_nematoda/leaves/*
-
-# parallel  echo {/.} ';' mkdir -p data/pastml_n/{/.} ';' pastml -t data/example_nematoda/anc.treefile.rooted -d {} --work_dir data/pastml_n/{/.} --html data/pastml_n/{/.}/tree.html --threads 8 ::: data/example_nematoda/leaves/ND4_pastml.tsv data/example_nematoda/leaves/CYTB_pastml.tsv data/example_nematoda/leaves/COX2_pastml.tsv
-```
-
-3. Reformat pastml output to usual states style
-
-```bash
-python mutspec/pastml2custom_format.py --model HKY --aln data/example_nematoda/alignments_nematoda_clean/ --outpath data/example_nematoda/genes_states.pastml_HKY.tsv data/example_nematoda/pastml_n_HKY/*
-```
-
 
 ## Plot trees
 
