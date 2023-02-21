@@ -138,7 +138,7 @@ class GenesStates:
         dtypes = {
             "p_A":  states_dtype, "p_C": states_dtype, 
             "p_G":  states_dtype, "p_T": states_dtype,
-            "Site": np.int32,     #"Part": np.int8,
+            "Site": np.int32, "Node": str,     #"Part": np.int8,
         }
         if self.use_proba:
             usecols = ["Node", "Part", "Site", "p_A", "p_C", "p_G", "p_T"]

@@ -46,7 +46,7 @@ def main(path_to_dist_tree, path_to_named_tree, path_to_out):
 
 if __name__ == "__main__":
     try:
-        path_to_dist_tree, path_to_named_tree, path_to_out = sys.argv[1:]
+        _, path_to_dist_tree, path_to_named_tree, path_to_out = sys.argv
         main(path_to_dist_tree, path_to_named_tree, path_to_out)
     except:
         print("ERROR\nUSAGE: script.py path_to_dist_tree path_to_named_tree path_to_out_tree", file=sys.stderr)
