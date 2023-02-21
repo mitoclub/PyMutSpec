@@ -134,11 +134,14 @@ def plot_mutspec192(
         x_col = "Mut"
     else:
         raise ValueError("Available labels_style are: 'cosmic' and 'long'")
-
+    if "ci" in kwargs:
+        ci = kwargs["ci"]
+    else:
+        ci = 95
     fig = plt.figure(figsize=figsize)
     if style == "bar":
         ax = sns.barplot(
-            x=x_col, y=ylabel, data=ms192, order=order, errwidth=1, ax=fig.gca(),
+            x=x_col, y=ylabel, data=ms192, order=order, errwidth=1, ax=fig.gca(), ci=ci,
         )
     elif style == "box":
         ax = sns.boxplot(
