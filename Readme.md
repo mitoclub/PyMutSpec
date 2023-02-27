@@ -4,16 +4,17 @@ Python library for mutational spectra analysis
 
 <!-- Calculate mutational spectra using ancestral states from phylogenetic tree -->
 
-## Environment
+## Install
 
 - python 3.8+
 
-Activate python venv
+Install python venv (optionally)
 
 ```bash
-python3 -m venv env_birds
-source env_birds/bin/activate
-pip install -r requirements.txt
+python3 -m venv env_spectra
+source env_spectra/bin/activate
+# pip install -r requirements.txt
+python3 setup.py install
 ```
 
 ### Installing newick-utils-1.6

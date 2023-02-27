@@ -6,6 +6,7 @@ import pandas as pd
 
 from pymutspec.constants import possible_sbs12_set, possible_sbs192_set
 from .mut import CodonAnnotation
+from .auxiliary import rev_comp
 
 
 def calculate_mutspec(
@@ -102,3 +103,19 @@ def calculate_mutspec(
 
     assert np.isclose(mutspec.ObsNum.sum(), mut.ProbaFull.sum())
     return mutspec
+
+
+def collapse_mutspec(ms192: pd.DataFrame):
+    assert ms192.shape[0] == 192
+    for c in ["Mut", "ObsFr", "ExpFr"]:
+        assert c in ms192.columns
+
+    ms1 = ms192[ms192["Mut"].str.get(2).isin(list("CT"))]
+    ms2 = ms192[ms192["Mut"].str.get(2).isin(list("AG"))]
+    ms2["Mut"] = ms2["Mut"].apply(rev_comp)
+
+    ms96 = pd.concat([ms1, ms2]).groupby("Mut")[["ObsFr", "ExpFr"]].sum()
+    ms96["RawMutSpec"] = ms96["ObsFr"] / ms96["ExpFr"]
+    ms96["MutSpec"] = ms96["RawMutSpec"] / ms96["RawMutSpec"].sum()
+    ms96 = ms96.fillna(0).replace(np.inf, 0)
+    return ms96

@@ -60,7 +60,7 @@ def _coloring192kk():
             yield clr
 
 
-def plot_mutspec12(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutational spectrum", figsize=(6, 4), style="bar", show=True, savepath=None):
+def plot_mutspec12(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutational spectrum", figsize=(6, 4), style="bar", show=True, savepath=None, **kwargs):
     # TODO add checks of mutspec12
     # TODO add description to all plot* functions
     if style == "bar":
@@ -71,7 +71,7 @@ def plot_mutspec12(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutation
         raise NotImplementedError
 
     fig = plt.figure(figsize=figsize)
-    ax = plot_func(x="Mut", y=ylabel, data=mutspec, order=sbs12_ordered, ax=fig.gca())
+    ax = plot_func(x="Mut", y=ylabel, data=mutspec, order=sbs12_ordered, ax=fig.gca(), **kwargs)
     ax.grid(axis="y", alpha=.7, linewidth=0.5)
 
     # map colors to bars
@@ -122,6 +122,7 @@ def plot_mutspec192(
     if "filepath" in kwargs:
         savepath = kwargs["filepath"]
         print("savepath =", savepath)
+        kwargs.pop("filepath")
     
     # TODO add checks of mutspec192
     ms192 = mutspec192.copy()
@@ -134,18 +135,14 @@ def plot_mutspec192(
         x_col = "Mut"
     else:
         raise ValueError("Available labels_style are: 'cosmic' and 'long'")
-    if "ci" in kwargs:
-        ci = kwargs["ci"]
-    else:
-        ci = 95
     fig = plt.figure(figsize=figsize)
     if style == "bar":
         ax = sns.barplot(
-            x=x_col, y=ylabel, data=ms192, order=order, errwidth=1, ax=fig.gca(), ci=ci,
+            x=x_col, y=ylabel, data=ms192, order=order, errwidth=1, ax=fig.gca(), **kwargs,
         )
     elif style == "box":
         ax = sns.boxplot(
-            x=x_col, y=ylabel, data=ms192, order=order, ax=fig.gca(),
+            x=x_col, y=ylabel, data=ms192, order=order, ax=fig.gca(), **kwargs,
         )
     ax.grid(axis="y", alpha=.7, linewidth=0.5)
     ax.set_title(title)
@@ -155,14 +152,14 @@ def plot_mutspec192(
     width = 0.4
     shift = None
     for bar, sbs in zip(ax.patches, order):
-        if not shift:
-            # calculate one time instead of 192
-            shift = (bar.get_width() - width) / 2
         if len(sbs):
             s = sbs[0] + ">" + sbs[1] if labels_style == "long" else sbs[2:5]
             bar.set_color(color_mapping12[s])
             bar.set_alpha(alpha=0.9)
         if style == "bar":
+            if not shift:
+                # calculate one time instead of 192
+                shift = (bar.get_width() - width) / 2
             bar.set_width(width)
             bar.set_x(bar.get_x() + shift)
 
