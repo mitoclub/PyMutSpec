@@ -11,8 +11,7 @@ from .auxiliary import rev_comp
 
 def calculate_mutspec(
     obs_muts: pd.DataFrame,
-    exp_muts_or_genome: Union[Dict[str, float], Iterable],
-    gencode: int = None,
+    exp_muts: Dict[str, float],
     use_context: bool = False,
     use_proba: bool = False,
     verbose=False,
@@ -27,9 +26,9 @@ def calculate_mutspec(
         - Mut: str; Pattern: '[ACGT]\[[ACGT]>[ACGT]\][ACGT]'
         - ProbaFull (optional, only for use_proba=True) - probability of mutation
 
-    exp_muts_or_genome: dict[str, float] or Iterable
+    exp_muts: dict[str, float]
         dictionary that contains expected mutations frequencies of reference genome if use_context=False, 
-        else trinucleotide freqs; OR you can pass just genome
+        else trinucleotide freqs
     label: str
         kind of needed mutspec, coulb be one of ['all', 'syn', 'ff']
     gencode: int
@@ -51,18 +50,8 @@ def calculate_mutspec(
     for c in _cols:
         assert c in obs_muts.columns, f"Column {c} is not in mut df"
 
-    if isinstance(exp_muts_or_genome, dict):
-        exp_muts = exp_muts_or_genome.copy()
-    elif isinstance(exp_muts_or_genome, Iterable):
-        genome = exp_muts_or_genome.copy()
-        if gencode is None:
-            raise RuntimeError("If genome passed, gencode argument is required")
-        coda = CodonAnnotation(gencode)
-        _exp_muts12, _exp_muts192 = coda.collect_exp_mut_freqs(genome)
-        exp_muts = _exp_muts192 if use_context else _exp_muts12
-    else:
-        raise ValueError(
-            "'exp_muts_or_genome' must be iterable in case of genome or dict in case of precalculated exp_muts freqs")
+    if not isinstance(exp_muts, dict):
+        raise ValueError("'exp_muts' must be dict with mutations freqs")
 
     mut = obs_muts.copy()
     if use_context:

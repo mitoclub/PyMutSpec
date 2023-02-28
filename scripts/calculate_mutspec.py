@@ -7,7 +7,7 @@ from functools import partial
 import click
 import pandas as pd
 
-from pymutspec.annotation import calculate_mutspec, rev_comp, transcriptor
+from pymutspec.annotation import calculate_mutspec
 from pymutspec.draw import plot_mutspec12, plot_mutspec192
 
 
@@ -123,13 +123,11 @@ def main(
             if not cur_obs_lbl_repl.shape[0]:
                 continue
             ms12 = calculate_mutspec(cur_obs_lbl_repl, cur_exp, use_context=False, use_proba=use_proba)
-            ms12["Mut"] = ms12["Mut"].str.translate(transcriptor)
             ms12.drop("RawMutSpec", axis=1, inplace=True)
             ms12_collection.append(ms12)
 
             if cur_obs_lbl_repl.Mut.nunique() >= mut_num_for_192:
                 ms192 = calculate_mutspec(cur_obs_lbl_repl, cur_exp, use_context=True, use_proba=use_proba)
-                ms192["Mut"] = ms192["Mut"].apply(rev_comp)
                 ms192.drop("RawMutSpec", axis=1, inplace=True)
                 ms192_collection.append(ms192)
                 
@@ -162,15 +160,16 @@ def main(
             if plot:
                 if substract192 is None:
                     plot_mutspec192(
-                        ms192, 
+                        ms192[(ms192["ObsNum"] > 1) & (ms192["ExpNum"] > 1)], 
                         title=f"{lbl} mutational spectrum",
                         savepath=path_to_ms192plot.format(lbl, label, image_extension), 
                         show=False,
                         fontsize=7,
                     )
                 else:
-                    ms192 = ms192.rename(columns={"MutSpec": "MutSpec_exp"})\
-                        .merge(substract192.rename(columns={"MutSpec": "MutSpec_obs"})[["Mut", "MutSpec_obs"]], on="Mut")
+                    substract192.loc[(substract192["ObsNum"] <= 1) | (substract192["ExpNum"] <= 1), "MutSpec"] = 0.
+                    substract192 = substract192.rename(columns={"MutSpec": "MutSpec_obs"})[["Mut", "MutSpec_obs"]]
+                    ms192 = ms192.rename(columns={"MutSpec": "MutSpec_exp"}).merge(substract192, on="Mut")
                     ms192["MutSpec"] = ms192["MutSpec_obs"] - ms192["MutSpec_exp"]
                     plot_mutspec192(
                         ms192, 
@@ -189,13 +188,11 @@ def main(
                 if branch_muts.shape[0] < 10:
                     continue
                 ms12 = calculate_mutspec(branch_muts, cur_exp, use_context=False, use_proba=use_proba)
-                ms12["Mut"] = ms12["Mut"].str.translate(transcriptor)
                 ms12.drop("RawMutSpec", axis=1, inplace=True)
                 branch_mutspec12.append(ms12)
 
                 if branch_muts.Mut.nunique() >= mut_num_for_192:
                     ms192 = calculate_mutspec(branch_muts, cur_exp, use_context=True, use_proba=use_proba)
-                    ms192["Mut"] = ms192["Mut"].apply(rev_comp)
                     ms192.drop("RawMutSpec", axis=1, inplace=True)
                     branch_mutspec192.append(ms192)
             

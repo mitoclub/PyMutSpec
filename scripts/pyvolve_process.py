@@ -18,7 +18,7 @@ DEFAULT_GENCODE = 2
 
 def get_rates(path_to_mutspec, eps=1e-3):
     ms = pd.read_csv(path_to_mutspec, sep="\t")
-    ms["Mut"] = ms["Mut"].str.translate(transcriptor)
+    # ms["Mut"] = ms["Mut"].str.translate(transcriptor)
     ms["Mut"] = ms["Mut"].str.replace(">", "")
     ms["MutSpec"] = ms["MutSpec"] + eps
     rates = ms.set_index("Mut")["MutSpec"].to_dict()

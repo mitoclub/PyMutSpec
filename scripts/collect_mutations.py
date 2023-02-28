@@ -20,7 +20,7 @@ from pymutspec.annotation import (CodonAnnotation, calculate_mutspec,
                                       lbl2lbl_id)
 from pymutspec.constants import possible_sbs12, possible_sbs192
 from pymutspec.io import GenesStates
-from pymutspec.utils import load_logger, profiler
+from pymutspec.utils import load_logger
 
 logger = None
 
