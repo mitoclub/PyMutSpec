@@ -167,7 +167,7 @@ class MutSpec(CodonAnnotation, GenesStates):
                 # collect mutations of full genome
                 genome_mutations.append(gene_mut_df)
                 
-                # calculate gene mutational spectra
+                # calculate gene mutational spectra if there are at least 2 genes
                 if self.derive_spectra and len(ref_genome) > 1:
                     for lbl in self.MUT_LABELS:
                         mutspec12 = calculate_mutspec(

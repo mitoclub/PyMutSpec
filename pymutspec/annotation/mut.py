@@ -254,6 +254,88 @@ class CodonAnnotation:
 
         return sbs12_freqs, sbs192_freqs
 
+    def collect_exp_muts(self, cds, mask=None, labels=["syn"]):
+        """
+        Calculate potential expected mutations in cds gene
+
+        Arguments
+        ---------
+        cds: string or iterable of strings, if len is not divisible by 3, last codon is not used in syn, syn4f and pos3 modes
+            cds sequence with codon structure; 
+        labels: List of label strings
+            label could be one of ["all", "syn", "ff", "pos3"];
+        mask:
+            iterable that mask invariant positions in the cds;
+
+        Return
+        ---------
+            sbs_table: pd.DataFrame
+        """
+        n = len(cds)
+        if mask is not None and len(mask) != n:
+            raise ValueError("Mask must have same lenght as cds")
+
+        labels = set(labels)
+        data = []
+        for pos in range(1, n - 1):
+            if mask is not None and not mask[pos]:
+                continue
+            pic = pos % 3
+            nuc = cds[pos]
+            cdn = cds[pos - pic: pos - pic + 3]
+            cdn = cdn if isinstance(cdn, str) else "".join(cdn)
+            cxt = cds[pos - 1: pos + 2]
+            cxt = cxt if isinstance(cxt, str) else "".join(cxt)
+            mut_base12 = nuc + ">" + "{}"
+            mut_base192 = cxt[0] + "[" + nuc + ">{}]" + cxt[-1]
+
+            if "syn" in labels and len(cdn) == 3:
+                syn_codons = self.get_syn_codons(cdn, pic)
+                for alt_cdn in syn_codons:
+                    alt_nuc = alt_cdn[pic]
+                    data.append({
+                        "Pos": pos + 1,
+                        "Pic": pic + 1,
+                        "Mut": mut_base192.format(alt_nuc),
+                        "MutBase": mut_base12.format(alt_nuc),
+                        "Cdn": cdn,
+                        "Label": "syn",
+                    })
+
+            for alt_nuc in self.nucl_order:
+                if alt_nuc == nuc:
+                    continue
+                if "all" in labels:
+                    data.append({
+                        "Pos": pos + 1,
+                        "Pic": pic + 1,
+                        "Mut": mut_base192.format(alt_nuc),
+                        "MutBase": mut_base12.format(alt_nuc),
+                        "Cdn": cdn,
+                        "Label": "all",
+                    })
+                if "pos3" in labels and pic == 2:
+                    data.append({
+                        "Pos": pos + 1,
+                        "Pic": pic + 1,
+                        "Mut": mut_base192.format(alt_nuc),
+                        "MutBase": mut_base12.format(alt_nuc),
+                        "Cdn": cdn,
+                        "Label": "pos3",
+                    })
+                if "ff" in labels and pic == 2 and self.is_fourfold(cdn):
+                    data.append({
+                        "Pos": pos + 1,
+                        "Pic": pic + 1,
+                        "Mut": mut_base192.format(alt_nuc),
+                        "MutBase": mut_base12.format(alt_nuc),
+                        "Cdn": cdn,
+                        "Label": "ff",
+                    })
+
+        exp_sbs = pd.DataFrame(data)
+        return exp_sbs
+
     def __extract_syn_codons(self):
         """
         extract synonymous (codons that mutate without amino acid change) 
