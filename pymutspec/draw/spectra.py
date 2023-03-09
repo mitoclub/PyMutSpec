@@ -41,7 +41,7 @@ colors192 = _smpl.sort_values(["MutBase", "Context"])["MutBase"].map(color_mappi
 colors12 = [color_mapping12[sbs] for sbs in sbs12_ordered]
 
 
-def __prepare_nice_labels(sbs192: Iterable[str], kk=False):
+def _prepare_nice_labels(sbs192: Iterable[str], kk=False):
     _nice_sbs = []
     prev = None
     for sbs in sbs192:
@@ -128,10 +128,10 @@ def plot_mutspec192(
     ms192 = mutspec192.copy()
     if labels_style == "long":
         ms192["long_lbl"] = ms192.Mut.str.get(2) + ms192.Mut.str.get(4) + ": " + ms192.Mut.str.get(0) + ms192.Mut.str.get(2) + ms192.Mut.str.get(-1)
-        order = __prepare_nice_labels(sbs_order, kk=True)
+        order = _prepare_nice_labels(sbs_order, kk=True)
         x_col = "long_lbl"
     elif labels_style == "cosmic":
-        order = __prepare_nice_labels(sbs_order, kk=False)
+        order = _prepare_nice_labels(sbs_order, kk=False)
         x_col = "Mut"
     else:
         raise ValueError("Available labels_style are: 'cosmic' and 'long'")
@@ -179,7 +179,7 @@ def plot_mutspec192kk(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutatio
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111)
     ax.grid(axis="y", alpha=.7, linewidth=0.5)
-    order = __prepare_nice_labels(ordered_sbs192_kk, True)
+    order = _prepare_nice_labels(ordered_sbs192_kk, True)
     sns.barplot(
         x="long_lbl", y=ylabel, data=ms192,
         order=order, 
