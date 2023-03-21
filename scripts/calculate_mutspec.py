@@ -25,7 +25,7 @@ def dump_expected(exp, path):
 @click.option("-o", '--outdir', type=click.Path(True), default=".", show_default=True, help="Path to output directory for files (must exist)")
 @click.option("-l", '--label', default=None, help="Label for files naming. By default no label")
 @click.option("-p", '--proba', "use_proba", is_flag=True, help="Use probabilities of mutations")
-@click.option('--proba_min', default=0.1, show_default=True, help="Minimal mutation probability to consider in spectra calculation. Used only with --use_proba")
+@click.option('--proba_min', default=0.3, show_default=True, help="Minimal mutation probability to consider in spectra calculation. Used only with --use_proba")
 @click.option('--exclude', default="OUTGRP,ROOT", show_default=True, help="Name of source nodes to exclude from mutations set. Use comma to pass several names")
 @click.option('--all', 'all_muts', is_flag=True, help="Calculate and plot spectra for all mutations; "
                                                       "default if not specified at least one of --all, --syn, --syn4f")
