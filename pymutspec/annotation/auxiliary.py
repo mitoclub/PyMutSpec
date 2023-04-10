@@ -22,7 +22,7 @@ def lbl_id2lbl(lbl_id: int) -> str:
 def lbl2lbl_id(lbl: str) -> int:
     if lbl == "all":
         lbl_id = 0
-    elif lbl == "syn":
+    elif lbl == "syn" or lbl == "syn_c":
         lbl_id = 1
     elif lbl == "ff":
         lbl_id = 2
