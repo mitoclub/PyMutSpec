@@ -66,7 +66,7 @@ class CodonAnnotation:
             possible synonymous codons
         """
         assert 0 <= pic <= 2, "pic must be 0-based and less than 3"
-        syn_codons = self._syn_codons.get((cdn, pic), {})
+        syn_codons = self._syn_codons.get((cdn, pic), dict())
         return syn_codons
 
     def get_mut_type(self, cdn1: str, cdn2: str, pic: int):
@@ -207,10 +207,10 @@ class CodonAnnotation:
 
         Return
         ---------
-            sbs12_freqs: Dict[label, Dict[nucl, count]]
-                for each label collected expected single nucleotide substitutions frequencies without contexts
-            sbs192_freqs: Dict[label, Dict[context, count]]
-                for each label collected expected single nucleotide substitutions frequencies with contexts
+        sbs12_freqs: Dict[label, Dict[nucl, count]]
+            for each label collected expected single nucleotide substitutions frequencies without contexts
+        sbs192_freqs: Dict[label, Dict[context, count]]
+            for each label collected expected single nucleotide substitutions frequencies with contexts
         """
         n = len(cds)
         if mask is not None and len(mask) != n:
@@ -229,28 +229,33 @@ class CodonAnnotation:
             cdn = cdn if isinstance(cdn, str) else "".join(cdn)
             cxt = cds[pos - 1: pos + 2]
             cxt = cxt if isinstance(cxt, str) else "".join(cxt)
-            mut_base12 = nuc + ">" + "{}"
-            mut_base192 = cxt[0] + "[" + nuc + ">{}]" + cxt[-1]
+            sbs12_pattern = nuc + ">" + "{}"
+            sbs192_pattern = cxt[0] + "[" + nuc + ">{}]" + cxt[-1]
 
-            if "syn" in labels and len(cdn) == 3:
+            if ("syn" in labels or "syn_c" in labels) and len(cdn) == 3:
                 syn_codons = self.get_syn_codons(cdn, pic)
-                for alt_cdn in syn_codons:
-                    alt_nuc = alt_cdn[pic]
-                    sbs12_freqs["syn"][mut_base12.format(alt_nuc)] += 1
-                    sbs192_freqs["syn"][mut_base192.format(alt_nuc)] += 1
-
+                if "syn" in labels:
+                    for alt_cdn in syn_codons:
+                        alt_nuc = alt_cdn[pic]
+                        sbs12_freqs["syn"][sbs12_pattern.format(alt_nuc)] += 1
+                        sbs192_freqs["syn"][sbs192_pattern.format(alt_nuc)] += 1
+                if "syn_c" in labels and len(syn_codons) > 0:
+                    for alt_nuc in self.nucl_order:
+                        sbs12_freqs["syn_c"][sbs12_pattern.format(alt_nuc)] += 1
+                        sbs192_freqs["syn_c"][sbs192_pattern.format(alt_nuc)] += 1
+            
             for alt_nuc in self.nucl_order:
                 if alt_nuc == nuc:
                     continue
                 if "all" in labels:
-                    sbs12_freqs["all"][mut_base12.format(alt_nuc)] += 1
-                    sbs192_freqs["all"][mut_base192.format(alt_nuc)] += 1
+                    sbs12_freqs["all"][sbs12_pattern.format(alt_nuc)] += 1
+                    sbs192_freqs["all"][sbs192_pattern.format(alt_nuc)] += 1
                 if "pos3" in labels and pic == 2:
-                    sbs12_freqs["pos3"][mut_base12.format(alt_nuc)] += 1
-                    sbs192_freqs["pos3"][mut_base192.format(alt_nuc)] += 1
+                    sbs12_freqs["pos3"][sbs12_pattern.format(alt_nuc)] += 1
+                    sbs192_freqs["pos3"][sbs192_pattern.format(alt_nuc)] += 1
                 if "ff" in labels and pic == 2 and self.is_fourfold(cdn):
-                    sbs12_freqs["ff"][mut_base12.format(alt_nuc)] += 1
-                    sbs192_freqs["ff"][mut_base192.format(alt_nuc)] += 1
+                    sbs12_freqs["ff"][sbs12_pattern.format(alt_nuc)] += 1
+                    sbs192_freqs["ff"][sbs192_pattern.format(alt_nuc)] += 1
 
         return sbs12_freqs, sbs192_freqs
 
@@ -346,7 +351,7 @@ class CodonAnnotation:
         Return
         -------
         syn_codons: Dict[Tuple(str, int), Set[str]]
-            mapping[(cdn, pic)] of syn codons
+            mapping (codon, pos_in_codon) --> set of possible syn codons
         ff_codons: set[str]
             set of ff codons (neutral on 3rd position)
         """

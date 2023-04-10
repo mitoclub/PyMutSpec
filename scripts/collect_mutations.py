@@ -30,7 +30,7 @@ class MutSpec(CodonAnnotation, GenesStates):
             self, path_to_tree, path_to_states, out_dir, 
             gcode=2, db_mode="dict", path_to_db=None,
             rewrite_db=None, use_proba=False, proba_cutoff=0.01, 
-            use_phylocoef=False, syn=False, syn4f=False, derive_spectra=True,
+            use_phylocoef=False, syn=False, syn_c=False, syn4f=False, derive_spectra=True,
             path_to_rates=None, cat_cutoff = 2,
         ):
         for path in list(path_to_states) + [path_to_tree]:
@@ -54,6 +54,8 @@ class MutSpec(CodonAnnotation, GenesStates):
         self.MUT_LABELS = ["all"]
         if syn:
             self.MUT_LABELS.append("syn")
+        if syn_c:
+            self.MUT_LABELS.append("syn_c")
         if syn4f:
             self.MUT_LABELS.append("ff")
         logger.info(f"Types of mutations to collect and process: {self.MUT_LABELS}")
@@ -170,8 +172,10 @@ class MutSpec(CodonAnnotation, GenesStates):
                 # calculate gene mutational spectra if there are at least 2 genes
                 if self.derive_spectra and len(ref_genome) > 1:
                     for lbl in self.MUT_LABELS:
+                        lbl_id = lbl2lbl_id("syn" if lbl == "syn_c" else lbl)
+
                         mutspec12 = calculate_mutspec(
-                            gene_mut_df[gene_mut_df.Label >= lbl2lbl_id(lbl)], gene_exp_sbs12[lbl], 
+                            gene_mut_df[gene_mut_df.Label >= lbl_id], gene_exp_sbs12[lbl], 
                             use_context=False, use_proba=self.use_proba
                         )
                         mutspec12["AltNode"] = alt_node.name
@@ -183,7 +187,7 @@ class MutSpec(CodonAnnotation, GenesStates):
 
                         if len(gene_mut_df) > 100:
                             mutspec192 = calculate_mutspec(
-                                gene_mut_df[gene_mut_df.Label >= lbl2lbl_id(lbl)], gene_exp_sbs192[lbl], 
+                                gene_mut_df[gene_mut_df.Label >= lbl_id], gene_exp_sbs192[lbl], 
                                 use_context=True, use_proba=self.use_proba
                             )
                             mutspec192["RefNode"] = ref_node.name
@@ -216,15 +220,17 @@ class MutSpec(CodonAnnotation, GenesStates):
             # calculate full genome mutational spectra for all labels
             if self.derive_spectra:
                 for lbl in self.MUT_LABELS:
+                    lbl_id = lbl2lbl_id("syn" if lbl == "syn_c" else lbl)
+
                     mutspec12 = calculate_mutspec(
-                        genome_mutations_df[genome_mutations_df.Label >= lbl2lbl_id(lbl)],
+                        genome_mutations_df[genome_mutations_df.Label >= lbl_id],
                         genome_nucl_freqs[lbl], use_context=False, use_proba=self.use_proba
                     )
                     mutspec12["RefNode"] = ref_node.name
                     mutspec12["AltNode"] = alt_node.name
                     mutspec12["Label"] = lbl
                     mutspec192 = calculate_mutspec(
-                        genome_mutations_df[genome_mutations_df.Label >= lbl2lbl_id(lbl)],
+                        genome_mutations_df[genome_mutations_df.Label >= lbl_id],
                         genome_cxt_freqs[lbl], use_context=True, use_proba=self.use_proba
                     )
                     mutspec192["RefNode"] = ref_node.name
@@ -256,7 +262,6 @@ class MutSpec(CodonAnnotation, GenesStates):
 
         return:
         - mut - dataframe of mutations
-        - nucl_freqs - dict[lbl: dict[{ACGT}: int]] - nucleotide frequencies for all, syn and ff positions
         """
         n, m = len(g1), len(g2)
         assert n == m, f"genomes lengths are not equal: {n} != {m}"
@@ -298,7 +303,11 @@ class MutSpec(CodonAnnotation, GenesStates):
         mut_df = pd.DataFrame(mutations)
         return mut_df
 
-    def collect_exp_mut_freqs_proba(self, cds: np.ndarray, phylocoef: float, mask: Iterable[Union[int, bool]] = None, labels = ["all", "syn", "ff"],  proba_cutoff=0.001):
+    def collect_exp_mut_freqs_proba(
+            self, cds: np.ndarray, phylocoef: float, 
+            mask: Iterable[Union[int, bool]] = None, 
+            labels = ["all", "syn", "ff"],  proba_cutoff=0.001,
+        ):
         n = len(cds)
         if mask is not None and len(mask) != n:
             raise ValueError("Mask must have same lenght as cds")
@@ -318,28 +327,33 @@ class MutSpec(CodonAnnotation, GenesStates):
                 cdn = "".join(cdn_tuple)
                 proba *= phylocoef  # adjusted proba
                 nuc = cxt[1]
-                mut_base12 = nuc + ">" + "{}"
-                mut_base192 = cxt[0] + "[" + nuc + ">{}]" + cxt[-1]
+                sbs12_pattern = nuc + ">" + "{}"
+                sbs192_pattern = cxt[0] + "[" + nuc + ">{}]" + cxt[-1]
 
-                if "syn" in labels and len(cdn) == 3:
+                if ("syn" in labels or "syn_c" in labels) and len(cdn) == 3:
                     syn_codons = self.get_syn_codons(cdn, pic)
-                    for alt_cdn in syn_codons:
-                        alt_nuc = alt_cdn[pic]
-                        sbs12_freqs["syn"][mut_base12.format(alt_nuc)] += proba
-                        sbs192_freqs["syn"][mut_base192.format(alt_nuc)] += proba
+                    if "syn" in labels:
+                        for alt_cdn in syn_codons:
+                            alt_nuc = alt_cdn[pic]
+                            sbs12_freqs["syn"][sbs12_pattern.format(alt_nuc)] += proba
+                            sbs192_freqs["syn"][sbs192_pattern.format(alt_nuc)] += proba
+                    if "syn_c" in labels and len(syn_codons) > 0:
+                        for alt_nuc in self.nucl_order:
+                            sbs12_freqs["syn_c"][sbs12_pattern.format(alt_nuc)] += proba
+                            sbs192_freqs["syn_c"][sbs192_pattern.format(alt_nuc)] += proba
 
                 for alt_nuc in self.nucl_order:
                     if alt_nuc == nuc:
                         continue
                     if "all" in labels:
-                        sbs12_freqs["all"][mut_base12.format(alt_nuc)] += proba
-                        sbs192_freqs["all"][mut_base192.format(alt_nuc)] += proba
+                        sbs12_freqs["all"][sbs12_pattern.format(alt_nuc)] += proba
+                        sbs192_freqs["all"][sbs192_pattern.format(alt_nuc)] += proba
                     if "pos3" in labels and pic == 2:
-                        sbs12_freqs["pos3"][mut_base12.format(alt_nuc)] += proba
-                        sbs192_freqs["pos3"][mut_base192.format(alt_nuc)] += proba
+                        sbs12_freqs["pos3"][sbs12_pattern.format(alt_nuc)] += proba
+                        sbs192_freqs["pos3"][sbs192_pattern.format(alt_nuc)] += proba
                     if "ff" in labels and pic == 2 and self.is_fourfold(cdn):
-                        sbs12_freqs["ff"][mut_base12.format(alt_nuc)] += proba
-                        sbs192_freqs["ff"][mut_base192.format(alt_nuc)] += proba
+                        sbs12_freqs["ff"][sbs12_pattern.format(alt_nuc)] += proba
+                        sbs192_freqs["ff"][sbs192_pattern.format(alt_nuc)] += proba
                         
         return sbs12_freqs, sbs192_freqs
 
@@ -400,8 +414,9 @@ class MutSpec(CodonAnnotation, GenesStates):
 @click.option("--states", "path_to_states", required=True, multiple=True, type=click.Path(True), help="Path to states of each node in the tree. Could be passed several states files, example: '--states file1 --states file2'")
 @click.option("--outdir", required=True, type=click.Path(exists=False, writable=True), help="Directory which will contain output files with mutations and mutspecs")
 @click.option("--gencode", required=True, type=int, help="Genetic code number to use in mutations annotation. Use 2 for vertebrate mitochondrial genes")
-@click.option("--syn", is_flag=True, default=False, help="Calculate synonymous mutspec")
-@click.option("--syn4f", is_flag=True, default=False, help="Calculate synonymous fourfold mutspec")
+@click.option("--syn",   is_flag=True, default=False, help="Process synonymous mutations (expectations will be calculated using possible syn mutations counts)")
+@click.option("--syn_c", is_flag=True, default=False, help="Process synonymous mutations (expectations will be calculated using possible syn mutations context counts)")
+@click.option("--syn4f", is_flag=True, default=False, help="Process synonymous fourfold mutations")
 @click.option("--proba", is_flag=True, default=False, help="Use states probabilities while mutations collecting")
 @click.option("--pcutoff", "proba_cutoff", default=0.01, show_default=True, type=float, help="Cutoff of tri/tetranucleotide state probability, states with lower values will not be used in mutation collecting")
 @click.option("--phylocoef/--no-phylocoef", is_flag=True, default=True, show_default=True, help="Use or don't use phylogenetic uncertainty coefficient. Considered only with --proba")
@@ -411,11 +426,11 @@ class MutSpec(CodonAnnotation, GenesStates):
 @click.option("--db_path", "path_to_db", type=click.Path(writable=True), default="/tmp/states.db", show_default=True, help="Path to database with states. Use only with --write_db")
 @click.option("--rewrite_db",  is_flag=True, default=False, help="Rewrite existing states database. Use only with --write_db")  # drop argument, replace by question
 @click.option('-f', '--force', is_flag=True, help="Rewrite existing output directory")
-@click.option('-q', '--quiet', help="Quiet mode, suppress printing to screen (stderr)")
+@click.option('-q', '--quiet', is_flag=True, help="Quiet mode, suppress printing to screen (stderr)")
 @click.option("--config", default=None, type=click.Path(True), help="Path to log-config file")
 def main(
         path_to_tree, path_to_states, outdir, 
-        gencode, syn, syn4f, proba, proba_cutoff,
+        gencode, syn, syn_c ,syn4f, proba, proba_cutoff,
         write_db, path_to_db, rewrite_db, 
         phylocoef, no_spectra, path_to_rates,
         force, quiet, config,
@@ -447,7 +462,8 @@ def main(
         path_to_tree, path_to_states, outdir, gcode=gencode, 
         db_mode=db_mode, path_to_db=path_to_db, rewrite_db=rewrite_db, 
         use_proba=proba, proba_cutoff=proba_cutoff, use_phylocoef=phylocoef,
-        syn=syn, syn4f=syn4f, derive_spectra=derive_spectra, path_to_rates=path_to_rates,
+        syn=syn, syn_c=syn_c, syn4f=syn4f, derive_spectra=derive_spectra, 
+        path_to_rates=path_to_rates,
     )
 
 
