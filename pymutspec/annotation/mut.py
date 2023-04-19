@@ -291,51 +291,46 @@ class CodonAnnotation:
             cdn = cdn if isinstance(cdn, str) else "".join(cdn)
             cxt = cds[pos - 1: pos + 2]
             cxt = cxt if isinstance(cxt, str) else "".join(cxt)
-            mut_base12 = nuc + ">" + "{}"
-            mut_base192 = cxt[0] + "[" + nuc + ">{}]" + cxt[-1]
+            sbs192_pattern = cxt[0] + "[" + nuc + ">{}]" + cxt[-1]
 
-            if "syn" in labels and len(cdn) == 3:
+            if ("syn" in labels or "syn_c" in labels) and len(cdn) == 3:
                 syn_codons = self.get_syn_codons(cdn, pic)
-                for alt_cdn in syn_codons:
-                    alt_nuc = alt_cdn[pic]
-                    data.append({
-                        "Pos": pos + 1,
-                        "Pic": pic + 1,
-                        "Mut": mut_base192.format(alt_nuc),
-                        "MutBase": mut_base12.format(alt_nuc),
-                        "Cdn": cdn,
-                        "Label": "syn",
-                    })
+                if "syn" in labels:
+                    for alt_cdn in syn_codons:
+                        alt_nuc = alt_cdn[pic]
+                        data.append({
+                            "Pos": pos + 1, "Pic": pic + 1,
+                            "Mut": sbs192_pattern.format(alt_nuc),
+                            "Cdn": cdn, "Label": "syn",
+                        })
+                if "syn_c" in labels and len(syn_codons) > 0:
+                    for alt_nuc in self.nucl_order:
+                        data.append({
+                            "Pos": pos + 1, "Pic": pic + 1,
+                            "Mut": sbs192_pattern.format(alt_nuc),
+                            "Cdn": cdn, "Label": "syn_c",
+                        })
 
             for alt_nuc in self.nucl_order:
                 if alt_nuc == nuc:
                     continue
                 if "all" in labels:
                     data.append({
-                        "Pos": pos + 1,
-                        "Pic": pic + 1,
-                        "Mut": mut_base192.format(alt_nuc),
-                        "MutBase": mut_base12.format(alt_nuc),
-                        "Cdn": cdn,
-                        "Label": "all",
+                        "Pos": pos + 1, "Pic": pic + 1,
+                        "Mut": sbs192_pattern.format(alt_nuc),
+                        "Cdn": cdn, "Label": "all",
                     })
                 if "pos3" in labels and pic == 2:
                     data.append({
-                        "Pos": pos + 1,
-                        "Pic": pic + 1,
-                        "Mut": mut_base192.format(alt_nuc),
-                        "MutBase": mut_base12.format(alt_nuc),
-                        "Cdn": cdn,
-                        "Label": "pos3",
+                        "Pos": pos + 1, "Pic": pic + 1,
+                        "Mut": sbs192_pattern.format(alt_nuc),
+                        "Cdn": cdn, "Label": "pos3",
                     })
                 if "ff" in labels and pic == 2 and self.is_fourfold(cdn):
                     data.append({
-                        "Pos": pos + 1,
-                        "Pic": pic + 1,
-                        "Mut": mut_base192.format(alt_nuc),
-                        "MutBase": mut_base12.format(alt_nuc),
-                        "Cdn": cdn,
-                        "Label": "ff",
+                        "Pos": pos + 1, "Pic": pic + 1,
+                        "Mut": sbs192_pattern.format(alt_nuc),
+                        "Cdn": cdn, "Label": "syn4f",
                     })
 
         exp_sbs = pd.DataFrame(data)

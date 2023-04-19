@@ -27,11 +27,11 @@ logger = None
 
 class MutSpec(CodonAnnotation, GenesStates):    
     def __init__(
-            self, path_to_tree, path_to_states, out_dir, 
+            self, path_to_tree, path_to_states, outdir, 
             gcode=2, db_mode="dict", path_to_db=None,
-            rewrite_db=None, use_proba=False, proba_cutoff=0.01, 
+            rewrite_db=None, use_proba=False, proba_cutoff=0.05, 
             use_phylocoef=False, syn=False, syn_c=False, syn4f=False, derive_spectra=True,
-            path_to_rates=None, cat_cutoff = 2,
+            path_to_rates=None, cat_cutoff=2, save_exp_muts=False,
         ):
         for path in list(path_to_states) + [path_to_tree]:
             if not os.path.exists(path):
@@ -47,6 +47,8 @@ class MutSpec(CodonAnnotation, GenesStates):
         self.proba_cutoff = proba_cutoff
         self.use_phylocoef = use_phylocoef if use_proba else False
         self.derive_spectra = derive_spectra
+        self.outdir = outdir
+        self._save_exp_muts = save_exp_muts
         logger.info(f"Using gencode {gcode}")
         logger.info(f"Use probabilities of genomic states: {use_proba}")
         logger.info(f"Use phylogenetic uncertainty coefficient: {use_phylocoef}")
@@ -61,31 +63,29 @@ class MutSpec(CodonAnnotation, GenesStates):
         logger.info(f"Types of mutations to collect and process: {self.MUT_LABELS}")
         self.fp_format = np.float32
         self.tree = PhyloTree(path_to_tree, format=1)
-        self.max_dist = self.fp_format(get_farthest_leaf(self.tree))
+        self.max_dist = self.fp_format(get_farthest_leaf(self.tree, 0.95))
         logger.info(
             f"Tree loaded, number of leaf nodes: {len(self.tree)}, "
             f"total number of nodes: {len(self.tree.get_cached_content())}, "
             f"distance to farthest leaf: {self.max_dist: .2f}"
         )
-        self.open_handles(out_dir)
-        self.extract_mutspec_from_tree()
-        self.close_handles()
+        rnd_genome = self.get_random_genome()
+        logger.info(f"Number of genes: {len(rnd_genome)}, number of sites: {[len(x) for x in rnd_genome.values()]}")
+        if self.mask:
+            logger.info(f"Number of invariable sites: {[len(x) - sum(x) for x in self.mask.values()]}")
 
-    def open_handles(self, out_dir):
+    def open_handles(self, outdir):
         self.handle = dict()
-        path_to_mutations  = os.path.join(out_dir, "mutations.tsv")
-        path_to_nucl_freqs = os.path.join(out_dir, "expected_mutations.tsv")
-        self.handle["mut"] = open(path_to_mutations, "w")
-        self.handle["freq"]   = open(path_to_nucl_freqs, "w")
+        self.handle["mut"]  = open(os.path.join(outdir, "mutations.tsv"), "w")
+        self.handle["freq"] = open(os.path.join(outdir, "expected_freqs.tsv"), "w")
+        if self._save_exp_muts:
+            self.handle["exp"] = open(os.path.join(outdir, "expected_mutations.tsv"), "w")
+
         if self.derive_spectra:
-            path_to_mutspec12  = os.path.join(out_dir, "mutspec12.tsv")
-            path_to_mutspec192 = os.path.join(out_dir, "mutspec192.tsv")
-            path_to_mutspec_genes12  = os.path.join(out_dir, "mutspec12genes.tsv")
-            path_to_mutspec_genes192 = os.path.join(out_dir, "mutspec192genes.tsv")
-            self.handle["ms12"]   = open(path_to_mutspec12, "w")
-            self.handle["ms192"]  = open(path_to_mutspec192, "w")
-            self.handle["ms12s"]  = open(path_to_mutspec_genes12, "w")
-            self.handle["ms192g"] = open(path_to_mutspec_genes192, "w")
+            self.handle["ms12"]   = open(os.path.join(outdir, "mutspec12.tsv"), "w")
+            self.handle["ms192"]  = open(os.path.join(outdir, "mutspec192.tsv"), "w")
+            self.handle["ms12s"]  = open(os.path.join(outdir, "mutspec12genes.tsv"), "w")
+            self.handle["ms192g"] = open(os.path.join(outdir, "mutspec192genes.tsv"), "w")
         logger.info("Handles opened")
 
     def close_handles(self):
@@ -94,6 +94,8 @@ class MutSpec(CodonAnnotation, GenesStates):
         logger.info("Handles closed")
 
     def extract_mutspec_from_tree(self):
+        self.open_handles(self.outdir)
+
         logger.info("Start mutation extraction from tree")
         add_header = defaultdict(lambda: True)
         aln_size = self.genome_size
@@ -135,11 +137,19 @@ class MutSpec(CodonAnnotation, GenesStates):
                 # collect state frequencies and
                 # extract mutations and put in order columns
                 if self.use_proba:
-                    gene_exp_sbs12, gene_exp_sbs192 = self.collect_exp_mut_freqs_proba(ref_seq, phylocoef, self.mask, self.MUT_LABELS)
+                    gene_exp_sbs12, gene_exp_sbs192 = self.collect_exp_mut_freqs_proba(ref_seq, phylocoef, self.mask[gene], self.MUT_LABELS, self.proba_cutoff)
                     gene_mut_df = self.extract_mutations_proba(ref_seq, alt_seq)
+                    if self._save_exp_muts:
+                        node_expected_sbs = self.collect_exp_muts_proba(ref_seq, phylocoef, self.mask[gene], self.MUT_LABELS, self.proba_cutoff)
+                        node_expected_sbs["Node"] = ref_node.name
+                        node_expected_sbs["Gene"] = gene
                 else:
-                    gene_exp_sbs12, gene_exp_sbs192 = self.collect_exp_mut_freqs(ref_seq, self.mask, self.MUT_LABELS)
+                    gene_exp_sbs12, gene_exp_sbs192 = self.collect_exp_mut_freqs(ref_seq, self.mask[gene], self.MUT_LABELS)
                     gene_mut_df = self.extract_mutations_simple(ref_seq, alt_seq)
+                    if self._save_exp_muts:
+                        node_expected_sbs = self.collect_exp_muts(ref_seq, self.mask[gene], self.MUT_LABELS)
+                        node_expected_sbs["Node"] = ref_node.name
+                        node_expected_sbs["Gene"] = gene
 
                 # dump state frequencies
                 if ref_node.name not in visited_nodes:
@@ -148,6 +158,9 @@ class MutSpec(CodonAnnotation, GenesStates):
                         gene, self.handle["freq"], add_header["freqs"],
                     )
                     add_header["freqs"] = False
+
+                    self.dump_table(node_expected_sbs, self.handle["exp"], add_header["exp"])
+                    add_header["exp"] = False
                 
                 # summarize state frequencies over genome
                 for lbl in self.MUT_LABELS:
@@ -245,6 +258,8 @@ class MutSpec(CodonAnnotation, GenesStates):
         logger.info(f"Processed {ei} tree edges")
         logger.info(f"Observed {total_mut_num:.3f} substitutions")
         logger.info("Extraction of mutations from phylogenetic tree completed succesfully")
+        
+        self.close_handles()
 
     def extract_mutations_proba(self, g1: np.ndarray, g2: np.ndarray):
         """
@@ -306,11 +321,14 @@ class MutSpec(CodonAnnotation, GenesStates):
     def collect_exp_mut_freqs_proba(
             self, cds: np.ndarray, phylocoef: float, 
             mask: Iterable[Union[int, bool]] = None, 
-            labels = ["all", "syn", "ff"],  proba_cutoff=0.01,
+            labels = ["all", "syn", "ff"],  proba_cutoff=0.05,
         ):
         n = len(cds)
         if mask is not None and len(mask) != n:
-            raise ValueError("Mask must have same lenght as cds")
+            msg = f"Mask (len = {len(mask)}) must have same lenght as cds (len = {n})"
+            logger.error(msg)
+            logger.info("Termination")
+            raise ValueError(msg)
 
         assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
         assert 0 < phylocoef <= 1, "Evol coefficient must be between 0 and 1"
@@ -356,6 +374,81 @@ class MutSpec(CodonAnnotation, GenesStates):
                         sbs192_freqs["ff"][sbs192_pattern.format(alt_nuc)] += proba
                         
         return sbs12_freqs, sbs192_freqs
+
+    def collect_exp_muts_proba(
+            self, cds: np.ndarray, phylocoef: float, 
+            mask: Iterable[Union[int, bool]] = None, 
+            labels = ["all", "syn", "ff"],  proba_cutoff=0.05,
+        ):
+        n = len(cds)
+        if mask is not None and len(mask) != n:
+            msg = f"Mask (len = {len(mask)}) must have same lenght as cds (len = {n})"
+            logger.error(msg)
+            logger.info("Termination")
+            raise ValueError(msg)
+
+        assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
+        assert 0 < phylocoef <= 1, "Evol coefficient must be between 0 and 1"
+
+        labels = set(labels)
+        data = []
+        for pos in range(1, n - 1):
+            if mask is not None and not mask[pos]:
+                continue
+            pic = pos % 3  # 0-based
+            for cdn_tuple, cxt, proba in self.sample_context(pos, pic, cds, proba_cutoff):
+                cdn = "".join(cdn_tuple)
+                proba *= phylocoef  # adjusted proba
+                nuc = cxt[1]
+                sbs192_pattern = cxt[0] + "[" + nuc + ">{}]" + cxt[-1]
+
+                if ("syn" in labels or "syn_c" in labels) and len(cdn) == 3:
+                    syn_codons = self.get_syn_codons(cdn, pic)
+                    if "syn" in labels:
+                        for alt_cdn in syn_codons:
+                            alt_nuc = alt_cdn[pic]
+                            data.append({
+                                "Pos": pos + 1, "Pic": pic + 1,
+                                "Mut": sbs192_pattern.format(alt_nuc),
+                                "Cdn": cdn, "Label": "syn",
+                                "Proba": proba,
+                            })
+                    if "syn_c" in labels and len(syn_codons) > 0:
+                        for alt_nuc in self.nucl_order:
+                            data.append({
+                                "Pos": pos + 1, "Pic": pic + 1,
+                                "Mut": sbs192_pattern.format(alt_nuc),
+                                "Cdn": cdn, "Label": "syn_c",
+                                "Proba": proba,
+                            })
+
+                for alt_nuc in self.nucl_order:
+                    if alt_nuc == nuc:
+                        continue
+                    if "all" in labels:
+                        data.append({
+                            "Pos": pos + 1, "Pic": pic + 1,
+                            "Mut": sbs192_pattern.format(alt_nuc),
+                            "Cdn": cdn, "Label": "all",
+                            "Proba": proba,
+                        })
+                    if "pos3" in labels and pic == 2:
+                        data.append({
+                            "Pos": pos + 1, "Pic": pic + 1,
+                            "Mut": sbs192_pattern.format(alt_nuc),
+                            "Cdn": cdn, "Label": "pos3",
+                            "Proba": proba,
+                        })
+                    if "ff" in labels and pic == 2 and self.is_fourfold(cdn):
+                        data.append({
+                            "Pos": pos + 1, "Pic": pic + 1,
+                            "Mut": sbs192_pattern.format(alt_nuc),
+                            "Cdn": cdn, "Label": "syn4f",
+                            "Proba": proba,
+                        })
+
+        exp_sbs = pd.DataFrame(data)
+        return exp_sbs
 
     def sample_context(self, pos, pic, genome: np.ndarray, cutoff=0.01):
         codon_states = genome[pos - pic: pos - pic + 3]        
@@ -418,9 +511,10 @@ class MutSpec(CodonAnnotation, GenesStates):
 @click.option("--syn_c", is_flag=True, default=False, help="Process synonymous mutations (expectations will be calculated using possible syn mutations context counts)")
 @click.option("--syn4f", is_flag=True, default=False, help="Process synonymous fourfold mutations")
 @click.option("--proba", is_flag=True, default=False, help="Use states probabilities while mutations collecting")
-@click.option("--pcutoff", "proba_cutoff", default=0.01, show_default=True, type=float, help="Cutoff of tri/tetranucleotide state probability, states with lower values will not be used in mutation collecting")
+@click.option("--pcutoff", "proba_cutoff", default=0.05, show_default=True, type=float, help="Cutoff of tri/tetranucleotide state probability, states with lower values will not be used in mutation collecting")
 @click.option("--phylocoef/--no-phylocoef", is_flag=True, default=True, show_default=True, help="Use or don't use phylogenetic uncertainty coefficient. Considered only with --proba")
 @click.option("--no-mutspec", "no_spectra", is_flag=True, default=False, show_default=True, help="Don't calculate mutspec, only mutations extraction")
+@click.option("--save-exp-muts", is_flag=True, default=False, show_default=True, help="Save possible (expected) mutations to table")
 @click.option("--rates", "path_to_rates", default=None, type=click.Path(True), help="Path to rates from IQTREE2")
 @click.option("--cat-cutoff", type=int, default=1, show_default=True, help="Minimal category in rates file considered as variable. Default value 1 indicates that sites with category less than 1 will not be used in expected mutations counts")
 @click.option("--write_db", is_flag=True, help="Write sqlite3 database instead of using dictionary for states. Usefull if you have low RAM. Time expensive")
@@ -433,7 +527,8 @@ def main(
         path_to_tree, path_to_states, outdir, 
         gencode, syn, syn_c ,syn4f, proba, proba_cutoff,
         write_db, path_to_db, rewrite_db, 
-        phylocoef, no_spectra, path_to_rates, cat_cutoff,
+        phylocoef, no_spectra, save_exp_muts, 
+        path_to_rates, cat_cutoff,
         force, quiet, config,
     ):
 
@@ -464,9 +559,9 @@ def main(
         db_mode=db_mode, path_to_db=path_to_db, rewrite_db=rewrite_db, 
         use_proba=proba, proba_cutoff=proba_cutoff, use_phylocoef=phylocoef,
         syn=syn, syn_c=syn_c, syn4f=syn4f, derive_spectra=derive_spectra, 
-        path_to_rates=path_to_rates, cat_cutoff=cat_cutoff,
-    )
-
+        path_to_rates=path_to_rates, cat_cutoff=cat_cutoff, 
+        save_exp_muts=save_exp_muts,
+    ).extract_mutspec_from_tree()
 
 if __name__ == "__main__":
     main()
