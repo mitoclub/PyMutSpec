@@ -16,7 +16,7 @@ class GenesStates:
     - use mode="dict" if your mtDNA tree is small (~1500 nodes x 10,000 nucleotides require ~350MB of RAM); 
     big trees with 100,000 nodes require tens of GB of RAM, therefore use mode="db"
     """
-    def __init__(self, path_states: List[str], path_to_db=None, mode="dict", rewrite=False, use_proba=True, path_to_rates=None, cat_cutoff=2):
+    def __init__(self, path_states: List[str], path_to_db=None, mode="dict", rewrite=False, use_proba=True, path_to_rates=None, cat_cutoff=1):
         self.mode = mode
         self.use_proba = use_proba
         print(f"Genome states storage mode = '{mode}'", file=sys.stderr)
@@ -173,7 +173,7 @@ class GenesStates:
         return category
     
     @staticmethod
-    def get_mask(category: dict, cat_cutoff=2):
+    def get_mask(category: dict, cat_cutoff=1):
         mask = {part: np.array(cats) >= cat_cutoff for part, cats in category.items()}
         return mask
 

@@ -306,7 +306,7 @@ class MutSpec(CodonAnnotation, GenesStates):
     def collect_exp_mut_freqs_proba(
             self, cds: np.ndarray, phylocoef: float, 
             mask: Iterable[Union[int, bool]] = None, 
-            labels = ["all", "syn", "ff"],  proba_cutoff=0.001,
+            labels = ["all", "syn", "ff"],  proba_cutoff=0.01,
         ):
         n = len(cds)
         if mask is not None and len(mask) != n:
@@ -422,6 +422,7 @@ class MutSpec(CodonAnnotation, GenesStates):
 @click.option("--phylocoef/--no-phylocoef", is_flag=True, default=True, show_default=True, help="Use or don't use phylogenetic uncertainty coefficient. Considered only with --proba")
 @click.option("--no-mutspec", "no_spectra", is_flag=True, default=False, show_default=True, help="Don't calculate mutspec, only mutations extraction")
 @click.option("--rates", "path_to_rates", default=None, type=click.Path(True), help="Path to rates from IQTREE2")
+@click.option("--cat-cutoff", type=int, default=1, show_default=True, help="Minimal category in rates file considered as variable. Default value 1 indicates that sites with category less than 1 will not be used in expected mutations counts")
 @click.option("--write_db", is_flag=True, help="Write sqlite3 database instead of using dictionary for states. Usefull if you have low RAM. Time expensive")
 @click.option("--db_path", "path_to_db", type=click.Path(writable=True), default="/tmp/states.db", show_default=True, help="Path to database with states. Use only with --write_db")
 @click.option("--rewrite_db",  is_flag=True, default=False, help="Rewrite existing states database. Use only with --write_db")  # drop argument, replace by question
@@ -432,7 +433,7 @@ def main(
         path_to_tree, path_to_states, outdir, 
         gencode, syn, syn_c ,syn4f, proba, proba_cutoff,
         write_db, path_to_db, rewrite_db, 
-        phylocoef, no_spectra, path_to_rates,
+        phylocoef, no_spectra, path_to_rates, cat_cutoff,
         force, quiet, config,
     ):
 
@@ -463,7 +464,7 @@ def main(
         db_mode=db_mode, path_to_db=path_to_db, rewrite_db=rewrite_db, 
         use_proba=proba, proba_cutoff=proba_cutoff, use_phylocoef=phylocoef,
         syn=syn, syn_c=syn_c, syn4f=syn4f, derive_spectra=derive_spectra, 
-        path_to_rates=path_to_rates,
+        path_to_rates=path_to_rates, cat_cutoff=cat_cutoff,
     )
 
 
