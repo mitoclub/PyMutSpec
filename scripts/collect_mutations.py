@@ -131,23 +131,25 @@ class MutSpec(CodonAnnotation, GenesStates):
             genome_cxt_freqs  = {lbl: defaultdict(self.fp_format) for lbl in self.MUT_LABELS}
             genome_mutations = []
             for gene in ref_genome:
+                mask = self.mask[gene] if self.mask is not None else None
+
                 ref_seq = ref_genome[gene]
                 alt_seq = alt_genome[gene]
 
                 # collect state frequencies and
                 # extract mutations and put in order columns
                 if self.use_proba:
-                    gene_exp_sbs12, gene_exp_sbs192 = self.collect_exp_mut_freqs_proba(ref_seq, phylocoef, self.mask[gene], self.MUT_LABELS, self.proba_cutoff)
+                    gene_exp_sbs12, gene_exp_sbs192 = self.collect_exp_mut_freqs_proba(ref_seq, phylocoef, mask, self.MUT_LABELS, self.proba_cutoff)
                     gene_mut_df = self.extract_mutations_proba(ref_seq, alt_seq)
                     if self._save_exp_muts:
-                        node_expected_sbs = self.collect_exp_muts_proba(ref_seq, phylocoef, self.mask[gene], self.MUT_LABELS, self.proba_cutoff)
+                        node_expected_sbs = self.collect_exp_muts_proba(ref_seq, phylocoef, mask, self.MUT_LABELS, self.proba_cutoff)
                         node_expected_sbs["Node"] = ref_node.name
                         node_expected_sbs["Gene"] = gene
                 else:
-                    gene_exp_sbs12, gene_exp_sbs192 = self.collect_exp_mut_freqs(ref_seq, self.mask[gene], self.MUT_LABELS)
+                    gene_exp_sbs12, gene_exp_sbs192 = self.collect_exp_mut_freqs(ref_seq, mask, self.MUT_LABELS)
                     gene_mut_df = self.extract_mutations_simple(ref_seq, alt_seq)
                     if self._save_exp_muts:
-                        node_expected_sbs = self.collect_exp_muts(ref_seq, self.mask[gene], self.MUT_LABELS)
+                        node_expected_sbs = self.collect_exp_muts(ref_seq, mask, self.MUT_LABELS)
                         node_expected_sbs["Node"] = ref_node.name
                         node_expected_sbs["Gene"] = gene
 
