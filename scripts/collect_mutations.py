@@ -138,6 +138,7 @@ class MutSpec(CodonAnnotation, GenesStates):
 
                 # collect state frequencies and
                 # extract mutations and put in order columns
+                node_expected_sbs = None
                 if self.use_proba:
                     gene_exp_sbs12, gene_exp_sbs192 = self.collect_exp_mut_freqs_proba(ref_seq, phylocoef, mask, self.MUT_LABELS, self.proba_cutoff)
                     gene_mut_df = self.extract_mutations_proba(ref_seq, alt_seq)
@@ -160,9 +161,9 @@ class MutSpec(CodonAnnotation, GenesStates):
                         gene, self.handle["freq"], add_header["freqs"],
                     )
                     add_header["freqs"] = False
-
-                    self.dump_table(node_expected_sbs, self.handle["exp"], add_header["exp"])
-                    add_header["exp"] = False
+                    if self._save_exp_muts and node_expected_sbs is not None:
+                        self.dump_table(node_expected_sbs, self.handle["exp"], add_header["exp"])
+                        add_header["exp"] = False
                 
                 # summarize state frequencies over genome
                 for lbl in self.MUT_LABELS:
