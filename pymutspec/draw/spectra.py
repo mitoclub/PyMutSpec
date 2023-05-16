@@ -101,6 +101,7 @@ def plot_mutspec192(
         sbs_order=ordered_sbs192_kp,
         savepath=None,
         fontsize=6,
+        titlesize=16,
         fontname="Times New Roman",
         show=True, 
         **kwargs,
@@ -145,7 +146,7 @@ def plot_mutspec192(
             x=x_col, y=ylabel, data=ms192, order=order, ax=fig.gca(), **kwargs,
         )
     ax.grid(axis="y", alpha=.7, linewidth=0.5)
-    ax.set_title(title)
+    ax.set_title(title, fontsize=titlesize, fontname=fontname)
     ax.set_xlabel("")
     ax.set_ylabel("")
     # map colors to bars
@@ -183,6 +184,7 @@ def plot_mutspec96(
         sbs_order=possible_sbs96,
         savepath=None,
         fontsize=9,
+        titlesize=16,
         fontname="Times New Roman",
         show=True, 
         **kwargs,
@@ -227,7 +229,7 @@ def plot_mutspec96(
             x=x_col, y=ylabel, data=ms96, order=order, ax=fig.gca(), **kwargs,
         )
     ax.grid(axis="y", alpha=.7, linewidth=0.5)
-    ax.set_title(title)
+    ax.set_title(title, fontsize=titlesize, fontname=fontname)
     ax.set_xlabel("")
     ax.set_ylabel("")
     # map colors to bars
