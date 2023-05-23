@@ -24,7 +24,7 @@ def lbl2lbl_id(lbl: str) -> int:
         lbl_id = 0
     elif lbl == "syn" or lbl == "syn_c":
         lbl_id = 1
-    elif lbl == "ff":
+    elif lbl == "ff" or lbl == "syn4f":
         lbl_id = 2
     else:
         raise NotImplementedError()
