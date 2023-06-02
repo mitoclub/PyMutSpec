@@ -31,7 +31,7 @@ class MutSpec(CodonAnnotation, GenesStates):
             gcode=2, db_mode="dict", path_to_db=None,
             rewrite_db=None, use_proba=False, proba_cutoff=0.05, 
             use_phylocoef=False, syn=False, syn_c=False, syn4f=False, derive_spectra=True,
-            path_to_rates=None, cat_cutoff=2, save_exp_muts=False,
+            path_to_rates=None, cat_cutoff=0, save_exp_muts=False,
         ):
         for path in list(path_to_states) + [path_to_tree]:
             if not os.path.exists(path):
@@ -418,6 +418,8 @@ class MutSpec(CodonAnnotation, GenesStates):
                             })
                     if "syn_c" in labels and len(syn_codons) > 0:
                         for alt_nuc in self.nucl_order:
+                            if alt_nuc == nuc:
+                                continue
                             data.append({
                                 "Pos": pos + 1, "Pic": pic + 1,
                                 "Mut": sbs192_pattern.format(alt_nuc),

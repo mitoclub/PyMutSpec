@@ -305,6 +305,8 @@ class CodonAnnotation:
                         })
                 if "syn_c" in labels and len(syn_codons) > 0:
                     for alt_nuc in self.nucl_order:
+                        if alt_nuc == nuc:
+                            continue
                         data.append({
                             "Pos": pos + 1, "Pic": pic + 1,
                             "Mut": sbs192_pattern.format(alt_nuc),
