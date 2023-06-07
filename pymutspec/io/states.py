@@ -7,23 +7,58 @@ from unicodedata import category
 
 import numpy as np
 import pandas as pd
+from Bio import SeqIO
 import tqdm
+
 
 
 class GenesStates:
     """
+    Load genome (gene) states files and access gene by record name
+    
     tips:
     - use mode="dict" if your mtDNA tree is small (~1500 nodes x 10,000 nucleotides require ~350MB of RAM); 
     big trees with 100,000 nodes require tens of GB of RAM, therefore use mode="db"
+
+    Arguments
+    ---------
+    path_states: list or iterable of string
+        files with states; if some records not presented in all files table will be filled by '-' (gaps) 
+    TODO
+    states_fmt: string
+        format of files aligment; supported any format from biopython (fasta, phylip, etc.)
+    
+    Return
+    ---------
+        states_obj: GenesStates - 
+    
     """
-    def __init__(self, path_states: List[str], path_to_db=None, mode="dict", rewrite=False, use_proba=True, path_to_rates=None, cat_cutoff=1):
+    def __init__(
+            self, path_states: List[str], path_to_db=None, mode="dict", rewrite=False, 
+            use_proba=True, path_to_rates=None, cat_cutoff=1, states_fmt="table",
+        ):
+        fmt_variants = ["fasta", "phylip", "table"]
+        if states_fmt not in fmt_variants:
+            raise ValueError(f"Appropriate states_fmt: {repr(fmt_variants)}")
+        if states_fmt != "table" and use_proba == True:
+            print("Ignore use_proba option and forcely set use_proba=False due to input alignment that doesn't contain probabilities")
+            use_proba = False
+        
         self.mode = mode
+        self.input_states_fmt = states_fmt
         self.use_proba = use_proba
         print(f"Genome states storage mode = '{mode}'", file=sys.stderr)
         self.path_to_db = path_to_db
         if mode == "dict":
-            self._prepare_node2genome(path_states)
+            if states_fmt == "table":
+                self._prepare_node2genome(path_states)
+            else:
+                states = self.read_alignment(path_states)
+                self._prepare_node2genome(states)
         elif mode == "db":
+            if states_fmt in ["fasta", "phylip"]:
+                raise NotImplementedError
+            
             if path_to_db is None:
                 raise ValueError("Pass the path to database to use or write it")
             else:
@@ -133,37 +168,115 @@ class GenesStates:
         for node in cur.execute("SELECT DISTINCT Node from states"):
             nodes.add(node[0])
         return nodes
+    
+    def states2dct(self, states: pd.DataFrame, out=None):
+        node2genome = defaultdict(dict) if out is None else out
+        aln_sizes = states.groupby("Node").apply(len)
+        assert aln_sizes.nunique() == 1, "uncomplete leaves state table"
+        gr = states.sort_values(["Node", "Part", "Site"]).groupby(["Node", "Part"])
+        for (node, part), gene_df in gr:
+            if self.use_proba:
+                gene_states = gene_df[["p_A", "p_C", "p_G", "p_T"]].values
+            else:
+                gene_states = gene_df.State.values
+            node2genome[node][part] = gene_states
+        return node2genome
 
     def _prepare_node2genome(self, path_states, states_dtype=np.float32):
-        dtypes = {
-            "p_A":  states_dtype, "p_C": states_dtype, 
-            "p_G":  states_dtype, "p_T": states_dtype,
-            "Site": np.int32, "Node": str,     #"Part": np.int8,
-        }
-        if self.use_proba:
-            usecols = ["Node", "Part", "Site", "p_A", "p_C", "p_G", "p_T"]
-        else:
-            usecols = ["Node", "Part", "Site", "State"]
         node2genome = defaultdict(dict)
-        for path in path_states:
-            if path is None:
-                continue
-            print(f"Loading {path}...", file=sys.stderr)
-            states = pd.read_csv(path, sep="\t", comment='#', usecols=usecols, dtype=dtypes)
-            aln_sizes = states.groupby("Node").apply(len)
-            assert aln_sizes.nunique() == 1, "uncomplete leaves state table"
-            states = states.sort_values(["Node", "Part", "Site"])
-            gr = states.groupby(["Node", "Part"])
-            for (node, part), gene_pos_ids in tqdm.tqdm(gr.groups.items()):
-                gene_df = states.loc[gene_pos_ids]  # TODO simplify: iterate over gr
-                if self.use_proba:
-                    gene_states = gene_df[["p_A", "p_C", "p_G", "p_T"]].values
-                else:
-                    gene_states = gene_df.State.values
-                node2genome[node][part] = gene_states
+        if isinstance(path_states, pd.DataFrame):
+            states = path_states
+            self.states2dct(states, node2genome)
+        else:
+            dtypes = {
+                "p_A":  states_dtype, "p_C": states_dtype, 
+                "p_G":  states_dtype, "p_T": states_dtype,
+                "Site": np.int32, "Node": str,     #"Part": np.int8,
+            }
+            if self.use_proba:
+                usecols = ["Node", "Part", "Site", "p_A", "p_C", "p_G", "p_T"]
+            else:
+                usecols = ["Node", "Part", "Site", "State"]
+
+            for path in path_states:
+                if path is None:
+                    continue
+                print(f"Loading {path}...", file=sys.stderr)
+                states = pd.read_csv(path, sep="\t", comment='#', usecols=usecols, dtype=dtypes)
+                self.states2dct(states, node2genome)
+
+                # aln_sizes = states.groupby("Node").apply(len)
+                # assert aln_sizes.nunique() == 1, "uncomplete leaves state table"
+                # states = states.sort_values(["Node", "Part", "Site"])
+                # gr = states.groupby(["Node", "Part"])
+                # for (node, part), gene_pos_ids in tqdm.tqdm(gr.groups.items()):
+                #     gene_df = states.loc[gene_pos_ids]  # TODO simplify: iterate over gr
+                #     if self.use_proba:
+                #         gene_states = gene_df[["p_A", "p_C", "p_G", "p_T"]].values
+                #     else:
+                #         gene_states = gene_df.State.values
+                #     node2genome[node][part] = gene_states
 
         self.node2genome = node2genome
         self.nodes = set(node2genome.keys())
+
+    @staticmethod
+    def read_alignment(files: list, fmt="fasta"):
+        """
+        Read files alignments and prepare states table
+
+        Arguments
+        ---------
+        files: list or iterable of string
+            files with alignments; if some records not presented in all files table will be filled by '-' (gaps) 
+        fmt: string
+            format of files aligment; supported any format from biopython (fasta, phylip, etc.)
+        
+        Return
+        ---------
+            states: pd.DataFrame
+        """
+        ngenes = len(files)  
+        columns = "Node Part Site State p_A p_C p_G p_T".split()
+        nucls = "ACGT"
+        aln_lens = dict()
+        files = set(files)
+        history = defaultdict(list)
+        data = []
+        for filepath in files:
+            part = "1" if ngenes == 1 else os.path.basename(filepath).replace(".fna", "")
+            alignment = SeqIO.parse(filepath, fmt)
+            for rec in alignment:
+                node = rec.name
+                history[node].append(part)
+                seq = str(rec.seq)
+                for site, state in enumerate(seq, 1):
+                    site_data = [node, part, str(site), state]
+                    for nucl in nucls:
+                        p = int(nucl == state)
+                        site_data.append(str(p))
+                    data.append(site_data)
+            aln_lens[part] = len(seq)
+
+        if ngenes > 1:
+            # get max set of parts. Only for multiple files
+            for node, parts in history.items():
+                if len(parts) == ngenes:
+                    full_parts = parts.copy()
+                    break
+
+            # fill missing genes by '-'. Only for multiple files
+            for node, parts in history.items():
+                if len(parts) != ngenes:
+                    unseen_parts = set(full_parts).difference(parts)
+                    for unp in unseen_parts:
+                        print(f"Gap filling for node {node}, part {unp}...", file=sys.stderr)
+                        for site in range(1, aln_lens[unp] + 1):
+                            site_data = [node, unp, str(site), "-", "0", "0", "0", "0"]
+                            data.append(site_data)
+
+        df = pd.DataFrame(data, columns=columns)
+        return df
 
     @staticmethod
     def read_rates(path: str):
