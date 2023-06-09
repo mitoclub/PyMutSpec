@@ -28,7 +28,7 @@ logger = None
 class MutSpec(CodonAnnotation, GenesStates):    
     def __init__(
             self, path_to_tree, path_to_states, outdir, 
-            gcode=2, db_mode="dict", path_to_db=None,
+            gcode=2, db_mode="dict", path_to_db=None, states_fmt="table",
             rewrite_db=None, use_proba=False, proba_cutoff=0.05, 
             use_phylocoef=False, syn=False, syn_c=False, syn4f=False, derive_spectra=True,
             path_to_rates=None, cat_cutoff=0, save_exp_muts=False,
@@ -37,10 +37,12 @@ class MutSpec(CodonAnnotation, GenesStates):
             if not os.path.exists(path):
                 raise ValueError(f"Path doesn't exist: {path}")
 
-        CodonAnnotation.__init__(self, gcode)
+        CodonAnnotation.__init__(self, gencode=gcode)
         GenesStates.__init__(
-            self, path_to_states, path_to_db, db_mode, rewrite_db, use_proba, 
-            path_to_rates, cat_cutoff,
+            self, path_states=path_to_states, path_to_db=path_to_db, 
+            mode=db_mode, rewrite=rewrite_db, use_proba=use_proba, 
+            path_to_rates=path_to_rates, cat_cutoff=cat_cutoff, 
+            states_fmt=states_fmt,
         )
         self.gcode = gcode
         self.use_proba = use_proba
@@ -508,8 +510,9 @@ class MutSpec(CodonAnnotation, GenesStates):
 
 
 @click.command("MutSpec calculator", help="TODO")
-@click.option("--tree", "path_to_tree", required=True, type=click.Path(True), help="Path to phylogenetic tree to collect mutations from")
+@click.option("--tree", "path_to_tree", required=True, type=click.Path(True), help="Path to phylogenetic tree in newick format to collect mutations from")
 @click.option("--states", "path_to_states", required=True, multiple=True, type=click.Path(True), help="Path to states of each node in the tree. Could be passed several states files, example: '--states file1 --states file2'")
+@click.option("--states-fmt", type=click.Choice(["table", "fasta", "phylip"]),  default="table", show_default=True, help="Format of states: table if iqtree states table passed or states will be readed directly from alignment (fasta or phylip)")
 @click.option("--outdir", required=True, type=click.Path(exists=False, writable=True), help="Directory which will contain output files with mutations and mutspecs")
 @click.option("--gencode", required=True, type=int, help="Genetic code number to use in mutations annotation. Use 2 for vertebrate mitochondrial genes")
 @click.option("--syn",   is_flag=True, default=False, help="Process synonymous mutations (expectations will be calculated using possible syn mutations counts)")
@@ -524,14 +527,14 @@ class MutSpec(CodonAnnotation, GenesStates):
 @click.option("--cat-cutoff", type=int, default=1, show_default=True, help="Minimal category in rates file considered as variable. Default value 1 indicates that sites with category less than 1 will not be used in expected mutations counts")
 @click.option("--write_db", is_flag=True, help="Write sqlite3 database instead of using dictionary for states. Usefull if you have low RAM. Time expensive")
 @click.option("--db_path", "path_to_db", type=click.Path(writable=True), default="/tmp/states.db", show_default=True, help="Path to database with states. Use only with --write_db")
-@click.option("--rewrite_db",  is_flag=True, default=False, help="Rewrite existing states database. Use only with --write_db")  # drop argument, replace by question
-@click.option('-f', '--force', is_flag=True, help="Rewrite existing output directory")
-@click.option('-q', '--quiet', is_flag=True, help="Quiet mode, suppress printing to screen (stderr)")
+@click.option("--rewrite_db",  is_flag=True, default=False, help="Rewrite existing states database. Use only with --write_db")  # TODO drop argument, replace by question
+@click.option("-f", "--force", is_flag=True, help="Rewrite output directory if exists")
+@click.option("-q", "--quiet", is_flag=True, help="Quiet mode, suppress printing to screen log messages")
 @click.option("--config", default=None, type=click.Path(True), help="Path to log-config file")
 def main(
         path_to_tree, path_to_states, outdir, 
         gencode, syn, syn_c ,syn4f, proba, proba_cutoff,
-        write_db, path_to_db, rewrite_db, 
+        write_db, path_to_db, rewrite_db, states_fmt,
         phylocoef, no_spectra, save_exp_muts, 
         path_to_rates, cat_cutoff,
         force, quiet, config,
@@ -561,7 +564,7 @@ def main(
     
     MutSpec(
         path_to_tree, path_to_states, outdir, gcode=gencode, 
-        db_mode=db_mode, path_to_db=path_to_db, rewrite_db=rewrite_db, 
+        db_mode=db_mode, path_to_db=path_to_db, rewrite_db=rewrite_db, states_fmt=states_fmt,
         use_proba=proba, proba_cutoff=proba_cutoff, use_phylocoef=phylocoef,
         syn=syn, syn_c=syn_c, syn4f=syn4f, derive_spectra=derive_spectra, 
         path_to_rates=path_to_rates, cat_cutoff=cat_cutoff, 

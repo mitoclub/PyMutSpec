@@ -1,5 +1,3 @@
-data
-
 *.db
 *.ipynb_checkpoints
 *__pycache__
@@ -7,7 +5,6 @@ env*
 evn*
 *.Rhistory
 *.tar*
-tests/data/states_sample.db
 .vscode
 .pytest_cache
 *.egg

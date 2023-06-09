@@ -41,7 +41,7 @@ class GenesStates:
         if states_fmt not in fmt_variants:
             raise ValueError(f"Appropriate states_fmt: {repr(fmt_variants)}")
         if states_fmt != "table" and use_proba == True:
-            print("Ignore use_proba option and forcely set use_proba=False due to input alignment that doesn't contain probabilities")
+            print("Ignore use_proba option and forcely set use_proba=False due to input alignment that doesn't contain probabilities", file=sys.stderr)
             use_proba = False
         
         self.mode = mode
@@ -170,9 +170,11 @@ class GenesStates:
         return nodes
     
     def states2dct(self, states: pd.DataFrame, out=None):
-        node2genome = defaultdict(dict) if out is None else out
+        # all genes (genomes) must have same length
         aln_sizes = states.groupby("Node").apply(len)
         assert aln_sizes.nunique() == 1, "uncomplete leaves state table"
+        
+        node2genome = defaultdict(dict) if out is None else out
         gr = states.sort_values(["Node", "Part", "Site"]).groupby(["Node", "Part"])
         for (node, part), gene_df in gr:
             if self.use_proba:
@@ -251,10 +253,10 @@ class GenesStates:
                 history[node].append(part)
                 seq = str(rec.seq)
                 for site, state in enumerate(seq, 1):
-                    site_data = [node, part, str(site), state]
+                    site_data = [node, part, site, state]
                     for nucl in nucls:
                         p = int(nucl == state)
-                        site_data.append(str(p))
+                        site_data.append(p)
                     data.append(site_data)
             aln_lens[part] = len(seq)
 
@@ -272,7 +274,7 @@ class GenesStates:
                     for unp in unseen_parts:
                         print(f"Gap filling for node {node}, part {unp}...", file=sys.stderr)
                         for site in range(1, aln_lens[unp] + 1):
-                            site_data = [node, unp, str(site), "-", "0", "0", "0", "0"]
+                            site_data = [node, unp, site, "-", 0, 0, 0, 0]
                             data.append(site_data)
 
         df = pd.DataFrame(data, columns=columns)
