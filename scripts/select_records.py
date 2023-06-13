@@ -7,13 +7,21 @@ import click
 from Bio import SeqIO
 
 
-def pattern_selector(records, patterns: list):
+def pattern_selector(records, patterns: list, invert_match=False):
     patterns = [re.compile(p) for p in patterns]
+    is_match = False
     for rec in records:
         for p in patterns:
             if p.search(rec.description):
-                yield rec
+                is_match = True
                 break
+        if not invert_match and is_match:
+            yield rec
+        elif invert_match and not is_match:
+            yield rec
+
+        is_match = False
+
 
 def read_patterns_from_file(fname: str) -> list:
     p = []
@@ -31,30 +39,32 @@ def read_patterns_from_file(fname: str) -> list:
                     must be interpretable by re module; \
                         several patterns could be used")
 @click.option("-f", "--file", type=click.Path(True), default=None, help="Path to file containing patterns (one pattern per line)")
-@click.option("--fasta", "fasta_format", is_flag=True, )
-@click.option("--phylip", "phylip_format", is_flag=True, )
-def main(aln, outfile, pattern, file, fasta_format, phylip_format):
+@click.option("-v", "--invert-match", is_flag=True, help="Invert the sense of matching, to select non-matching lines")
+@click.option("--fmt", type=click.Choice(["fasta", "phylip"]),  default="fasta", show_default=True, help="Format of input alignment")
+@click.option("--fasta", "fasta_format", is_flag=True, help="Legacy, use --fmt option")
+@click.option("--phylip", "phylip_format", is_flag=True, help="Legacy, use --fmt option")
+def main(aln, outfile, pattern, file, invert_match, fmt, fasta_format, phylip_format):
     """
     Select sequences from fasta file by header pattern
 
     if no OUTFILE passed will print sequences to stdout
     """
-    if (len(pattern) and file is None) or (len(pattern) > 0 and file is not None):
-        raise RuntimeError("Either File or Pattern must be selected as input")
+    if (len(pattern) == 0 and file is None) or (len(pattern) > 0 and file is not None):
+        raise RuntimeError(f"Either File or Pattern must be selected as input, passed pattern ({pattern}) and file ({file})")
     
-    if fasta_format:
+    if phylip_format or fmt == "phylip":
+        fmt = fmt_out = "phylip"
+    elif fasta_format or fmt == "fasta":
         fmt = "fasta"
         fmt_out = "fasta-2line"
-    elif phylip_format:
-        fmt = fmt_out = "phylip"
     else:
-        raise RuntimeError("Choose the alignment format: --fasta or --phylip")
+        raise RuntimeError()
     
     if len(pattern) == 0:
         pattern = read_patterns_from_file(file)
 
     records = SeqIO.parse(aln, format=fmt)
-    selected = pattern_selector(records, pattern)
+    selected = pattern_selector(records, pattern, invert_match)
     outfile = outfile or sys.stdout
 
     SeqIO.write(selected, outfile, fmt_out)
