@@ -31,7 +31,7 @@ def iter_tree_edges(tree: PhyloTree):
 
 def get_farthest_leaf(tree: PhyloTree, quantile=None):
     """
-    TODO check if tree is rooted
+    TODO check if tree is rooted 
     """
     if quantile is None:
         _, md = tree.get_farthest_leaf()
