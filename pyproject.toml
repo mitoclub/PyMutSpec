@@ -2,7 +2,7 @@
 name = "PyMutSpec"
 version = "0.0.4"
 authors = [
-  { name="kpotoh" },
+  { name="kpotoh", email="axepon@mail.ru" },
 ]
 description = "Mutational spectra analysis package"
 readme = "README.md"
