@@ -60,7 +60,21 @@ def _coloring192kk():
             yield clr
 
 
-def plot_mutspec12(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutational spectrum", figsize=(6, 4), style="bar", show=True, savepath=None, **kwargs):
+def plot_mutspec12(
+        mutspec: pd.DataFrame, 
+        spectra_col="MutSpec", 
+        title="Full mutational spectrum", 
+        ylabel=None, 
+        figsize=(6, 4), 
+        style="bar", 
+        savepath=None, 
+        fontname="Times New Roman",
+        ticksize=8,
+        titlesize=14,
+        ylabelsize=12,
+        show=True, 
+        **kwargs,
+    ):
     # TODO add checks of mutspec12
     # TODO add description to all plot* functions
     if style == "bar":
@@ -71,16 +85,18 @@ def plot_mutspec12(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutation
         raise NotImplementedError
 
     fig = plt.figure(figsize=figsize)
-    ax = plot_func(x="Mut", y=ylabel, data=mutspec, order=sbs12_ordered, ax=fig.gca(), **kwargs)
+    ax = plot_func(x="Mut", y=spectra_col, data=mutspec, order=sbs12_ordered, ax=fig.gca(), **kwargs)
     ax.grid(axis="y", alpha=.7, linewidth=0.5)
 
     # map colors to bars
     for bar, clr in zip(ax.patches, colors12):
         bar.set_color(clr)
 
-    ax.set_title(title)
-    ax.set_ylabel("")
+    ax.set_title(title, fontsize=titlesize, fontname=fontname)
+    ax.set_ylabel(ylabel if ylabel else "", fontsize=ylabelsize, fontname=fontname)
     ax.set_xlabel("")
+
+    plt.xticks(fontsize=ticksize, fontname=fontname)
 
     if savepath is not None:
         plt.savefig(savepath)
@@ -93,16 +109,18 @@ def plot_mutspec12(mutspec: pd.DataFrame, ylabel="MutSpec", title="Full mutation
 
 def plot_mutspec192(
         mutspec192: pd.DataFrame, 
-        ylabel="MutSpec", 
+        spectra_col="MutSpec", 
         title="Mutational spectrum", 
+        ylabel=None, 
         figsize=(24, 8), 
         style="bar",
         labels_style="cosmic",
         sbs_order=ordered_sbs192_kp,
         savepath=None,
-        fontsize=6,
-        titlesize=16,
         fontname="Times New Roman",
+        ticksize=6,
+        titlesize=16,
+        ylabelsize=16,
         show=True, 
         **kwargs,
     ):
@@ -139,16 +157,16 @@ def plot_mutspec192(
     fig = plt.figure(figsize=figsize)
     if style == "bar":
         ax = sns.barplot(
-            x=x_col, y=ylabel, data=ms192, order=order, errwidth=1, ax=fig.gca(), **kwargs,
+            x=x_col, y=spectra_col, data=ms192, order=order, errwidth=1, ax=fig.gca(), **kwargs,
         )
     elif style == "box":
         ax = sns.boxplot(
-            x=x_col, y=ylabel, data=ms192, order=order, ax=fig.gca(), **kwargs,
+            x=x_col, y=spectra_col, data=ms192, order=order, ax=fig.gca(), **kwargs,
         )
     ax.grid(axis="y", alpha=.7, linewidth=0.5)
     ax.set_title(title, fontsize=titlesize, fontname=fontname)
+    ax.set_ylabel(ylabel if ylabel else "", fontsize=ylabelsize, fontname=fontname)
     ax.set_xlabel("")
-    ax.set_ylabel("")
     # map colors to bars
     width = 0.4
     shift = None
@@ -164,7 +182,7 @@ def plot_mutspec192(
             bar.set_width(width)
             bar.set_x(bar.get_x() + shift)
 
-    plt.xticks(rotation=90, fontsize=fontsize, fontname=fontname)
+    plt.xticks(rotation=90, fontsize=ticksize, fontname=fontname)
 
     if savepath is not None:
         plt.savefig(savepath, dpi=300, bbox_inches="tight")
