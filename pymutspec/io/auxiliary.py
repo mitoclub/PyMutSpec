@@ -61,7 +61,14 @@ def read_genbank_ref(gb: Union[str, SeqRecord]):
             df.at[pos, "Type"] = ftr.type
             df.at[pos, "Strand"] = ftr.strand
             if ftr.type == 'CDS' or ftr.type in ftypes_nc:
-                df.at[pos, "GeneName"] = ftr.qualifiers["gene"][0]
+                found_qualifier = False
+                for qualifier in ["gene", "product", "protein_id"]:
+                    if qualifier in ftr.qualifiers:
+                        found_qualifier = True
+                        break
+                if not found_qualifier:
+                    raise RuntimeError(f"Cannot find any expected qualifier of current feature {ftr} with following qualifiers: {ftr.qualifiers}")
+                df.at[pos, qualifier] = ftr.qualifiers[qualifier][0]
 
     # add codon features
     df["PosInGene"] = -1
