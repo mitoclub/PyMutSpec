@@ -38,10 +38,11 @@ def read_genbank_ref(gb: Union[str, SeqRecord]):
     else:
         raise NotImplementedError
 
-    ftypes_nc = {'rRNA', 'tRNA'}
+    ftypes = {"CDS", "rRNA", "tRNA"}
     full_nucls = set("ACGT")
     data = []
     df: pd.DataFrame = None
+    gene_qualifier = None
     for ftr in genome.features:
         if ftr.type == "source":
             source = ftr.extract(genome)
@@ -56,25 +57,25 @@ def read_genbank_ref(gb: Union[str, SeqRecord]):
             df = pd.DataFrame(data)
             df["Strand"] = 0
             continue
+        elif gene_qualifier is None and ftr.type in ftypes:
+            for qualifier in ["gene", "product", "protein_id"]:
+                if qualifier in ftr.qualifiers:
+                    gene_qualifier = qualifier
+                    break
+            if gene_qualifier is None:
+                raise RuntimeError(f"Cannot find any expected qualifier of feature: {ftr}; with following qualifiers: {ftr.qualifiers}")
 
         for pos in list(ftr.location):
             df.at[pos, "Type"] = ftr.type
             df.at[pos, "Strand"] = ftr.strand
-            if ftr.type == 'CDS' or ftr.type in ftypes_nc:
-                found_qualifier = False
-                for qualifier in ["gene", "product", "protein_id"]:
-                    if qualifier in ftr.qualifiers:
-                        found_qualifier = True
-                        break
-                if not found_qualifier:
-                    raise RuntimeError(f"Cannot find any expected qualifier of current feature {ftr} with following qualifiers: {ftr.qualifiers}")
+            if ftr.type in ftypes:
                 df.at[pos, qualifier] = ftr.qualifiers[qualifier][0]
 
     # add codon features
     df["PosInGene"] = -1
     df["PosInCodon"] = -1
-    for gene_name in df[(df.Type == "CDS") & (df.Strand == 1)].GeneName.unique():
-        gdf = df[df.GeneName == gene_name]
+    for gene_name in df[(df.Type == "CDS") & (df.Strand == 1)][gene_qualifier].unique():
+        gdf = df[df[gene_qualifier] == gene_name]
         seq = gdf.Nuc.values
         for pos_in_gene, pos in enumerate(gdf.index):
             pic = pos_in_gene % 3
