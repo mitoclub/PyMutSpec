@@ -15,6 +15,7 @@ def calculate_mutspec(
     use_context: bool = False,
     use_proba: bool = False,
     verbose=False,
+    fill_unobserved=True,
 ):
     """
     Calculate mutational spectra for mutations dataframe and states frequencies of reference genome
@@ -68,12 +69,13 @@ def calculate_mutspec(
     mutspec = mut.groupby(col_mut)["ProbaFull"].sum().reset_index()
     mutspec.columns = ["Mut", "ObsNum"]
 
-    # fill unobserved mutations by zeros
-    mutspec_appendix = []
-    unobserved_sbs = full_sbs.difference(mutspec["Mut"].values)
-    for usbs in unobserved_sbs:
-        mutspec_appendix.append({"Mut": usbs, "ObsNum": 0})
-    mutspec = pd.concat([mutspec, pd.DataFrame(mutspec_appendix)], ignore_index=True)
+    if fill_unobserved:
+        # fill unobserved mutations by zeros
+        mutspec_appendix = []
+        unobserved_sbs = full_sbs.difference(mutspec["Mut"].values)
+        for usbs in unobserved_sbs:
+            mutspec_appendix.append({"Mut": usbs, "ObsNum": 0})
+        mutspec = pd.concat([mutspec, pd.DataFrame(mutspec_appendix)], ignore_index=True)
 
     if use_context:
         sbs = mutspec["Mut"]
@@ -86,7 +88,7 @@ def calculate_mutspec(
     if verbose:
         for sbs, cnt in mutspec[mutspec.RawMutSpec == np.inf][["Mut", "ObsNum"]].values:
             print(f"WARNING! Substitution {sbs} is unexpected but observed, n={cnt}", file=stderr)
-    mutspec["RawMutSpec"] = np.where(mutspec.RawMutSpec == np.inf, mutspec.ObsNum, mutspec.RawMutSpec)
+    mutspec["RawMutSpec"] = np.where(mutspec.RawMutSpec == np.inf, mutspec.ObsNum, mutspec.RawMutSpec) # TODO test 
     mutspec["MutSpec"] = mutspec["RawMutSpec"] / mutspec["RawMutSpec"].sum()
     mutspec.drop("Context", axis=1, inplace=True)
 

@@ -31,7 +31,7 @@ def dump_expected(exp, path):
                                                       "default if not specified at least one of --all, --syn, --syn4f")
 @click.option('--syn', is_flag=True, help="Calculate and plot spectra for synonymous mutations")
 @click.option('--syn4f', is_flag=True, help="Calculate and plot spectra for synonymous mutations in fourfols positions")
-@click.option('--mnum192', "mut_num_for_192", default=16, show_default=True, help="Number of mutation types (maximum 192) required to calculate and plot 192-component mutational spectra")
+@click.option('--mnum192', type=click.IntRange(0, 192), default=16, show_default=True, help="Number of mutation types (maximum 192) required to calculate and plot 192-component mutational spectra")
 @click.option('--substract12', "path_to_substract12",   type=click.Path(True), default=None, help="Mutational spectrum that will be substracted from calculated spectra 12 component")
 @click.option('--substract192', "path_to_substract192", type=click.Path(True), default=None, help="Mutational spectrum that will be substracted from calculated spectra 192 component")
 @click.option('--branches', is_flag=True, help="Calculate and plot tree branch specific spectra")
@@ -40,11 +40,11 @@ def dump_expected(exp, path):
 @click.option("-x", '--ext', "image_extension", default="pdf", show_default=True, type=click.Choice(['pdf', 'png', 'jpg'], case_sensitive=False), help="Images format to save")
 def main(
     path_to_obs, path_to_exp, outdir, label, use_proba, proba_min, exclude, 
-    all_muts, syn, syn4f, mut_num_for_192, path_to_substract12, path_to_substract192, 
+    all_muts, syn, syn4f, mnum192, path_to_substract12, path_to_substract192, 
     branches, subset, plot, image_extension,
     ):
-    if mut_num_for_192 > 192:
-        raise RuntimeError("Number of mutation types must be less then 192, but passed {}".format(mut_num_for_192))
+    if mnum192 > 192:
+        raise RuntimeError("Number of mutation types must be less then 192, but passed {}".format(mnum192))
 
     lbl_codes, lbls = [], []
     if all_muts:
@@ -126,7 +126,7 @@ def main(
             ms12.drop("RawMutSpec", axis=1, inplace=True)
             ms12_collection.append(ms12)
 
-            if cur_obs_lbl_repl.Mut.nunique() >= mut_num_for_192:
+            if cur_obs_lbl_repl.Mut.nunique() >= mnum192:
                 ms192 = calculate_mutspec(cur_obs_lbl_repl, cur_exp, use_context=True, use_proba=use_proba)
                 ms192.drop("RawMutSpec", axis=1, inplace=True)
                 ms192_collection.append(ms192)
@@ -191,7 +191,7 @@ def main(
                 ms12.drop("RawMutSpec", axis=1, inplace=True)
                 branch_mutspec12.append(ms12)
 
-                if branch_muts.Mut.nunique() >= mut_num_for_192:
+                if branch_muts.Mut.nunique() >= mnum192:
                     ms192 = calculate_mutspec(branch_muts, cur_exp, use_context=True, use_proba=use_proba)
                     ms192.drop("RawMutSpec", axis=1, inplace=True)
                     branch_mutspec192.append(ms192)

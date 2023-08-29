@@ -32,6 +32,7 @@ class MutSpec(CodonAnnotation, GenesStates):
             rewrite_db=None, use_proba=False, proba_cutoff=0.05, 
             use_phylocoef=False, syn=False, syn_c=False, syn4f=False, derive_spectra=True,
             path_to_rates=None, cat_cutoff=0, save_exp_muts=False,
+            mnum192=16,
         ):
         for path in list(path_to_states) + [path_to_tree]:
             if not os.path.exists(path):
@@ -50,11 +51,14 @@ class MutSpec(CodonAnnotation, GenesStates):
         self.use_phylocoef = use_phylocoef if use_proba else False
         self.derive_spectra = derive_spectra
         self.outdir = outdir
+        self.mnum192 = mnum192
         self._save_exp_muts = save_exp_muts
         logger.info(f"Using gencode {gcode}")
         logger.info(f"Use probabilities of genomic states: {use_proba}")
         logger.info(f"Use phylogenetic uncertainty coefficient: {use_phylocoef}")
         logger.info(f"Derive spectra: {derive_spectra}")
+        logger.info(f"Minimal mutation types number to calculate 192-component spectrum: {mnum192}")
+        logger.info(f"Minimal probability for mutations to use: {proba_cutoff}")
         self.MUT_LABELS = ["all"]
         if syn:
             self.MUT_LABELS.append("syn")
@@ -143,7 +147,7 @@ class MutSpec(CodonAnnotation, GenesStates):
                 node_expected_sbs = None
                 if self.use_proba:
                     gene_exp_sbs12, gene_exp_sbs192 = self.collect_exp_mut_freqs_proba(ref_seq, phylocoef, mask, self.MUT_LABELS, self.proba_cutoff)
-                    gene_mut_df = self.extract_mutations_proba(ref_seq, alt_seq)
+                    gene_mut_df = self.extract_mutations_proba(ref_seq, alt_seq, phylocoef, self.proba_cutoff)
                     if self._save_exp_muts:
                         node_expected_sbs = self.collect_exp_muts_proba(ref_seq, phylocoef, mask, self.MUT_LABELS, self.proba_cutoff)
                         node_expected_sbs["Node"] = ref_node.name
@@ -176,9 +180,6 @@ class MutSpec(CodonAnnotation, GenesStates):
 
                 if gene_mut_df.shape[0] == 0:
                     continue
-                
-                if self.use_proba:
-                    gene_mut_df["ProbaFull"] = phylocoef * gene_mut_df["ProbaMut"]
 
                 gene_mut_df["RefNode"] = ref_node.name
                 gene_mut_df["AltNode"] = alt_node.name
@@ -203,7 +204,7 @@ class MutSpec(CodonAnnotation, GenesStates):
                         self.dump_table(mutspec12, self.handle["ms12s"], add_header["ms12g"])
                         add_header["ms12g"] = False
 
-                        if len(gene_mut_df) > 100:
+                        if gene_mut_df.Mut.nunique() >= self.mnum192:
                             mutspec192 = calculate_mutspec(
                                 gene_mut_df[gene_mut_df.Label >= lbl_id], gene_exp_sbs192[lbl], 
                                 use_context=True, use_proba=self.use_proba
@@ -219,7 +220,7 @@ class MutSpec(CodonAnnotation, GenesStates):
             visited_nodes.add(ref_node.name)
             
             if len(genome_mutations) == 0:
-                logger.info(f"0 mutations from {ei:03} branch ({ref_node.name} - {alt_node.name})")
+                logger.info(f"0.00 mutations from {ei:03} branch ({ref_node.name} - {alt_node.name})")
                 continue
 
             genome_mutations_df = pd.concat(genome_mutations)
@@ -227,7 +228,7 @@ class MutSpec(CodonAnnotation, GenesStates):
             
             mut_num = genome_mutations_df.ProbaFull.sum() if self.use_proba else len(genome_mutations_df)
             total_mut_num += mut_num
-            logger.info(f"{mut_num:.3f} mutations from branch {ei:03} ({ref_node.name} - {alt_node.name})")
+            logger.info(f"{mut_num:.2f} mutations from branch {ei:03} ({ref_node.name} - {alt_node.name})")
             if mut_num > aln_size * 0.1:
                 logger.warning(f"Observed too many mutations ({mut_num} > {aln_size} * 0.1) for branch ({ref_node.name} - {alt_node.name})")
 
@@ -262,11 +263,12 @@ class MutSpec(CodonAnnotation, GenesStates):
 
         logger.info(f"Processed {ei} tree edges")
         logger.info(f"Observed {total_mut_num:.3f} substitutions")
+        #TODO add exec time
         logger.info("Extraction of mutations from phylogenetic tree completed succesfully")
         
         self.close_handles()
 
-    def extract_mutations_proba(self, g1: np.ndarray, g2: np.ndarray):
+    def extract_mutations_proba(self, g1: np.ndarray, g2: np.ndarray, phylocoef: float, mut_proba_cutoff: float):
         """
         Extract alterations of g2 comparing to g1
         TODO
@@ -291,9 +293,13 @@ class MutSpec(CodonAnnotation, GenesStates):
         # pass initial codon and last nucleotide without right context
         for pos in range(3, n - 1):
             pic = pos % 3  # 0-based
-            for cdn1, mut_cxt1, proba1 in self.sample_context(pos, pic, g1, self.proba_cutoff):
+            for cdn1, mut_cxt1, proba1 in self.sample_context(pos, pic, g1, mut_proba_cutoff / phylocoef):
                 cdn1_str = "".join(cdn1)
-                for cdn2, mut_cxt2, proba2 in self.sample_context(pos, pic, g2, self.proba_cutoff):
+                for cdn2, mut_cxt2, proba2 in self.sample_context(pos, pic, g2, mut_proba_cutoff / phylocoef):
+                    p_adj = proba1 * proba2 * phylocoef
+                    if p_adj < mut_proba_cutoff:
+                        continue
+
                     cdn2_str = "".join(cdn2)
 
                     up_nuc1, up_nuc2 = mut_cxt1[0], mut_cxt2[0]
@@ -317,6 +323,7 @@ class MutSpec(CodonAnnotation, GenesStates):
                         "AltAa": aa2,
                         "ProbaRef": proba1,
                         "ProbaMut": proba1 * proba2,
+                        "ProbaFull": p_adj,
                     }
                     mutations.append(sbs)
 
@@ -326,7 +333,7 @@ class MutSpec(CodonAnnotation, GenesStates):
     def collect_exp_mut_freqs_proba(
             self, cds: np.ndarray, phylocoef: float, 
             mask: Iterable[Union[int, bool]] = None, 
-            labels = ["all", "syn", "ff"],  proba_cutoff=0.05,
+            labels = ["all", "syn", "ff"],  mut_proba_cutoff=0.05,
         ):
         n = len(cds)
         if mask is not None and len(mask) != n:
@@ -346,7 +353,8 @@ class MutSpec(CodonAnnotation, GenesStates):
             if mask is not None and not mask[pos]:
                 continue
             pic = pos % 3  # 0-based
-            for cdn_tuple, cxt, proba in self.sample_context(pos, pic, cds, proba_cutoff):
+            for cdn_tuple, cxt, proba in self.sample_context(pos, pic, cds, mut_proba_cutoff / phylocoef):
+                # we don't use low-probability mutations by unite cutoff `mut_proba_cutoff / phylocoef`
                 cdn = "".join(cdn_tuple)
                 proba *= phylocoef  # adjusted proba
                 nuc = cxt[1]
@@ -383,7 +391,7 @@ class MutSpec(CodonAnnotation, GenesStates):
     def collect_exp_muts_proba(
             self, cds: np.ndarray, phylocoef: float, 
             mask: Iterable[Union[int, bool]] = None, 
-            labels = ["all", "syn", "ff"],  proba_cutoff=0.05,
+            labels = ["all", "syn", "ff"],  mut_proba_cutoff=0.05,
         ):
         n = len(cds)
         if mask is not None and len(mask) != n:
@@ -401,7 +409,8 @@ class MutSpec(CodonAnnotation, GenesStates):
             if mask is not None and not mask[pos]:
                 continue
             pic = pos % 3  # 0-based
-            for cdn_tuple, cxt, proba in self.sample_context(pos, pic, cds, proba_cutoff):
+            for cdn_tuple, cxt, proba in self.sample_context(pos, pic, cds, mut_proba_cutoff / phylocoef):
+                # we don't use low-probability mutations by unite cutoff `mut_proba_cutoff / phylocoef`
                 cdn = "".join(cdn_tuple)
                 proba *= phylocoef  # adjusted proba
                 nuc = cxt[1]
@@ -519,8 +528,9 @@ class MutSpec(CodonAnnotation, GenesStates):
 @click.option("--syn_c", is_flag=True, default=False, help="Process synonymous mutations (expectations will be calculated using possible syn mutations context counts)")
 @click.option("--syn4f", is_flag=True, default=False, help="Process synonymous fourfold mutations")
 @click.option("--proba", is_flag=True, default=False, help="Use states probabilities while mutations collecting")
-@click.option("--pcutoff", "proba_cutoff", default=0.05, show_default=True, type=float, help="Cutoff of tri/tetranucleotide state probability, states with lower values will not be used in mutation collecting")
+@click.option("--pcutoff", "proba_cutoff", default=0.05, show_default=True, type=float, help="Cutoff for mutations probability, low-probability mutations don't used")
 @click.option("--phylocoef/--no-phylocoef", is_flag=True, default=True, show_default=True, help="Use or don't use phylogenetic uncertainty coefficient. Considered only with --proba")
+@click.option('--mnum192', default=16, type=click.IntRange(0, 192), show_default=True, help="Minimal number of mutation types (maximum 192) required to calculate 192-component mutational spectra")
 @click.option("--no-mutspec", "no_spectra", is_flag=True, default=False, show_default=True, help="Don't calculate mutspec, only mutations extraction")
 @click.option("--save-exp-muts", is_flag=True, default=False, show_default=True, help="Save possible (expected) mutations to table")
 @click.option("--rates", "path_to_rates", default=None, type=click.Path(True), help="Path to rates from IQTREE2")
@@ -530,14 +540,14 @@ class MutSpec(CodonAnnotation, GenesStates):
 @click.option("--rewrite_db",  is_flag=True, default=False, help="Rewrite existing states database. Use only with --write_db")  # TODO drop argument, replace by question
 @click.option("-f", "--force", is_flag=True, help="Rewrite output directory if exists")
 @click.option("-q", "--quiet", is_flag=True, help="Quiet mode, suppress printing to screen log messages")
-@click.option("--config", default=None, type=click.Path(True), help="Path to log-config file")
+@click.option("--log-config", default=None, type=click.Path(True), help="Path to log-config file")
 def main(
         path_to_tree, path_to_states, outdir, 
         gencode, syn, syn_c ,syn4f, proba, proba_cutoff,
         write_db, path_to_db, rewrite_db, states_fmt,
-        phylocoef, no_spectra, save_exp_muts, 
+        phylocoef, mnum192, no_spectra, save_exp_muts, 
         path_to_rates, cat_cutoff,
-        force, quiet, config,
+        force, quiet, log_config,
     ):
 
     if os.path.exists(outdir):
@@ -553,7 +563,7 @@ def main(
     global logger
     _log_lvl = "CRITICAL" if quiet else None
     logfile = os.path.join(outdir, "run.log")
-    logger = load_logger(path=config, stream_level=_log_lvl, filename=logfile)
+    logger = load_logger(path=log_config, stream_level=_log_lvl, filename=logfile)
 
     logger.info(f"Writing logs to '{logfile}'")
     logger.debug("Command: " + " ".join(sys.argv))
@@ -568,7 +578,7 @@ def main(
         use_proba=proba, proba_cutoff=proba_cutoff, use_phylocoef=phylocoef,
         syn=syn, syn_c=syn_c, syn4f=syn4f, derive_spectra=derive_spectra, 
         path_to_rates=path_to_rates, cat_cutoff=cat_cutoff, 
-        save_exp_muts=save_exp_muts,
+        save_exp_muts=save_exp_muts, mnum192=mnum192,
     ).extract_mutspec_from_tree()
 
 if __name__ == "__main__":

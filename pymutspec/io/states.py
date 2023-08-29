@@ -172,7 +172,7 @@ class GenesStates:
     def states2dct(self, states: pd.DataFrame, out=None):
         # all genes (genomes) must have same length
         aln_sizes = states.groupby("Node").apply(len)
-        assert aln_sizes.nunique() == 1, "uncomplete leaves state table"
+        assert aln_sizes.nunique() == 1, "uncomplete state table: some site states absent in some node genomes"
         
         node2genome = defaultdict(dict) if out is None else out
         gr = states.sort_values(["Node", "Part", "Site"]).groupby(["Node", "Part"])
@@ -189,11 +189,11 @@ class GenesStates:
         if isinstance(path_states, pd.DataFrame):
             states = path_states
             self.states2dct(states, node2genome)
-        else:
+        elif isinstance(path_states, list):
             dtypes = {
                 "p_A":  states_dtype, "p_C": states_dtype, 
                 "p_G":  states_dtype, "p_T": states_dtype,
-                "Site": np.int32, "Node": str,     #"Part": np.int8,
+                "Site": np.int32, "Node": str, "Part": str,
             }
             if self.use_proba:
                 usecols = ["Node", "Part", "Site", "p_A", "p_C", "p_G", "p_T"]
@@ -284,7 +284,7 @@ class GenesStates:
     def read_rates(path: str):
         """ TODO write for many genes """
         category = read_rates(path)
-        category = {1: category}  # for each aln part
+        category = {"1": category}  # for each aln part
         return category
     
     @staticmethod
