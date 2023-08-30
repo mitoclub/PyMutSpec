@@ -189,7 +189,7 @@ class GenesStates:
         if isinstance(path_states, pd.DataFrame):
             states = path_states
             self.states2dct(states, node2genome)
-        elif isinstance(path_states, list):
+        elif isinstance(path_states, (list, tuple)):
             dtypes = {
                 "p_A":  states_dtype, "p_C": states_dtype, 
                 "p_G":  states_dtype, "p_T": states_dtype,
@@ -218,7 +218,9 @@ class GenesStates:
                 #     else:
                 #         gene_states = gene_df.State.values
                 #     node2genome[node][part] = gene_states
-
+        else:
+            raise NotImplementedError
+        
         self.node2genome = node2genome
         self.nodes = set(node2genome.keys())
 
