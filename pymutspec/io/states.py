@@ -96,7 +96,7 @@ class GenesStates:
                 dtype = [("Site", np.int32), ("State", np.object_)]
 
             for row in cur.execute(query):
-                part = row[0]
+                part = str(row[0])
                 state = row[1:]
                 genome_raw[part].append(state)
             
