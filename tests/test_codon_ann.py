@@ -68,3 +68,7 @@ def test_collect_exp_mut_freqs(coda):
 def test_extract_mutations_simple():
     # TODO
     pass
+
+# use to test collect_exp_muts_proba and collect_exp_mut_freqs_proba (results must be comparable and equal)
+# np.all(coda.collect_exp_muts_proba(states.get_genome("Node4705")["1"], 1, mut_proba_cutoff=0.05).groupby(["Label", "Mut"]).Proba.sum().unstack()[possible_sbs192].fillna(0) == \
+#     pd.DataFrame(coda.collect_exp_mut_freqs_proba(states.get_genome("Node4705")["1"], 1, mut_proba_cutoff=0.05)[1]).T[possible_sbs192].rename(index={"ff":"syn4f"}).sort_index().fillna(0))

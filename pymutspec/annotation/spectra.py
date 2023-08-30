@@ -59,8 +59,9 @@ def calculate_mutspec(
         col_mut = "Mut"
         full_sbs = possible_sbs192_set
     else:
-        mut["MutBase"] = mut["Mut"].str.slice(2, 5)
-        col_mut = "MutBase"
+        # TODO add support of sbs12 in Mut column
+        mut["Sbs12"] = mut["Mut"].str.slice(2, 5)
+        col_mut = "Sbs12"
         full_sbs = possible_sbs12_set
 
     if not use_proba:
@@ -77,21 +78,13 @@ def calculate_mutspec(
             mutspec_appendix.append({"Mut": usbs, "ObsNum": 0})
         mutspec = pd.concat([mutspec, pd.DataFrame(mutspec_appendix)], ignore_index=True)
 
-    if use_context:
-        sbs = mutspec["Mut"]
-        mutspec["Context"] = sbs.str.get(0) + sbs.str.get(2) + sbs.str.get(-1)
-    else:
-        mutspec["Context"] = mutspec["Mut"].str.get(0)
-
     mutspec["ExpNum"] = mutspec["Mut"].map(exp_muts)
-    mutspec["RawMutSpec"] = (mutspec["ObsNum"] / mutspec["ExpNum"]).fillna(0)
+    mutspec["MutSpec"] = (mutspec["ObsNum"] / mutspec["ExpNum"]).fillna(0)
     if verbose:
-        for sbs, cnt in mutspec[mutspec.RawMutSpec == np.inf][["Mut", "ObsNum"]].values:
-            print(f"WARNING! Substitution {sbs} is unexpected but observed, n={cnt}", file=stderr)
-    mutspec["RawMutSpec"] = np.where(mutspec.RawMutSpec == np.inf, mutspec.ObsNum, mutspec.RawMutSpec) # TODO test 
-    mutspec["MutSpec"] = mutspec["RawMutSpec"] / mutspec["RawMutSpec"].sum()
-    mutspec.drop("Context", axis=1, inplace=True)
-
+        msg = mutspec[mutspec["MutSpec"] == np.inf]
+        print(f"WARNING! Following substitutions are unexpected but observed:\n{msg}", file=stderr)
+    mutspec["MutSpec"] = np.where(mutspec["MutSpec"] == np.inf, 0, mutspec.MutSpec)
+    mutspec["MutSpec"] = mutspec["MutSpec"] / mutspec["MutSpec"].sum()
     assert np.isclose(mutspec.ObsNum.sum(), mut.ProbaFull.sum())
     return mutspec
 

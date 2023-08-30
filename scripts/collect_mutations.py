@@ -195,7 +195,8 @@ class MutSpec(CodonAnnotation, GenesStates):
 
                         mutspec12 = calculate_mutspec(
                             gene_mut_df[gene_mut_df.Label >= lbl_id], gene_exp_sbs12[lbl], 
-                            use_context=False, use_proba=self.use_proba
+                            use_context=False, use_proba=self.use_proba, 
+                            fill_unobserved=False,
                         )
                         mutspec12["AltNode"] = alt_node.name
                         mutspec12["Label"] = lbl
@@ -207,7 +208,8 @@ class MutSpec(CodonAnnotation, GenesStates):
                         if gene_mut_df.Mut.nunique() >= self.mnum192:
                             mutspec192 = calculate_mutspec(
                                 gene_mut_df[gene_mut_df.Label >= lbl_id], gene_exp_sbs192[lbl], 
-                                use_context=True, use_proba=self.use_proba
+                                use_context=True, use_proba=self.use_proba, 
+                                fill_unobserved=False,
                             )
                             mutspec192["RefNode"] = ref_node.name
                             mutspec192["AltNode"] = alt_node.name
@@ -243,14 +245,16 @@ class MutSpec(CodonAnnotation, GenesStates):
 
                     mutspec12 = calculate_mutspec(
                         genome_mutations_df[genome_mutations_df.Label >= lbl_id],
-                        genome_nucl_freqs[lbl], use_context=False, use_proba=self.use_proba
+                        genome_nucl_freqs[lbl], use_context=False, use_proba=self.use_proba,
+                        fill_unobserved=False,
                     )
                     mutspec12["RefNode"] = ref_node.name
                     mutspec12["AltNode"] = alt_node.name
                     mutspec12["Label"] = lbl
                     mutspec192 = calculate_mutspec(
                         genome_mutations_df[genome_mutations_df.Label >= lbl_id],
-                        genome_cxt_freqs[lbl], use_context=True, use_proba=self.use_proba
+                        genome_cxt_freqs[lbl], use_context=True, use_proba=self.use_proba,
+                        fill_unobserved=False,
                     )
                     mutspec192["RefNode"] = ref_node.name
                     mutspec192["AltNode"] = alt_node.name
