@@ -34,7 +34,7 @@ def dump_expected(exp, path):
 @click.option('--mnum192', type=click.IntRange(0, 192), default=16, show_default=True, help="Number of mutation types (maximum 192) required to calculate and plot 192-component mutational spectra")
 @click.option('--substract12', "path_to_substract12",   type=click.Path(True), default=None, help="Mutational spectrum that will be substracted from calculated spectra 12 component")
 @click.option('--substract192', "path_to_substract192", type=click.Path(True), default=None, help="Mutational spectrum that will be substracted from calculated spectra 192 component")
-@click.option('--branches', is_flag=True, help="Calculate and plot tree branch specific spectra")
+@click.option('--branches', is_flag=True, help="Calculate tree branch specific spectra")
 @click.option('--subset', default="full", show_default=True, type=click.Choice(["full", "internal", "terminal"]), help="Used subset of tree branches")
 @click.option('--plot', is_flag=True, help="Plot spectra plots")
 @click.option("-x", '--ext', "image_extension", default="pdf", show_default=True, type=click.Choice(['pdf', 'png', 'jpg'], case_sensitive=False), help="Images format to save")
@@ -46,18 +46,18 @@ def main(
     if mnum192 > 192:
         raise RuntimeError("Number of mutation types must be less then 192, but passed {}".format(mnum192))
 
-    lbl_codes, lbls = [], []
+    lbl_ids, lbls = [], []
     if all_muts:
-        lbl_codes.append(0)
+        lbl_ids.append(0)
         lbls.append("all")
     if syn:
-        lbl_codes.append(1)
+        lbl_ids.append(1)
         lbls.append("syn")
     if syn4f:
-        lbl_codes.append(2)
+        lbl_ids.append(2)
         lbls.append("ff")
     if len(lbls) == 0:
-        lbl_codes, lbls = [0], ["all"]
+        lbl_ids, lbls = [0], ["all"]
 
     exclude = exclude.split(",")
     
@@ -66,18 +66,19 @@ def main(
     else:
         label = "_" + label if subset == "full" else "_{}_{}".format(subset, label)
 
-    path_to_ms12 = os.path.join(outdir, "ms12{}{}.tsv")
-    path_to_ms12plot = os.path.join(outdir, "ms12{}{}.{}")
+    path_to_ms12      = os.path.join(outdir, "ms12{}{}.tsv")
+    path_to_ms12plot  = os.path.join(outdir, "ms12{}{}.{}")
     path_to_ms192plot = os.path.join(outdir, "ms192{}{}.{}")
-    path_to_ms192 = os.path.join(outdir, "ms192{}{}.tsv")
+    path_to_ms192     = os.path.join(outdir, "ms192{}{}.tsv")
 
-    substract12 = pd.read_csv(path_to_substract12, sep="\t") if path_to_substract12 is not None else None
+    substract12  = pd.read_csv(path_to_substract12,  sep="\t") if path_to_substract12  is not None else None
     substract192 = pd.read_csv(path_to_substract192, sep="\t") if path_to_substract192 is not None else None
 
     obs = pd.read_csv(path_to_obs, sep="\t")
     # exclude ROOT node because RAxML don't change input tree that contains one node more than it's need
     obs = obs[~obs.AltNode.isin(exclude)]
     if subset == "internal":
+        # TODO replace .startswith("Node") to more common method: extract leaves names with PhyloTree and ...
         obs = obs[obs.AltNode.str.startswith("Node")]
     elif subset == "terminal":
         obs = obs[~obs.AltNode.str.startswith("Node")]
@@ -106,8 +107,8 @@ def main(
     if use_proba:
         obs = obs[(obs.ProbaFull > proba_min)]
 
-    for lbl_code, lbl in zip(lbl_codes, lbls):
-        cur_obs_lbl = obs[obs.Label >= lbl_code]
+    for lbl_id, lbl in zip(lbl_ids, lbls):
+        cur_obs_lbl = obs[obs.Label >= lbl_id]
         if not cur_obs_lbl.shape[0]:
             continue
 
@@ -116,19 +117,17 @@ def main(
 
         cur_exp = exp.loc[lbl].to_dict()
 
-        ms12_collection = []
+        ms12_collection  = []
         ms192_collection = []
         for replica in cur_obs_lbl["Replica"].unique():
             cur_obs_lbl_repl = cur_obs_lbl[cur_obs_lbl["Replica"] == replica]
             if not cur_obs_lbl_repl.shape[0]:
                 continue
             ms12 = calculate_mutspec(cur_obs_lbl_repl, cur_exp, use_context=False, use_proba=use_proba)
-            ms12.drop("RawMutSpec", axis=1, inplace=True)
             ms12_collection.append(ms12)
 
             if cur_obs_lbl_repl.Mut.nunique() >= mnum192:
                 ms192 = calculate_mutspec(cur_obs_lbl_repl, cur_exp, use_context=True, use_proba=use_proba)
-                ms192.drop("RawMutSpec", axis=1, inplace=True)
                 ms192_collection.append(ms192)
                 
         
@@ -164,9 +163,9 @@ def main(
                         title=f"{lbl} mutational spectrum",
                         savepath=path_to_ms192plot.format(lbl, label, image_extension), 
                         show=False,
-                        fontsize=7,
                     )
                 else:
+                    # TODO don't show useless bars
                     substract192.loc[(substract192["ObsNum"] <= 1) | (substract192["ExpNum"] <= 1), "MutSpec"] = 0.
                     substract192 = substract192.rename(columns={"MutSpec": "MutSpec_obs"})[["Mut", "MutSpec_obs"]]
                     ms192 = ms192.rename(columns={"MutSpec": "MutSpec_exp"}).merge(substract192, on="Mut")
@@ -176,7 +175,6 @@ def main(
                         title=f"{lbl} mutational spectrum difference\n(reconstructed - simulated (obs - exp))",
                         savepath=path_to_ms192plot.format(lbl, label, image_extension), 
                         show=False,
-                        fontsize=7,
                     )
         if branches:
             if substract12 is not None or substract192 is not None:
@@ -188,12 +186,10 @@ def main(
                 if branch_muts.shape[0] < 10:
                     continue
                 ms12 = calculate_mutspec(branch_muts, cur_exp, use_context=False, use_proba=use_proba)
-                ms12.drop("RawMutSpec", axis=1, inplace=True)
                 branch_mutspec12.append(ms12)
 
                 if branch_muts.Mut.nunique() >= mnum192:
                     ms192 = calculate_mutspec(branch_muts, cur_exp, use_context=True, use_proba=use_proba)
-                    ms192.drop("RawMutSpec", axis=1, inplace=True)
                     branch_mutspec192.append(ms192)
             
             branch_mutspec12df  = pd.concat(branch_mutspec12)

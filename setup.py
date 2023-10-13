@@ -25,7 +25,7 @@ if os.path.exists("scripts"):
 
 setup(
     name="PyMutSpec",
-    version="0.0.5",
+    version="0.0.6",
     author="kpotoh",
     description="Utilities for advanced analysis of mutational spectra",
     url="https://github.com/mitoclub/PyMutSpec",
