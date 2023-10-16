@@ -8,15 +8,21 @@ import click
 import pandas as pd
 
 from pymutspec.annotation import calculate_mutspec
+from pymutspec.constants import possible_sbs12, possible_sbs192
 from pymutspec.draw import plot_mutspec12, plot_mutspec192
+
+
+def save_tsv(df: pd.DataFrame, path):
+    df.to_csv(path, sep="\t", float_format='%g', index=False)
 
 
 def dump_expected(exp, path):
     exp_melted = exp.reset_index()
     exp_melted["Label"] = exp_melted["Label"].where(exp_melted["Label"] != "ff", "syn4f")
-    exp_melted.melt("Label", exp_melted.columns.values[1:], var_name="Mut", value_name="Count")\
-        .sort_values(["Mut", "Label"])\
-            .to_csv(path, sep="\t", index=None)
+    exp_melted = exp_melted.melt(
+        "Label", exp_melted.columns.values[1:], var_name="Mut", value_name="Count"
+    ).sort_values(["Mut", "Label"])
+    save_tsv(exp_melted, path)
 
 
 @click.command("MutSpec calculator", help="Calculate and visualize mutational spectra")
@@ -25,7 +31,8 @@ def dump_expected(exp, path):
 @click.option("-o", '--outdir', type=click.Path(True), default=".", show_default=True, help="Path to output directory for files (must exist)")
 @click.option("-l", '--label', default=None, help="Label for files naming. By default no label")
 @click.option("-p", '--proba', "use_proba", is_flag=True, help="Use probabilities of mutations")
-@click.option('--proba_min', default=0.3, show_default=True, help="Minimal mutation probability to consider in spectra calculation. Used only with --use_proba")
+@click.option('--proba_min', default=0.3, show_default=True, help="LEGACY Minimal mutation probability to consider in spectra calculation. Used only with --use_proba")
+@click.option('--proba_cutoff', default=None, type=float, show_default=True, help="Minimal mutation probability to consider in spectra calculation. Used only with --use_proba")
 @click.option('--exclude', default="OUTGRP,ROOT", show_default=True, help="Name of source nodes to exclude from mutations set. Use comma to pass several names")
 @click.option('--all', 'all_muts', is_flag=True, help="Calculate and plot spectra for all mutations; "
                                                       "default if not specified at least one of --all, --syn, --syn4f")
@@ -39,10 +46,12 @@ def dump_expected(exp, path):
 @click.option('--plot', is_flag=True, help="Plot spectra plots")
 @click.option("-x", '--ext', "image_extension", default="pdf", show_default=True, type=click.Choice(['pdf', 'png', 'jpg'], case_sensitive=False), help="Images format to save")
 def main(
-    path_to_obs, path_to_exp, outdir, label, use_proba, proba_min, exclude, 
+    path_to_obs, path_to_exp, outdir, label, use_proba, proba_min, proba_cutoff, exclude, 
     all_muts, syn, syn4f, mnum192, path_to_substract12, path_to_substract192, 
     branches, subset, plot, image_extension,
     ):
+    proba_cutoff = proba_cutoff or proba_min
+
     if mnum192 > 192:
         raise RuntimeError("Number of mutation types must be less then 192, but passed {}".format(mnum192))
 
@@ -84,16 +93,19 @@ def main(
         obs = obs[~obs.AltNode.str.startswith("Node")]
 
     exp_raw = pd.read_csv(path_to_exp, sep="\t")
-    # if random codons in columns
-    if len(exp_raw.columns) > 192+12 and "A[T>C]A" in exp_raw.columns and "T[C>T]T" in exp_raw.columns:
-        exp = exp_raw.drop_duplicates().drop(["Node", "Gene"], axis=1, errors="ignore").groupby("Label").mean()
+    # if all substitutions are columns
+    if len(set(possible_sbs12 + possible_sbs192).difference(exp_raw.columns)) == 0:
+        exp_mean = exp_raw.drop_duplicates().drop(["Node", "Gene"], axis=1, errors="ignore").groupby("Label").mean()
         path_to_united_exp = os.path.join(outdir, "mean_expexted_mutations{}.tsv".format(label))
-        dump_expected(exp, path_to_united_exp)
+        dump_expected(exp_mean, path_to_united_exp)
+        exp_freqs = exp_raw
+        del exp_raw
     elif list(exp_raw.columns) == ["Label", "Mut", "Count"]:
         if branches:
             raise ValueError("For branch specific spectra expected mutations required for every internal tree node")
 
-        exp = exp_raw.pivot("Label", "Mut", "Count")
+        exp_mean = exp_raw.pivot("Label", "Mut", "Count")
+        exp_freqs = None
     else:
         raise RuntimeError("Expected another columns in the table {}".format(path_to_exp))
     
@@ -105,35 +117,35 @@ def main(
         plot_mutspec12_func = partial(plot_mutspec12, style="bar")
 
     if use_proba:
-        obs = obs[(obs.ProbaFull > proba_min)]
+        obs = obs[(obs.ProbaFull > proba_cutoff)]
 
     for lbl_id, lbl in zip(lbl_ids, lbls):
-        cur_obs_lbl = obs[obs.Label >= lbl_id]
-        if not cur_obs_lbl.shape[0]:
+        cur_obs = obs[obs.Label >= lbl_id]
+        if not cur_obs.shape[0]:
             continue
 
-        if lbl not in exp.index:
+        if lbl not in exp_mean.index:
             continue
 
-        cur_exp = exp.loc[lbl].to_dict()
+        cur_exp = exp_mean.loc[lbl].to_dict()
 
         ms12_collection  = []
         ms192_collection = []
-        for replica in cur_obs_lbl["Replica"].unique():
-            cur_obs_lbl_repl = cur_obs_lbl[cur_obs_lbl["Replica"] == replica]
-            if not cur_obs_lbl_repl.shape[0]:
+        for replica in cur_obs["Replica"].unique():
+            cur_obs_repl = cur_obs[cur_obs["Replica"] == replica]
+            if not cur_obs_repl.shape[0]:
                 continue
-            ms12 = calculate_mutspec(cur_obs_lbl_repl, cur_exp, use_context=False, use_proba=use_proba)
+            ms12 = calculate_mutspec(cur_obs_repl, cur_exp, use_context=False, use_proba=use_proba)
             ms12_collection.append(ms12)
 
-            if cur_obs_lbl_repl.Mut.nunique() >= mnum192:
-                ms192 = calculate_mutspec(cur_obs_lbl_repl, cur_exp, use_context=True, use_proba=use_proba)
+            if cur_obs_repl.Mut.nunique() >= mnum192:
+                ms192 = calculate_mutspec(cur_obs_repl, cur_exp, use_context=True, use_proba=use_proba)
                 ms192_collection.append(ms192)
                 
         
         if ms12_collection:
             ms12 = pd.concat(ms12_collection)
-            ms12.to_csv(path_to_ms12.format(lbl, label), sep="\t", index=None)
+            save_tsv(ms12, path_to_ms12.format(lbl, label))
             if plot:
                 if substract12 is None:
                     plot_mutspec12_func(
@@ -155,7 +167,7 @@ def main(
 
         if ms192_collection:
             ms192 = pd.concat(ms192_collection)
-            ms192.to_csv(path_to_ms192.format(lbl, label), sep="\t", index=None)
+            save_tsv(ms192, path_to_ms192.format(lbl, label))
             if plot:
                 if substract192 is None:
                     plot_mutspec192(
@@ -177,28 +189,38 @@ def main(
                         show=False,
                     )
         if branches:
+            # prepare branch-specific frequencies (sbs12 + sbs192)
+            exp_freqs_lbl = exp_freqs[exp_freqs.Label == lbl].drop(["Gene", "Label"], axis=1).set_index('Node')
+            assert exp_freqs_lbl.shape[1] == 192 + 12, f'prepared expected freqs absent some substitutions; freqs shape: {exp_freqs_lbl.shape}'
+
             if substract12 is not None or substract192 is not None:
                 print("Ignoring substract agruments, substraction is not available for branch spectra", file=sys.stderr)
             
             branch_mutspec12, branch_mutspec192 = [], []
-            for alt_node in cur_obs_lbl["AltNode"].unique():
-                branch_muts = cur_obs_lbl[cur_obs_lbl["AltNode"] == alt_node]
-                if branch_muts.shape[0] < 10:
+            for alt_node in cur_obs["AltNode"].unique():
+                branch_obs = cur_obs[cur_obs["AltNode"] == alt_node]
+                ref_node = branch_obs['RefNode'].iloc[0]
+                branch_exp = exp_freqs_lbl.loc[ref_node].to_dict()
+                if branch_obs.shape[0] < 10:
                     continue
-                ms12 = calculate_mutspec(branch_muts, cur_exp, use_context=False, use_proba=use_proba)
+
+                ms12 = calculate_mutspec(branch_obs, branch_exp, use_context=False, use_proba=use_proba)\
+                    .assign(RefNode=ref_node, AltNode=alt_node, )
                 branch_mutspec12.append(ms12)
 
-                if branch_muts.Mut.nunique() >= mnum192:
-                    ms192 = calculate_mutspec(branch_muts, cur_exp, use_context=True, use_proba=use_proba)
+                if branch_obs.Mut.nunique() >= mnum192:
+                    ms192 = calculate_mutspec(branch_obs, branch_exp, use_context=True, use_proba=use_proba)\
+                        .assign(RefNode=ref_node, AltNode=alt_node, )
                     branch_mutspec192.append(ms192)
             
             branch_mutspec12df  = pd.concat(branch_mutspec12)
             branch_mutspec192df = pd.concat(branch_mutspec192)
 
-            branch_mutspec12df.to_csv(path_to_ms12.replace(".tsv", "_branches.tsv"))
-            branch_mutspec192df.to_csv(path_to_ms192.replace(".tsv", "_branches.tsv"))
+            save_tsv(branch_mutspec12df, path_to_ms12.format(lbl, label).replace(".tsv", "_branches.tsv"))
+            save_tsv(branch_mutspec192df, path_to_ms192.format(lbl, label).replace(".tsv", "_branches.tsv"))
 
 
 if __name__ == "__main__":
     main()
-    # main("-b tmp/observed_mutations_iqtree.tsv -e tmp/expected_mutations.tsv -o tmp/ -l debug".split())
+    # pt = '/home/kpotoh/nemu-pipeline/example_mam_run/outdir/mutspec_tables'
+    # main(f"-b {pt}/observed_mutations_iqtree.tsv -e {pt}/expected_freqs.tsv -o {pt}/test_branches -l debug --branches --syn".split())
