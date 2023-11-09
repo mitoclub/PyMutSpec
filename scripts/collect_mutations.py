@@ -15,9 +15,11 @@ import numpy as np
 import pandas as pd
 from ete3 import PhyloTree
 
-from pymutspec.annotation import (CodonAnnotation, calculate_mutspec,
-                                      get_farthest_leaf, iter_tree_edges,
-                                      lbl2lbl_id)
+from pymutspec.annotation import (
+    CodonAnnotation, calculate_mutspec, 
+    iter_tree_edges, lbl2lbl_id,
+    calc_phylocoefs, get_ingroup_root, get_tree_len, get_tree_outgrp_name,
+)
 from pymutspec.constants import possible_sbs12, possible_sbs192
 from pymutspec.io import GenesStates
 from pymutspec.utils import load_logger
@@ -69,11 +71,11 @@ class MutSpec(CodonAnnotation, GenesStates):
         logger.info(f"Types of mutations to collect and process: {self.MUT_LABELS}")
         self.fp_format = np.float32
         self.tree = PhyloTree(path_to_tree, format=1)
-        self.max_dist = self.fp_format(get_farthest_leaf(self.tree, 0.95))
+        self.outgrp_name = get_tree_outgrp_name(self.tree)
         logger.info(
             f"Tree loaded, number of leaf nodes: {len(self.tree)}, "
             f"total number of nodes: {len(self.tree.get_cached_content())}, "
-            f"distance to farthest leaf: {self.max_dist: .2f}"
+            f"outgroup name: {self.outgrp_name}"
         )
         rnd_genome = self.get_random_genome()
         logger.info(f"Number of genes: {len(rnd_genome)}, number of sites: {[len(x) for x in rnd_genome.values()]}")
@@ -105,9 +107,13 @@ class MutSpec(CodonAnnotation, GenesStates):
         logger.info("Start mutation extraction from tree")
         add_header = defaultdict(lambda: True)
         aln_size = self.genome_size
-        dists_to_leafs = dict()
         visited_nodes = set()
         total_mut_num = 0
+
+        # calculate phylogenetic uncertainty correction
+        if self.use_phylocoef:
+            phylocoefs = calc_phylocoefs(self.tree, self.outgrp_name)
+
         for ei, (ref_node, alt_node) in enumerate(iter_tree_edges(self.tree), 1):
             if alt_node.name not in self.nodes:
                 logger.warning(f"Skip edge '{ref_node.name}'-'{alt_node.name}' due to absence of '{alt_node.name}' genome")
@@ -122,16 +128,9 @@ class MutSpec(CodonAnnotation, GenesStates):
 
             # calculate phylogenetic uncertainty correction
             if self.use_phylocoef:
-                if ref_node.name in dists_to_leafs:
-                    dist_to_closest_leaf = dists_to_leafs[ref_node.name]
-                else:
-                    _, dist_to_closest_leaf = ref_node.get_closest_leaf()
-                    dists_to_leafs[ref_node.name] = dist_to_closest_leaf
-
-                dist_to_closest_leaf = self.fp_format(dist_to_closest_leaf)
-                phylocoef = self.fp_format(1 - min(0.9999, dist_to_closest_leaf / self.max_dist))
+                phylocoef = self.fp_format(phylocoefs[ref_node.name] * phylocoefs[alt_node.name])
             else:
-                phylocoef = 1
+                phylocoef = self.fp_format(1)
 
             genome_nucl_freqs = {lbl: defaultdict(self.fp_format) for lbl in self.MUT_LABELS}
             genome_cxt_freqs  = {lbl: defaultdict(self.fp_format) for lbl in self.MUT_LABELS}

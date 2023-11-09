@@ -16,7 +16,7 @@ class CodonAnnotation:
     def __init__(self, gencode: Union[NCBICodonTableDNA, int]):
         self.codontable = self._prepare_codontable(gencode)
         self._syn_codons, self._ff_codons = self.__extract_syn_codons()
-        self.possible_ff_contexts = self.__extract_possible_ff_contexts()
+        self.possible_ff_contexts  = self.__extract_possible_ff_contexts()
         self.possible_syn_contexts = self.__extract_possible_syn_contexts()
         self.startcodons, self.stopcodons = self.read_start_stop_codons(gencode)
 

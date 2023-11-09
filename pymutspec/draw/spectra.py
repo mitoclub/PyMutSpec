@@ -190,6 +190,7 @@ def plot_mutspec192(
         plt.show()
     else:
         plt.close()
+    return ax
 
 
 def plot_mutspec96(
@@ -273,6 +274,7 @@ def plot_mutspec96(
         plt.show()
     else:
         plt.close()
+    return ax
 
 
 def plot_mutspec192kk(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutational spectrum", show=True, figsize=(24, 6), filepath=None):
