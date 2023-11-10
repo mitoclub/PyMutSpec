@@ -1,0 +1,67 @@
+IQ-TREE multicore version 2.2.2.7 COVID-edition for Linux 64-bit built May 31 2023
+Developed by Bui Quang Minh, James Barbetti, Nguyen Lam Tung,
+Olga Chernomor, Heiko Schmidt, Dominik Schrempf, Michael Woodhams, Ly Trong Nhan.
+
+Host:    user-G482-Z51-00 (AVX2, FMA3, 4019 GB RAM)
+Command: iqtree2 --alisim generations_sp/gtr_100_cytb_replica_1 -m gtr{0.21/0.13/0.07/0.27/0.15/1.45}+G6+I{0.15} -t generations_sp/gtr_100_cytb_replica_1.nwk --seed 50925 --write-all --root-seq /home/kpotoh/dolphin/data/alisim/external/human_cytb.fasta,human_cytb -af fasta -redo
+Seed:    50925 (Using SPRNG - Scalable Parallel Random Number Generator)
+Time:    Wed Jun 28 19:39:27 2023
+Kernel:  AVX+FMA - 1 threads (256 CPU cores detected)
+
+[Alignment Simulator] Executing
+ - Tree filepath: generations_sp/gtr_100_cytb_replica_1.nwk
+ - Length of output sequences: 1000
+ - Model: gtr{0.21/0.13/0.07/0.27/0.15/1.45}+G6+I{0.15}
+ - Number of output datasets: 1
+ - Ancestral sequence position: 1
+Fasta format detected
+Reading fasta file: done in 3.38554e-05 secs using 56.12% CPU
+WARNING: Sequence length is now set equally to the length of ancestral sequence.
+WARNING: Using an ancestral sequence with base frequencies that are not compatible with the specification of the model may lead to unexpected results.
+WARNING: Normalizing weights of rate categories so that sum of them is 1!
+SUBSTITUTION PROCESS
+--------------------
+
+Model of substitution: GTR+F+I+G6
+
+Rate parameter R:
+
+  A-C: 0.210
+  A-G: 0.130
+  A-T: 0.070
+  C-G: 0.270
+  C-T: 0.150
+  G-T: 1.450
+
+State frequencies: (empirical counts from alignment)
+
+  pi(A) = 0.301
+  pi(C) = 0.189
+  pi(G) = 0.18
+  pi(T) = 0.331
+
+Rate matrix Q:
+
+  A     -0.33     0.152    0.0894    0.0887
+  C     0.242    -0.617     0.186      0.19
+  G      0.15     0.195     -2.18      1.84
+  T    0.0806     0.108     0.997     -1.19
+
+Model of rate heterogeneity: Invar+Gamma with 6 categories
+Proportion of invariable sites: 0.15
+Gamma shape alpha: 1
+
+ Category  Relative_rate  Proportion
+  0         0              0.15
+  1         0.104          0.142
+  2         0.341          0.142
+  3         0.638          0.142
+  4         1.04           0.142
+  5         1.65           0.142
+  6         3.28           0.142
+Relative rates are computed as MEAN of the portion of the Gamma distribution falling in the category.
+
+A tree (with internal node names) has been outputted to generations_sp/gtr_100_cytb_replica_1.full.treefile
+[Alignment Simulator] Done
+Simulation time: 0.026s
+Date and Time: Wed Jun 28 19:39:27 2023

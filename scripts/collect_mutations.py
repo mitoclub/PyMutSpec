@@ -22,9 +22,9 @@ from pymutspec.annotation import (
 )
 from pymutspec.constants import possible_sbs12, possible_sbs192
 from pymutspec.io import GenesStates
-from pymutspec.utils import load_logger
+from pymutspec.utils import load_logger, basic_logger
 
-logger = None
+logger = basic_logger()
 
 
 class MutSpec(CodonAnnotation, GenesStates):    
@@ -36,9 +36,14 @@ class MutSpec(CodonAnnotation, GenesStates):
             path_to_rates=None, cat_cutoff=0, save_exp_muts=False,
             mnum192=16,
         ):
-        for path in list(path_to_states) + [path_to_tree]:
+        if not os.path.exists(path_to_tree):
+            raise ValueError(f"Path to tree doesn't exist: '{path}'")
+        
+        if not isinstance(path_to_states, list):
+            raise ValueError("path_to_states must be list of paths")
+        for path in list(path_to_states):
             if not os.path.exists(path):
-                raise ValueError(f"Path doesn't exist: {path}")
+                raise ValueError(f"Path to states doesn't exist: '{path}'")
 
         CodonAnnotation.__init__(self, gencode=gcode)
         GenesStates.__init__(

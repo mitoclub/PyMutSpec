@@ -114,8 +114,26 @@ def complete_sbs192_columns(df: pd.DataFrame):
     return df
 
 
+def collapse_sbs192(df: pd.DataFrame, to=12):
+    assert (df.columns == possible_sbs192).all()
+    df = df.copy()
+    if to == 12:
+        for sbs192 in possible_sbs192:
+            sbs12 = sbs192[2:5]
+            if sbs12 in df.columns.values:
+                df[sbs12] += df[sbs192]
+            else:
+                df[sbs12] = df[sbs192]
+
+        return df[possible_sbs12]
+    else:
+        raise NotImplementedError()
+
+
 def jackknife_spectra_sampling(obs: pd.DataFrame, exp: pd.DataFrame, frac=0.5, n=1000):
-    if len(obs.columns) == 192 and (obs.columns == possible_sbs192).all() and (exp.columns == possible_sbs192).all():
+    if len(obs.columns) == 192 and \
+            (obs.columns == possible_sbs192).all() and \
+                (exp.columns == possible_sbs192).all():
         assert obs.index.names == ["RefNode", "AltNode"]
         assert exp.index.names == ["Node"]
         altnodes  = obs.index.get_level_values(1).values
@@ -127,7 +145,8 @@ def jackknife_spectra_sampling(obs: pd.DataFrame, exp: pd.DataFrame, frac=0.5, n
         altnodes = obs.AltNode.unique()
         obs_edges = obs.groupby(["AltNode", "RefNode", "Mut"]).ProbaFull.sum().unstack()
         obs_edges = complete_sbs192_columns(obs_edges)
-        freqs_nodes = exp.rename(columns={"Node": "RefNode"}).groupby(["RefNode", "Mut"]).Proba.sum().unstack()
+        freqs_nodes = exp.rename(columns={"Node": "RefNode"})\
+            .groupby(["RefNode", "Mut"]).Proba.sum().unstack()
         freqs_nodes = complete_sbs192_columns(freqs_nodes)
 
     edges_sample_size = int(len(altnodes) * frac)
@@ -164,8 +183,15 @@ def collapse_sbs192(df: pd.DataFrame, to=12):
         raise NotImplementedError()
 
 
-def calc_edgewise_spectra(obs: pd.DataFrame, exp: pd.DataFrame, nmtypes_cutoff=16, nobs_cuttof=20, collapse_to_12=False, scale=True, both_12_and_192=False):
-    if len(obs.columns) == 192 and (obs.columns == possible_sbs192).all() and (exp.columns == possible_sbs192).all():
+def calc_edgewise_spectra(
+        obs: pd.DataFrame, exp: pd.DataFrame, 
+        nmtypes_cutoff=10, nobs_cuttof=10, 
+        collapse_to_12=False, scale=True, 
+        both_12_and_192=False
+    ):
+    if len(obs.columns) == 192 and \
+            (obs.columns == possible_sbs192).all() and \
+                (exp.columns == possible_sbs192).all():
         assert obs.index.names == ["RefNode", "AltNode"]
         assert exp.index.names == ["Node"]
         obs_edges = obs
@@ -179,14 +205,17 @@ def calc_edgewise_spectra(obs: pd.DataFrame, exp: pd.DataFrame, nmtypes_cutoff=1
         freqs_nodes = complete_sbs192_columns(freqs_nodes)
 
     if not collapse_to_12:
-        obs_edges = obs_edges[((obs_edges > 0).sum(axis=1) >= nmtypes_cutoff) & (obs_edges.sum(axis=1) > nobs_cuttof)]
+        obs_edges = obs_edges[((obs_edges > 0).sum(axis=1) >= nmtypes_cutoff) & \
+                               (obs_edges.sum(axis=1) >= nobs_cuttof)]
     
     edges_df = obs_edges.index.to_frame(False)
 
     freqs_edges = edges_df.merge(freqs_nodes, on="RefNode")\
         .set_index(["RefNode", "AltNode"])[possible_sbs192]
-    
-    
+
+    # some indexes can be deleted from freqs, so we must delete them from obs
+    obs_edges = obs_edges.loc[freqs_edges.index]
+
     assert (obs_edges.columns == freqs_edges.columns).all()
     assert (obs_edges.index == freqs_edges.index).all()
 
@@ -221,18 +250,6 @@ def calc_edgewise_spectra(obs: pd.DataFrame, exp: pd.DataFrame, nmtypes_cutoff=1
     assert not (spectra == np.inf).any().any()
     assert not (spectra.isna()).any().any()
     return spectra
-
-
-def assign_cat(p: float, interval=0.1):
-    if interval < 0.01:
-        raise NotImplementedError
-    
-    left = p // interval / (1 / interval)
-    right = left + interval
-    if interval >= 0.1:
-        return f"{left:.1f}_{right:.1f}"
-    else:
-        return f"{left:.2f}_{right:.2f}"
 
 
 def get_cossim(a: pd.DataFrame, b: pd.DataFrame):

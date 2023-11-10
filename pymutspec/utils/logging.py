@@ -18,3 +18,17 @@ def load_logger(path=None, stream_level: str = None, filename=None):
         logging.config.dictConfig(log_config)
     logger = logging.getLogger('MutSpecCalc')
     return logger
+
+
+def basic_logger():
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
+
+    # create console handler and set level to debug
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s', '%d-%m-%y %H:%M:%S')
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+
+    return logger
