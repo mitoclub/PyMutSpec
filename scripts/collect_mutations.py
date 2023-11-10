@@ -7,8 +7,8 @@ pic is position in codon
 import os
 import sys
 from collections import defaultdict
+from collections.abc import Iterable
 from shutil import rmtree
-from typing import Iterable, Union
 
 import click
 import numpy as np
@@ -17,8 +17,7 @@ from ete3 import PhyloTree
 
 from pymutspec.annotation import (
     CodonAnnotation, calculate_mutspec, 
-    iter_tree_edges, lbl2lbl_id,
-    calc_phylocoefs, get_ingroup_root, get_tree_len, get_tree_outgrp_name,
+    iter_tree_edges, lbl2lbl_id, calc_phylocoefs, get_tree_outgrp_name,
 )
 from pymutspec.constants import possible_sbs12, possible_sbs192
 from pymutspec.io import GenesStates
@@ -39,8 +38,8 @@ class MutSpec(CodonAnnotation, GenesStates):
         if not os.path.exists(path_to_tree):
             raise ValueError(f"Path to tree doesn't exist: '{path}'")
         
-        if not isinstance(path_to_states, list):
-            raise ValueError("path_to_states must be list of paths")
+        if not isinstance(path_to_states, Iterable):
+            raise ValueError(f"path_to_states must be Iterable of paths; got: '{type(path_to_states)}'")
         for path in list(path_to_states):
             if not os.path.exists(path):
                 raise ValueError(f"Path to states doesn't exist: '{path}'")
