@@ -36,7 +36,7 @@ class MutSpec(CodonAnnotation, GenesStates):
             mnum192=16,
         ):
         if not os.path.exists(path_to_tree):
-            raise ValueError(f"Path to tree doesn't exist: '{path}'")
+            raise ValueError(f"Path to tree doesn't exist: '{path_to_tree}'")
         
         if not isinstance(path_to_states, Iterable):
             raise ValueError(f"path_to_states must be Iterable of paths; got: '{type(path_to_states)}'")

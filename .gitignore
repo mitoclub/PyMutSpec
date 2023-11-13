@@ -10,3 +10,4 @@ evn*
 *.egg
 tmp
 .idea
+.coverage
