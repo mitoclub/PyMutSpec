@@ -1,5 +1,25 @@
 import os
+import re
 from setuptools import setup, find_packages
+
+path_to_pyproject = 'pyproject.toml'
+
+
+def read_specs(path: str):
+    specs = dict()
+    with open(path, 'r') as fin:
+        for line in fin:
+            if line.startswith('name'):
+                specs['name'] = re.match('name = "(.+)"', line).group(1)
+            elif line.startswith('version'):
+                specs['version'] = re.match('version = "(.+)"', line).group(1)
+            elif line.startswith('description'):
+                specs['description'] = re.match('description = "(.+)"', line).group(1)
+            elif line.startswith('requires-python'):
+                specs['python_requires'] = re.match('requires-python = "(.+)"', line).group(1)
+                break
+    return specs
+
 
 extra_index_urls = []
 packages = []
@@ -23,19 +43,17 @@ if os.path.exists("scripts"):
                 if "python" in fin.readline():
                     scripts.append(fp)
 
+specs = read_specs(path_to_pyproject)
+
 setup(
-    name="PyMutSpec",
-    version="0.0.7",
     author="kpotoh",
-    description="Utilities for advanced analysis of mutational spectra",
+    author_email="axepon@mail.ru",
     url="https://github.com/mitoclub/PyMutSpec",
-    author_email="None",
     license="MIT",
     install_requires=packages,
     dependency_links=extra_index_urls,
     scripts=scripts,
     packages=find_packages(),
-    # include_package_data=True,
     package_data={'pymutspec': ['utils/configs/log_settings.yaml']},
-    python_requires=">=3.8",
+    **specs
 )

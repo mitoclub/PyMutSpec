@@ -28,16 +28,17 @@ logger = basic_logger()
 
 class MutSpec(CodonAnnotation, GenesStates):    
     def __init__(
-            self, path_to_tree, path_to_states, outdir, 
+            self, path_to_tree, path_to_states, outdir,
             gcode=2, db_mode="dict", path_to_db=None, states_fmt="table",
-            rewrite_db=None, use_proba=False, proba_cutoff=0.05, 
-            use_phylocoef=False, syn=False, syn_c=False, syn4f=False, derive_spectra=True,
-            path_to_rates=None, cat_cutoff=0, save_exp_muts=False,
+            rewrite_db=None, use_proba=False, proba_cutoff=0.05,
+            use_phylocoef=False, syn=False, syn_c=False, syn4f=False,
+            derive_spectra=True, save_exp_muts=False,
+            path_to_rates=None, cat_cutoff=0,
             mnum192=16,
         ):
         if not os.path.exists(path_to_tree):
             raise ValueError(f"Path to tree doesn't exist: '{path_to_tree}'")
-        
+
         if not isinstance(path_to_states, Iterable):
             raise ValueError(f"path_to_states must be Iterable of paths; got: '{type(path_to_states)}'")
         for path in list(path_to_states):
@@ -46,9 +47,9 @@ class MutSpec(CodonAnnotation, GenesStates):
 
         CodonAnnotation.__init__(self, gencode=gcode)
         GenesStates.__init__(
-            self, path_states=path_to_states, path_to_db=path_to_db, 
-            mode=db_mode, rewrite=rewrite_db, use_proba=use_proba, 
-            path_to_rates=path_to_rates, cat_cutoff=cat_cutoff, 
+            self, path_states=path_to_states, path_to_db=path_to_db,
+            mode=db_mode, rewrite=rewrite_db, use_proba=use_proba,
+            path_to_rates=path_to_rates, cat_cutoff=cat_cutoff,
             states_fmt=states_fmt,
         )
         self.gcode = gcode

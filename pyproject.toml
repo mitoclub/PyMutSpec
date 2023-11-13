@@ -1,6 +1,6 @@
 [project]
 name = "PyMutSpec"
-version = "0.0.7"
+version = "0.0.8"
 authors = [
   { name="kpotoh", email="axepon@mail.ru" },
 ]
