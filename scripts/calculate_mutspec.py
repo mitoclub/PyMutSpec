@@ -201,23 +201,25 @@ def main(
                 branch_obs = cur_obs[cur_obs["AltNode"] == alt_node]
                 ref_node = branch_obs['RefNode'].iloc[0]
                 branch_exp = exp_freqs_lbl.loc[ref_node].to_dict()
-                if branch_obs.shape[0] < 10:
-                    continue
+                if len(branch_obs) > 1:
+                    # at least 2 mutations on branch
+                    ms12 = calculate_mutspec(branch_obs, branch_exp, use_context=False, use_proba=use_proba)\
+                        .assign(RefNode=ref_node, AltNode=alt_node, )
+                    branch_mutspec12.append(ms12)
 
-                ms12 = calculate_mutspec(branch_obs, branch_exp, use_context=False, use_proba=use_proba)\
-                    .assign(RefNode=ref_node, AltNode=alt_node, )
-                branch_mutspec12.append(ms12)
-
-                if branch_obs.Mut.nunique() >= mnum192:
+                if branch_obs.Mut.nunique() >= mnum192 and branch_obs.shape[0] > 10:
+                    # at least 10 mutations on branch
                     ms192 = calculate_mutspec(branch_obs, branch_exp, use_context=True, use_proba=use_proba)\
                         .assign(RefNode=ref_node, AltNode=alt_node, )
                     branch_mutspec192.append(ms192)
             
-            branch_mutspec12df  = pd.concat(branch_mutspec12)
-            branch_mutspec192df = pd.concat(branch_mutspec192)
+            if len(branch_mutspec12) > 0:
+                branch_mutspec12df  = pd.concat(branch_mutspec12)
+                save_tsv(branch_mutspec12df, path_to_ms12.format(lbl, label).replace(".tsv", "_branches.tsv"))
 
-            save_tsv(branch_mutspec12df, path_to_ms12.format(lbl, label).replace(".tsv", "_branches.tsv"))
-            save_tsv(branch_mutspec192df, path_to_ms192.format(lbl, label).replace(".tsv", "_branches.tsv"))
+            if len(branch_mutspec192) > 0:
+                branch_mutspec192df = pd.concat(branch_mutspec192)
+                save_tsv(branch_mutspec192df, path_to_ms192.format(lbl, label).replace(".tsv", "_branches.tsv"))
 
 
 if __name__ == "__main__":
