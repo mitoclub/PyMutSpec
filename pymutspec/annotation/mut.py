@@ -457,6 +457,9 @@ class CodonAnnotation:
                     if "ff" in labels and pic == 2 and self.is_fourfold(cdn):
                         sbs12_freqs["ff"][sbs12_pattern.format(alt_nuc)] += p_adj
                         sbs192_freqs["ff"][sbs192_pattern.format(alt_nuc)] += p_adj
+                    if "nonsyn" in labels:
+                        ...
+                        
                         
         return sbs12_freqs, sbs192_freqs
 

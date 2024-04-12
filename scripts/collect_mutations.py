@@ -31,7 +31,7 @@ class MutSpec(CodonAnnotation, GenesStates):
             self, path_to_tree, path_to_states, outdir,
             gcode=2, db_mode="dict", path_to_db=None, states_fmt="table",
             rewrite_db=None, use_proba=False, proba_cutoff=0.05,
-            use_phylocoef=False, syn=False, syn_c=False, syn4f=False,
+            use_phylocoef=False, syn=False, syn_c=False, syn4f=False, nonsyn=False,
             derive_spectra=True, save_exp_muts=False,
             path_to_rates=None, cat_cutoff=0,
             mnum192=16,
@@ -66,14 +66,16 @@ class MutSpec(CodonAnnotation, GenesStates):
         logger.info(f"Derive spectra: {derive_spectra}")
         logger.info(f"Minimal mutation types number to calculate 192-component spectrum: {mnum192}")
         logger.info(f"Minimal probability for mutations to use: {proba_cutoff}")
-        self.MUT_LABELS = ["all"]
+        self.mut_labels = ["all"]
         if syn:
-            self.MUT_LABELS.append("syn")
+            self.mut_labels.append("syn")
         if syn_c:
-            self.MUT_LABELS.append("syn_c")
+            self.mut_labels.append("syn_c")
         if syn4f:
-            self.MUT_LABELS.append("ff")
-        logger.info(f"Types of mutations to collect and process: {self.MUT_LABELS}")
+            self.mut_labels.append("ff")
+        if nonsyn:
+            self.mut_labels.append("nonsyn")
+        logger.info(f"Types of mutations to collect and process: {self.mut_labels}")
         self.fp_format = np.float32
         self.tree = PhyloTree(path_to_tree, format=1)
         self.outgrp_name = get_tree_outgrp_name(self.tree)
@@ -137,8 +139,8 @@ class MutSpec(CodonAnnotation, GenesStates):
             else:
                 phylocoef = self.fp_format(1)
 
-            genome_nucl_freqs = {lbl: defaultdict(self.fp_format) for lbl in self.MUT_LABELS}
-            genome_cxt_freqs  = {lbl: defaultdict(self.fp_format) for lbl in self.MUT_LABELS}
+            genome_nucl_freqs = {lbl: defaultdict(self.fp_format) for lbl in self.mut_labels}
+            genome_cxt_freqs  = {lbl: defaultdict(self.fp_format) for lbl in self.mut_labels}
             genome_mutations = []
             for gene in ref_genome:
                 mask = self.mask[gene] if self.mask is not None else None
@@ -150,17 +152,17 @@ class MutSpec(CodonAnnotation, GenesStates):
                 # extract mutations and put in order columns
                 node_expected_sbs = None
                 if self.use_proba:
-                    gene_exp_sbs12, gene_exp_sbs192 = self.collect_exp_mut_freqs_proba(ref_seq, phylocoef, mask, self.MUT_LABELS, self.proba_cutoff)
+                    gene_exp_sbs12, gene_exp_sbs192 = self.collect_exp_mut_freqs_proba(ref_seq, phylocoef, mask, self.mut_labels, self.proba_cutoff)
                     gene_mut_df = self.extract_mutations_proba(ref_seq, alt_seq, phylocoef, self.proba_cutoff)
                     if self._save_exp_muts:
-                        node_expected_sbs = self.collect_exp_muts_proba(ref_seq, phylocoef, mask, self.MUT_LABELS, self.proba_cutoff)
+                        node_expected_sbs = self.collect_exp_muts_proba(ref_seq, phylocoef, mask, self.mut_labels, self.proba_cutoff)
                         node_expected_sbs["Node"] = ref_node.name
                         node_expected_sbs["Gene"] = gene
                 else:
-                    gene_exp_sbs12, gene_exp_sbs192 = self.collect_exp_mut_freqs(ref_seq, mask, self.MUT_LABELS)
+                    gene_exp_sbs12, gene_exp_sbs192 = self.collect_exp_mut_freqs(ref_seq, mask, self.mut_labels)
                     gene_mut_df = self.extract_mutations_simple(ref_seq, alt_seq)
                     if self._save_exp_muts:
-                        node_expected_sbs = self.collect_exp_muts(ref_seq, mask, self.MUT_LABELS)
+                        node_expected_sbs = self.collect_exp_muts(ref_seq, mask, self.mut_labels)
                         node_expected_sbs["Node"] = ref_node.name
                         node_expected_sbs["Gene"] = gene
 
@@ -176,7 +178,7 @@ class MutSpec(CodonAnnotation, GenesStates):
                         add_header["exp"] = False
                 
                 # summarize state frequencies over genome
-                for lbl in self.MUT_LABELS:
+                for lbl in self.mut_labels:
                     for nucl, freq in gene_exp_sbs12[lbl].items():
                         genome_nucl_freqs[lbl][nucl] += freq
                     for trinucl, freq in gene_exp_sbs192[lbl].items():
@@ -194,7 +196,7 @@ class MutSpec(CodonAnnotation, GenesStates):
                 
                 # calculate gene mutational spectra if there are at least 2 genes
                 if self.derive_spectra and len(ref_genome) > 1:
-                    for lbl in self.MUT_LABELS:
+                    for lbl in self.mut_labels:
                         lbl_id = lbl2lbl_id("syn" if lbl == "syn_c" else lbl)
 
                         mutspec12 = calculate_mutspec(
@@ -244,7 +246,7 @@ class MutSpec(CodonAnnotation, GenesStates):
             
             # calculate full genome mutational spectra for all labels
             if self.derive_spectra:
-                for lbl in self.MUT_LABELS:
+                for lbl in self.mut_labels:
                     lbl_id = lbl2lbl_id("syn" if lbl == "syn_c" else lbl)
 
                     mutspec12 = calculate_mutspec(
@@ -290,7 +292,7 @@ class MutSpec(CodonAnnotation, GenesStates):
             header = f"Node\tGene\tLabel\t{sbs12}\t{sbs192}\n"
             handle.write(header)
         
-        for lbl in self.MUT_LABELS:
+        for lbl in self.mut_labels:
             sbs12  = "\t".join([str(gene_exp_sbs12[lbl][x]) for x in possible_sbs12])
             sbs192 = "\t".join([str(gene_exp_sbs192[lbl][x]) for x in possible_sbs192])
             row = f"{node}\t{gene}\t{lbl}\t{sbs12}\t{sbs192}\n"

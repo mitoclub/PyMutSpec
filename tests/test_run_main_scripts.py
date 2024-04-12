@@ -20,7 +20,7 @@ def test_mutspec_cls_basic(tmpdir):
     ms = MutSpec(
         tree, [states], tmpdir, 2, states_fmt='fasta',
         use_proba=False, syn=True)
-    assert ms.MUT_LABELS == ['all', 'syn']
+    assert ms.mut_labels == ['all', 'syn']
     rnd_genome = list(ms.get_random_genome().values())[0]
     assert len(rnd_genome) > 1000
     assert not ms.use_phylocoef
@@ -31,7 +31,7 @@ def test_mutspec_cls_basic(tmpdir):
 # def test_mutspec_cls_phylocoef(tmpdir):
 #     ms = MutSpec(tree, [states], tmpdir, 2, states_fmt='fasta',
 #                  use_proba=False, syn=True)
-#     assert ms.MUT_LABELS == ['all', 'syn']
+#     assert ms.mut_labels == ['all', 'syn']
 #     rnd_genome = list(ms.get_random_genome().values())[0]
 #     assert len(rnd_genome) > 1000
 #     assert not ms.use_phylocoef
