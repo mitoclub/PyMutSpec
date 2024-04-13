@@ -68,7 +68,7 @@ def plot_mutspec12(
         figsize=(6, 4), 
         style="bar", 
         savepath=None, 
-        fontname="Times New Roman",
+        fontname=None,
         ticksize=8,
         titlesize=14,
         ylabelsize=12,
@@ -117,7 +117,7 @@ def plot_mutspec192(
         labels_style="cosmic",
         sbs_order=ordered_sbs192_kp,
         savepath=None,
-        fontname="Times New Roman",
+        fontname=None,
         ticksize=6,
         titlesize=16,
         ylabelsize=16,
@@ -204,7 +204,7 @@ def plot_mutspec96(
         savepath=None,
         fontsize=9,
         titlesize=16,
-        fontname="Times New Roman",
+        fontname=None,
         show=True, 
         **kwargs,
     ):
@@ -289,7 +289,7 @@ def plot_mutspec192kk(mutspec192: pd.DataFrame, ylabel="MutSpec", title="Mutatio
         order=order, 
         errwidth=1, ax=fig.gca(), 
     )
-    plt.xticks(rotation=90, fontsize=7, fontname="Times New Roman")
+    plt.xticks(rotation=90, fontsize=7, fontname=None)
     ax.set_title(title)
     ax.set_xlabel("")
     ax.set_ylabel("Mutational spectrum")
