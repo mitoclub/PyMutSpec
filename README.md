@@ -53,9 +53,9 @@ plot_mutspec192(spectra192)
 
 ### Spectra barplots
 
-<img src="./figures/ms12syn.png" width="300"/>
+<img src="https://raw.githubusercontent.com/mitoclub/PyMutSpec/master/figures/ms12syn.png" width="300"/>
 
-<img src="./figures/ms192syn.png" width="600"/>
+<img src="https://raw.githubusercontent.com/mitoclub/PyMutSpec/master/figures/ms192syn.png" width="600"/>
 
 ## Links
 
