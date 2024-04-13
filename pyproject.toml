@@ -1,10 +1,10 @@
 [project]
 name = "PyMutSpec"
-version = "0.0.9"
 authors = [
   { name="kpotoh", email="axepon@mail.ru" },
 ]
 description = "Mutational spectra analysis package"
+license = { file = "LICENSE" }
 readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
@@ -12,11 +12,8 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
+dynamic = ["version"]
 
 [project.urls]
 "Homepage" = "https://github.com/mitoclub/PyMutSpec"
 "Bug Tracker" = "https://github.com/mitoclub/PyMutSpec/issues"
-
-[build-system]
-# Minimum requirements for the build system to execute.
-requires = ["setuptools", "wheel"]  # PEP 508 specifications.
