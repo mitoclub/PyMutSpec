@@ -59,5 +59,5 @@ plot_mutspec192(spectra192)
 
 ## Links
 
-1. [Iqtree](http://www.iqtree.org/) - efficient software for phylogenomic inference
+1. [IQ-Tree2](http://www.iqtree.org/) - efficient software for phylogenomic inference
 2. [Genetic codes](https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi?chapter=tgencodes#SG1)
