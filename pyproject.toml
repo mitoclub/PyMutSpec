@@ -16,3 +16,7 @@ classifiers = [
 [project.urls]
 "Homepage" = "https://github.com/mitoclub/PyMutSpec"
 "Bug Tracker" = "https://github.com/mitoclub/PyMutSpec/issues"
+
+[build-system]
+# Minimum requirements for the build system to execute.
+requires = ["setuptools", "wheel"]  # PEP 508 specifications.
