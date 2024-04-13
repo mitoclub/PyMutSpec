@@ -19,8 +19,8 @@ rates  = os.path.join(indir, 'gtr_100_cytb_replica_1.inv')
 def test_mutspec_cls_basic(tmpdir):
     ms = MutSpec(
         tree, [states], tmpdir, 2, states_fmt='fasta',
-        use_proba=False, syn=True)
-    assert ms.mut_labels == ['all', 'syn']
+        use_proba=False, syn=True, nonsyn=True)
+    assert ms.mut_labels == ['all', 'syn', 'nonsyn']
     rnd_genome = list(ms.get_random_genome().values())[0]
     assert len(rnd_genome) > 1000
     assert not ms.use_phylocoef

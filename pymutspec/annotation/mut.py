@@ -216,6 +216,8 @@ class CodonAnnotation:
         n = len(cds)
         if mask is not None and len(mask) != n:
             raise ValueError("Mask must have same lenght as cds")
+        
+        assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
 
         labels = set(labels)
         sbs12_freqs = {lbl: defaultdict(int) for lbl in labels}
@@ -232,31 +234,39 @@ class CodonAnnotation:
             cxt = cxt if isinstance(cxt, str) else "".join(cxt)
             sbs12_pattern = nuc + ">" + "{}"
             sbs192_pattern = cxt[0] + "[" + nuc + ">{}]" + cxt[-1]
+            syn_codons = self.get_syn_codons(cdn, pic)
 
-            if ("syn" in labels or "syn_c" in labels) and len(cdn) == 3:
-                syn_codons = self.get_syn_codons(cdn, pic)
-                if "syn" in labels:
-                    for alt_cdn in syn_codons:
-                        alt_nuc = alt_cdn[pic]
-                        sbs12_freqs["syn"][sbs12_pattern.format(alt_nuc)] += 1
-                        sbs192_freqs["syn"][sbs192_pattern.format(alt_nuc)] += 1
-                if "syn_c" in labels and len(syn_codons) > 0:
-                    for alt_nuc in self.nucl_order:
-                        sbs12_freqs["syn_c"][sbs12_pattern.format(alt_nuc)] += 1
-                        sbs192_freqs["syn_c"][sbs192_pattern.format(alt_nuc)] += 1
-            
+            if "syn" in labels:
+                for alt_cdn in syn_codons:
+                    alt_nuc = alt_cdn[pic]
+                    sbs12_freqs["syn"][sbs12_pattern.format(alt_nuc)] += 1
+                    sbs192_freqs["syn"][sbs192_pattern.format(alt_nuc)] += 1
+            if "nonsyn" in labels:
+                syn_alt_nucs = [cdn[pic] for cdn in syn_codons]
+                syn_alt_nucs.append(nuc)
+                nonsyn_alt_nucs = set(self.nucl_order).difference(syn_alt_nucs)
+                for alt_nuc in nonsyn_alt_nucs:
+                    sbs12_freqs["nonsyn"][sbs12_pattern.format(alt_nuc)] += 1
+                    sbs192_freqs["nonsyn"][sbs192_pattern.format(alt_nuc)] += 1
+
             for alt_nuc in self.nucl_order:
                 if alt_nuc == nuc:
                     continue
+                cur_sbs12  = sbs12_pattern.format(alt_nuc)
+                cur_sbs192 = sbs192_pattern.format(alt_nuc)
+
                 if "all" in labels:
-                    sbs12_freqs["all"][sbs12_pattern.format(alt_nuc)] += 1
-                    sbs192_freqs["all"][sbs192_pattern.format(alt_nuc)] += 1
+                    sbs12_freqs["all"][cur_sbs12] += 1
+                    sbs192_freqs["all"][cur_sbs192] += 1
                 if "pos3" in labels and pic == 2:
-                    sbs12_freqs["pos3"][sbs12_pattern.format(alt_nuc)] += 1
-                    sbs192_freqs["pos3"][sbs192_pattern.format(alt_nuc)] += 1
+                    sbs12_freqs["pos3"][cur_sbs12] += 1
+                    sbs192_freqs["pos3"][cur_sbs192] += 1
                 if "ff" in labels and pic == 2 and self.is_fourfold(cdn):
-                    sbs12_freqs["ff"][sbs12_pattern.format(alt_nuc)] += 1
-                    sbs192_freqs["ff"][sbs192_pattern.format(alt_nuc)] += 1
+                    sbs12_freqs["ff"][cur_sbs12] += 1
+                    sbs192_freqs["ff"][cur_sbs192] += 1
+                if "syn_c" in labels and len(syn_codons) > 0:
+                    sbs12_freqs["syn_c"][cur_sbs12] += 1
+                    sbs192_freqs["syn_c"][cur_sbs192] += 1
 
         return sbs12_freqs, sbs192_freqs
 
@@ -281,6 +291,8 @@ class CodonAnnotation:
         if mask is not None and len(mask) != n:
             raise ValueError("Mask must have same lenght as cds")
 
+        assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
+
         labels = set(labels)
         data = []
         for pos in range(1, n - 1):
@@ -293,47 +305,55 @@ class CodonAnnotation:
             cxt = cds[pos - 1: pos + 2]
             cxt = cxt if isinstance(cxt, str) else "".join(cxt)
             sbs192_pattern = cxt[0] + "[" + nuc + ">{}]" + cxt[-1]
+            syn_codons = self.get_syn_codons(cdn, pic)
 
-            if ("syn" in labels or "syn_c" in labels) and len(cdn) == 3:
-                syn_codons = self.get_syn_codons(cdn, pic)
-                if "syn" in labels:
-                    for alt_cdn in syn_codons:
-                        alt_nuc = alt_cdn[pic]
-                        data.append({
-                            "Pos": pos + 1, "Pic": pic + 1,
-                            "Mut": sbs192_pattern.format(alt_nuc),
-                            "Cdn": cdn, "Label": "syn",
-                        })
-                if "syn_c" in labels and len(syn_codons) > 0:
-                    for alt_nuc in self.nucl_order:
-                        if alt_nuc == nuc:
-                            continue
-                        data.append({
-                            "Pos": pos + 1, "Pic": pic + 1,
-                            "Mut": sbs192_pattern.format(alt_nuc),
-                            "Cdn": cdn, "Label": "syn_c",
-                        })
+            if "syn" in labels:
+                for alt_cdn in syn_codons:
+                    alt_nuc = alt_cdn[pic]
+                    data.append({
+                        "Pos": pos + 1, "Pic": pic + 1,
+                        "Mut": sbs192_pattern.format(alt_nuc),
+                        "Cdn": cdn, "Label": "syn",
+                    })
+            if "nonsyn" in labels:
+                syn_alt_nucs = [cdn[pic] for cdn in syn_codons]
+                syn_alt_nucs.append(nuc)
+                nonsyn_alt_nucs = set(self.nucl_order).difference(syn_alt_nucs)
+                for alt_nuc in nonsyn_alt_nucs:
+                    data.append({
+                        "Pos": pos + 1, "Pic": pic + 1,
+                        "Mut": sbs192_pattern.format(alt_nuc),
+                        "Cdn": cdn, "Label": "nonsyn",
+                    })
 
             for alt_nuc in self.nucl_order:
                 if alt_nuc == nuc:
                     continue
+                cur_sbs192 = sbs192_pattern.format(alt_nuc)
+
                 if "all" in labels:
                     data.append({
                         "Pos": pos + 1, "Pic": pic + 1,
-                        "Mut": sbs192_pattern.format(alt_nuc),
+                        "Mut": cur_sbs192,
                         "Cdn": cdn, "Label": "all",
                     })
                 if "pos3" in labels and pic == 2:
                     data.append({
                         "Pos": pos + 1, "Pic": pic + 1,
-                        "Mut": sbs192_pattern.format(alt_nuc),
+                        "Mut": cur_sbs192,
                         "Cdn": cdn, "Label": "pos3",
                     })
                 if "ff" in labels and pic == 2 and self.is_fourfold(cdn):
                     data.append({
                         "Pos": pos + 1, "Pic": pic + 1,
-                        "Mut": sbs192_pattern.format(alt_nuc),
+                        "Mut": cur_sbs192,
                         "Cdn": cdn, "Label": "syn4f",
+                    })
+                if "syn_c" in labels and len(syn_codons) > 0:
+                    data.append({
+                        "Pos": pos + 1, "Pic": pic + 1,
+                        "Mut": cur_sbs192,
+                        "Cdn": cdn, "Label": "syn_c",
                     })
 
         exp_sbs = pd.DataFrame(data)
@@ -432,34 +452,39 @@ class CodonAnnotation:
                 nuc = cxt[1]
                 sbs12_pattern = nuc + ">" + "{}"
                 sbs192_pattern = cxt[0] + "[" + nuc + ">{}]" + cxt[-1]
+                syn_codons = self.get_syn_codons(cdn, pic)
 
-                if ("syn" in labels or "syn_c" in labels) and len(cdn) == 3:
-                    syn_codons = self.get_syn_codons(cdn, pic)
-                    if "syn" in labels:
-                        for alt_cdn in syn_codons:
-                            alt_nuc = alt_cdn[pic]
-                            sbs12_freqs["syn"][sbs12_pattern.format(alt_nuc)] += p_adj
-                            sbs192_freqs["syn"][sbs192_pattern.format(alt_nuc)] += p_adj
-                    if "syn_c" in labels and len(syn_codons) > 0:
-                        for alt_nuc in self.nucl_order:
-                            sbs12_freqs["syn_c"][sbs12_pattern.format(alt_nuc)] += p_adj
-                            sbs192_freqs["syn_c"][sbs192_pattern.format(alt_nuc)] += p_adj
+                if "syn" in labels:
+                    for alt_cdn in syn_codons:
+                        alt_nuc = alt_cdn[pic]
+                        sbs12_freqs["syn"][sbs12_pattern.format(alt_nuc)] += p_adj
+                        sbs192_freqs["syn"][sbs192_pattern.format(alt_nuc)] += p_adj
+                if "nonsyn" in labels:
+                    syn_alt_nucs = [cdn[pic] for cdn in syn_codons]
+                    syn_alt_nucs.append(nuc)
+                    nonsyn_alt_nucs = set(self.nucl_order).difference(syn_alt_nucs)
+                    for alt_nuc in nonsyn_alt_nucs:
+                        sbs12_freqs["nonsyn"][sbs12_pattern.format(alt_nuc)] += p_adj
+                        sbs192_freqs["nonsyn"][sbs192_pattern.format(alt_nuc)] += p_adj
 
                 for alt_nuc in self.nucl_order:
                     if alt_nuc == nuc:
                         continue
+                    cur_sbs12  = sbs12_pattern.format(alt_nuc)
+                    cur_sbs192 = sbs192_pattern.format(alt_nuc)
+
                     if "all" in labels:
-                        sbs12_freqs["all"][sbs12_pattern.format(alt_nuc)] += p_adj
-                        sbs192_freqs["all"][sbs192_pattern.format(alt_nuc)] += p_adj
+                        sbs12_freqs["all"][cur_sbs12] += p_adj
+                        sbs192_freqs["all"][cur_sbs192] += p_adj
                     if "pos3" in labels and pic == 2:
-                        sbs12_freqs["pos3"][sbs12_pattern.format(alt_nuc)] += p_adj
-                        sbs192_freqs["pos3"][sbs192_pattern.format(alt_nuc)] += p_adj
+                        sbs12_freqs["pos3"][cur_sbs12] += p_adj
+                        sbs192_freqs["pos3"][cur_sbs192] += p_adj
                     if "ff" in labels and pic == 2 and self.is_fourfold(cdn):
-                        sbs12_freqs["ff"][sbs12_pattern.format(alt_nuc)] += p_adj
-                        sbs192_freqs["ff"][sbs192_pattern.format(alt_nuc)] += p_adj
-                    if "nonsyn" in labels:
-                        ...
-                        
+                        sbs12_freqs["ff"][cur_sbs12] += p_adj
+                        sbs192_freqs["ff"][cur_sbs192] += p_adj
+                    if "syn_c" in labels and len(syn_codons) > 0:
+                        sbs12_freqs["syn_c"][cur_sbs12] += p_adj
+                        sbs192_freqs["syn_c"][cur_sbs192] += p_adj
                         
         return sbs12_freqs, sbs192_freqs
 
@@ -491,54 +516,62 @@ class CodonAnnotation:
                 p_adj = p * phylocoef  # adjusted probability
                 nuc = cxt[1]
                 sbs192_pattern = cxt[0] + "[" + nuc + ">{}]" + cxt[-1]
+                syn_codons = self.get_syn_codons(cdn, pic)
 
-                if ("syn" in labels or "syn_c" in labels) and len(cdn) == 3:
-                    syn_codons = self.get_syn_codons(cdn, pic)
-                    if "syn" in labels:
-                        for alt_cdn in syn_codons:
-                            alt_nuc = alt_cdn[pic]
-                            data.append({
-                                "Pos": pos + 1, "Pic": pic + 1,
-                                "Mut": sbs192_pattern.format(alt_nuc),
-                                "Cdn": cdn, "Label": "syn",
-                                "Proba": p_adj,
-                            })
-                    if "syn_c" in labels and len(syn_codons) > 0:
-                        for alt_nuc in self.nucl_order:
-                            if alt_nuc == nuc:
-                                continue
-                            data.append({
-                                "Pos": pos + 1, "Pic": pic + 1,
-                                "Mut": sbs192_pattern.format(alt_nuc),
-                                "Cdn": cdn, "Label": "syn_c",
-                                "Proba": p_adj,
-                            })
+                if "syn" in labels:
+                    for alt_cdn in syn_codons:
+                        alt_nuc = alt_cdn[pic]
+                        data.append({
+                            "Pos": pos + 1, "Pic": pic + 1,
+                            "Mut": sbs192_pattern.format(alt_nuc),
+                            "Cdn": cdn, "Label": "syn",
+                            "Proba": p_adj,
+                        })
+                if "nonsyn" in labels:
+                    syn_alt_nucs = [cdn[pic] for cdn in syn_codons]
+                    syn_alt_nucs.append(nuc)
+                    nonsyn_alt_nucs = set(self.nucl_order).difference(syn_alt_nucs)
+                    for alt_nuc in nonsyn_alt_nucs:
+                        data.append({
+                            "Pos": pos + 1, "Pic": pic + 1,
+                            "Mut": sbs192_pattern.format(alt_nuc),
+                            "Cdn": cdn, "Label": "nonsyn",
+                            "Proba": p_adj,
+                        })
 
                 for alt_nuc in self.nucl_order:
                     if alt_nuc == nuc:
                         continue
+                    cur_sbs192 = sbs192_pattern.format(alt_nuc)
+
                     if "all" in labels:
                         data.append({
                             "Pos": pos + 1, "Pic": pic + 1,
-                            "Mut": sbs192_pattern.format(alt_nuc),
+                            "Mut": cur_sbs192,
                             "Cdn": cdn, "Label": "all",
                             "Proba": p_adj,
                         })
                     if "pos3" in labels and pic == 2:
                         data.append({
                             "Pos": pos + 1, "Pic": pic + 1,
-                            "Mut": sbs192_pattern.format(alt_nuc),
+                            "Mut": cur_sbs192,
                             "Cdn": cdn, "Label": "pos3",
                             "Proba": p_adj,
                         })
                     if "ff" in labels and pic == 2 and self.is_fourfold(cdn):
                         data.append({
                             "Pos": pos + 1, "Pic": pic + 1,
-                            "Mut": sbs192_pattern.format(alt_nuc),
+                            "Mut": cur_sbs192,
                             "Cdn": cdn, "Label": "syn4f",
                             "Proba": p_adj,
                         })
-
+                    if "syn_c" in labels and len(syn_codons) > 0:
+                        data.append({
+                            "Pos": pos + 1, "Pic": pic + 1,
+                            "Mut": sbs192_pattern.format(alt_nuc),
+                            "Cdn": cdn, "Label": "syn_c",
+                            "Proba": p_adj,
+                        })
         exp_sbs = pd.DataFrame(data)
         return exp_sbs
 

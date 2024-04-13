@@ -219,7 +219,8 @@ class GenesStates:
                 #         gene_states = gene_df.State.values
                 #     node2genome[node][part] = gene_states
         else:
-            raise NotImplementedError
+
+            raise NotImplementedError('path_to_states must be list of paths or pd.DataFrame')
         
         self.node2genome = node2genome
         self.nodes = set(node2genome.keys())

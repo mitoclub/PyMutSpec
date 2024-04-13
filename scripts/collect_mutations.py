@@ -197,13 +197,19 @@ class MutSpec(CodonAnnotation, GenesStates):
                 # calculate gene mutational spectra if there are at least 2 genes
                 if self.derive_spectra and len(ref_genome) > 1:
                     for lbl in self.mut_labels:
-                        lbl_id = lbl2lbl_id("syn" if lbl == "syn_c" else lbl)
-
-                        mutspec12 = calculate_mutspec(
-                            gene_mut_df[gene_mut_df.Label >= lbl_id], gene_exp_sbs12[lbl], 
-                            use_context=False, use_proba=self.use_proba, 
-                            fill_unobserved=False,
-                        )
+                        if lbl == 'nonsyn':
+                            mutspec12 = calculate_mutspec(
+                                gene_mut_df[gene_mut_df.Label == 0], gene_exp_sbs12[lbl], 
+                                use_context=False, use_proba=self.use_proba, 
+                                fill_unobserved=False,
+                            )
+                        else:
+                            lbl_id = lbl2lbl_id(lbl)
+                            mutspec12 = calculate_mutspec(
+                                gene_mut_df[gene_mut_df.Label >= lbl_id], gene_exp_sbs12[lbl], 
+                                use_context=False, use_proba=self.use_proba, 
+                                fill_unobserved=False,
+                            )
                         mutspec12["AltNode"] = alt_node.name
                         mutspec12["Label"] = lbl
                         mutspec12["Gene"]  = gene
@@ -212,11 +218,18 @@ class MutSpec(CodonAnnotation, GenesStates):
                         add_header["ms12g"] = False
 
                         if gene_mut_df.Mut.nunique() >= self.mnum192:
-                            mutspec192 = calculate_mutspec(
-                                gene_mut_df[gene_mut_df.Label >= lbl_id], gene_exp_sbs192[lbl], 
-                                use_context=True, use_proba=self.use_proba, 
-                                fill_unobserved=False,
-                            )
+                            if lbl == 'nonsyn':
+                                mutspec192 = calculate_mutspec(
+                                    gene_mut_df[gene_mut_df.Label == 0], gene_exp_sbs192[lbl], 
+                                    use_context=True, use_proba=self.use_proba, 
+                                    fill_unobserved=False,
+                                )
+                            else:
+                                mutspec192 = calculate_mutspec(
+                                    gene_mut_df[gene_mut_df.Label >= lbl_id], gene_exp_sbs192[lbl], 
+                                    use_context=True, use_proba=self.use_proba, 
+                                    fill_unobserved=False,
+                                )
                             mutspec192["RefNode"] = ref_node.name
                             mutspec192["AltNode"] = alt_node.name
                             mutspec192["Label"] = lbl
@@ -247,21 +260,32 @@ class MutSpec(CodonAnnotation, GenesStates):
             # calculate full genome mutational spectra for all labels
             if self.derive_spectra:
                 for lbl in self.mut_labels:
-                    lbl_id = lbl2lbl_id("syn" if lbl == "syn_c" else lbl)
-
-                    mutspec12 = calculate_mutspec(
-                        genome_mutations_df[genome_mutations_df.Label >= lbl_id],
-                        genome_nucl_freqs[lbl], use_context=False, use_proba=self.use_proba,
-                        fill_unobserved=False,
-                    )
+                    if lbl == 'nonsyn':
+                        mutspec12 = calculate_mutspec(
+                            genome_mutations_df[genome_mutations_df.Label == 0],
+                            genome_nucl_freqs[lbl], use_context=False, use_proba=self.use_proba,
+                            fill_unobserved=False,
+                        )
+                        mutspec192 = calculate_mutspec(
+                            genome_mutations_df[genome_mutations_df.Label == 0],
+                            genome_cxt_freqs[lbl], use_context=True, use_proba=self.use_proba,
+                            fill_unobserved=False,
+                        )
+                    else:
+                        lbl_id = lbl2lbl_id(lbl)
+                        mutspec12 = calculate_mutspec(
+                            genome_mutations_df[genome_mutations_df.Label >= lbl_id],
+                            genome_nucl_freqs[lbl], use_context=False, use_proba=self.use_proba,
+                            fill_unobserved=False,
+                        )
+                        mutspec192 = calculate_mutspec(
+                            genome_mutations_df[genome_mutations_df.Label >= lbl_id],
+                            genome_cxt_freqs[lbl], use_context=True, use_proba=self.use_proba,
+                            fill_unobserved=False,
+                        )
                     mutspec12["RefNode"] = ref_node.name
                     mutspec12["AltNode"] = alt_node.name
                     mutspec12["Label"] = lbl
-                    mutspec192 = calculate_mutspec(
-                        genome_mutations_df[genome_mutations_df.Label >= lbl_id],
-                        genome_cxt_freqs[lbl], use_context=True, use_proba=self.use_proba,
-                        fill_unobserved=False,
-                    )
                     mutspec192["RefNode"] = ref_node.name
                     mutspec192["AltNode"] = alt_node.name
                     mutspec192["Label"] = lbl

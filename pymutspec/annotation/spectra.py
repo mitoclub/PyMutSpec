@@ -16,6 +16,9 @@ def calculate_mutspec(
     use_proba: bool = False,
     verbose=False,
     fill_unobserved=True,
+    drop_underrepresented=True,
+    nobs_min=0.9,
+    nexp_min=0.9,
 ):
     """
     Calculate mutational spectra for mutations dataframe and states frequencies of reference genome
@@ -40,6 +43,14 @@ def calculate_mutspec(
         To use probabilities of mutations or not. Usefull if you have such probabiliies
     verbose: bool
         Show warning messages or not
+    fill_unobserved: bool
+        Fill table with mutation types that didn't observed
+    drop_underrepresented: bool
+        Drop underrepresented mutation types from spectrum according to `nobs_min` and `nexp_min`
+    nobs_min: float/int
+        Minimal number of observed mutations for each mutation type
+    nexp_min: float/int
+        Minimal number of expected mutations for each mutation type
 
     Return
     -------
@@ -86,6 +97,10 @@ def calculate_mutspec(
     mutspec["MutSpec"] = np.where(mutspec["MutSpec"] == np.inf, 0, mutspec.MutSpec)
     mutspec["MutSpec"] = mutspec["MutSpec"] / mutspec["MutSpec"].sum()
     assert np.isclose(mutspec.ObsNum.sum(), mut.ProbaFull.sum())
+
+    if drop_underrepresented:
+        mutspec = mutspec[(mutspec["ExpNum"] > nexp_min) & (mutspec["ObsNum"] > nobs_min)]
+
     return mutspec
 
 
