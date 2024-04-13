@@ -4,8 +4,10 @@ from typing import Set, Union, Dict, Iterable
 import numpy as np
 import pandas as pd
 
-from pymutspec.constants import possible_sbs12_set, possible_sbs192_set, possible_sbs192, possible_sbs12
-from .mut import CodonAnnotation
+from pymutspec.constants import (
+    possible_sbs12_set, possible_sbs192_set, 
+    possible_sbs192, possible_sbs12
+)
 from .auxiliary import rev_comp
 
 
@@ -14,11 +16,12 @@ def calculate_mutspec(
     exp_muts: Dict[str, float],
     use_context: bool = False,
     use_proba: bool = False,
-    verbose=False,
+    scale=True,
     fill_unobserved=True,
     drop_underrepresented=True,
     nobs_min=0.9,
     nexp_min=0.9,
+    verbose=False,
 ):
     """
     Calculate mutational spectra for mutations dataframe and states frequencies of reference genome
@@ -41,8 +44,8 @@ def calculate_mutspec(
         To use trinucleotide context or not, in other words calculate 192 component mutspec
     use_proba: bool
         To use probabilities of mutations or not. Usefull if you have such probabiliies
-    verbose: bool
-        Show warning messages or not
+    scale: bool
+        Scale spectrum vector (divide by sum)
     fill_unobserved: bool
         Fill table with mutation types that didn't observed
     drop_underrepresented: bool
@@ -51,6 +54,8 @@ def calculate_mutspec(
         Minimal number of observed mutations for each mutation type
     nexp_min: float/int
         Minimal number of expected mutations for each mutation type
+    verbose: bool
+        Show warning messages
 
     Return
     -------
@@ -93,13 +98,15 @@ def calculate_mutspec(
     mutspec["MutSpec"] = (mutspec["ObsNum"] / mutspec["ExpNum"]).fillna(0)
     if verbose:
         msg = mutspec[mutspec["MutSpec"] == np.inf]
-        print(f"WARNING! Following substitutions are unexpected but observed:\n{msg}", file=stderr)
-    mutspec["MutSpec"] = np.where(mutspec["MutSpec"] == np.inf, 0, mutspec.MutSpec)
-    mutspec["MutSpec"] = mutspec["MutSpec"] / mutspec["MutSpec"].sum()
-    assert np.isclose(mutspec.ObsNum.sum(), mut.ProbaFull.sum())
-
+        if len(msg) > 0:
+            print(f"WARNING! Following substitutions are unexpected but observed:\n{msg}", file=stderr)
+    
+    mutspec.loc[mutspec["MutSpec"] == np.inf, "MutSpec"] = 0
+    
     if drop_underrepresented:
-        mutspec = mutspec[(mutspec["ExpNum"] > nexp_min) & (mutspec["ObsNum"] > nobs_min)]
+        mutspec.loc[(mutspec["ObsNum"] < nobs_min) | (mutspec.ExpNum < nexp_min), "MutSpec"] = 0.
+    if scale:
+        mutspec["MutSpec"] = mutspec["MutSpec"] / mutspec["MutSpec"].sum()
 
     return mutspec
 
@@ -123,7 +130,7 @@ def collapse_mutspec(ms192: pd.DataFrame):
 def complete_sbs192_columns(df: pd.DataFrame):
     df = df.copy()
     if len(df.columns) != 192:
-        for sbs192 in set(possible_sbs192).difference(df.columns.values):
+        for sbs192 in possible_sbs192_set.difference(df.columns.values):
             df[sbs192] = 0.
     df = df[possible_sbs192]
     return df

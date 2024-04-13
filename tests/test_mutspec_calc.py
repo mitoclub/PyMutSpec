@@ -10,16 +10,16 @@ from pymutspec.constants import possible_sbs12, possible_sbs192
 @pytest.fixture
 def mut():
     data = [
-        [0, "A[A>T]G", 0.13],
-        [1, "C[C>G]T", 0.06],
-        [2, "G[C>T]C", 0.62],
-        [0, "C[C>G]A", 0.83],
-        [1, "T[A>G]C", 0.37],
-        [0, "G[G>T]G", 0.01],
+        [0, "A[A>T]G", 0.93],
+        [1, "C[C>G]T", 0.86],
+        [2, "G[C>T]C", 0.42],
+        [0, "C[C>G]A", 0.63],
+        [1, "T[A>G]C", 0.97],
+        [0, "G[G>T]G", 0.41],
         [2, "A[C>T]A", 0.91],
-        [1, "T[C>A]C", 0.27],
-        [0, "C[T>A]T", 0.45],
-        [2, "T[G>T]G", 0.99],
+        [1, "T[C>A]C", 0.57],
+        [0, "C[T>A]T", 0.65],
+        [2, "T[G>T]G", 0.39],
     ]
     mut = pd.DataFrame(data, columns=["Label", "Mut", "ProbaFull"])
     return mut
@@ -46,6 +46,7 @@ def cxt_freqs():
 @pytest.mark.parametrize("use_proba", [False, True])
 @pytest.mark.parametrize("lbl_id", [0, 1, 2])
 def test_ms12_calc(mut, nucl_freqs, use_proba, lbl_id):
+    """test only RawMutSpec values"""
     if lbl_id == 0:
         lbl = "all"
     elif lbl_id == 1:
@@ -69,6 +70,7 @@ def test_ms12_calc(mut, nucl_freqs, use_proba, lbl_id):
 @pytest.mark.parametrize("use_proba", [True, False])
 @pytest.mark.parametrize("lbl_id", [0, 1, 2])
 def test_ms192_calc(mut, cxt_freqs, use_proba, lbl_id):
+    """test only RawMutSpec values"""
     if lbl_id == 0:
         lbl = "all"
     elif lbl_id == 1:
@@ -76,8 +78,10 @@ def test_ms192_calc(mut, cxt_freqs, use_proba, lbl_id):
     elif lbl_id == 2:
         lbl = "ff"
     cur_mut = mut[(mut.Label >= lbl_id)]
-    ms = calculate_mutspec(cur_mut, cxt_freqs[lbl], use_context=True, use_proba=use_proba)
-    for sbs in possible_sbs192:
+    ms = calculate_mutspec(cur_mut, cxt_freqs[lbl], use_context=True, 
+                           use_proba=use_proba, fill_unobserved=False)
+    
+    for sbs in mut['Mut'].unique():
         cxt = sbs[0] + sbs[2] + sbs[-1]
         divisor = cxt_freqs[lbl].get(cxt, 0)
         if divisor == 0:
