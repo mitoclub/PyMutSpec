@@ -332,6 +332,7 @@ class MutSpec(CodonAnnotation, GenesStates):
 @click.option("--syn",   is_flag=True, default=False, help="Process synonymous mutations (expectations will be calculated using possible syn mutations counts)")
 @click.option("--syn_c", is_flag=True, default=False, help="Process synonymous mutations (expectations will be calculated using possible syn mutations context counts)")
 @click.option("--syn4f", is_flag=True, default=False, help="Process synonymous fourfold mutations")
+@click.option("--nonsyn", is_flag=True, default=False, help="Process non-synonymous mutations")
 @click.option("--proba", is_flag=True, default=False, help="Use states probabilities while mutations collecting")
 @click.option("--pcutoff", "proba_cutoff", default=0.05, show_default=True, type=float, help="Cutoff for mutations probability, low-probability mutations don't used")
 @click.option("--phylocoef/--no-phylocoef", is_flag=True, default=True, show_default=True, help="Use or don't use phylogenetic uncertainty coefficient. Considered only with --proba")
@@ -348,7 +349,7 @@ class MutSpec(CodonAnnotation, GenesStates):
 @click.option("--log-config", default=None, type=click.Path(True), help="Path to log-config file")
 def main(
         path_to_tree, path_to_states, outdir, 
-        gencode, syn, syn_c ,syn4f, proba, proba_cutoff,
+        gencode, syn, syn_c ,syn4f, nonsyn, proba, proba_cutoff,
         write_db, path_to_db, rewrite_db, states_fmt,
         phylocoef, mnum192, no_spectra, save_exp_muts, 
         path_to_rates, cat_cutoff,
@@ -381,7 +382,7 @@ def main(
         path_to_tree, path_to_states, outdir, gcode=gencode, 
         db_mode=db_mode, path_to_db=path_to_db, rewrite_db=rewrite_db, states_fmt=states_fmt,
         use_proba=proba, proba_cutoff=proba_cutoff, use_phylocoef=phylocoef,
-        syn=syn, syn_c=syn_c, syn4f=syn4f, derive_spectra=derive_spectra, 
+        syn=syn, syn_c=syn_c, syn4f=syn4f, nonsyn=nonsyn, derive_spectra=derive_spectra, 
         path_to_rates=path_to_rates, cat_cutoff=cat_cutoff, 
         save_exp_muts=save_exp_muts, mnum192=mnum192,
     ).extract_mutspec_from_tree()

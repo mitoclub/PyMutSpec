@@ -38,6 +38,7 @@ def dump_expected(exp, path):
                                                       "default if not specified at least one of --all, --syn, --syn4f")
 @click.option('--syn', is_flag=True, help="Calculate and plot spectra for synonymous mutations")
 @click.option('--syn4f', is_flag=True, help="Calculate and plot spectra for synonymous mutations in fourfols positions")
+@click.option('--nonsyn', is_flag=True, help="Calculate and plot spectra for non-synonymous mutations")
 @click.option('--mnum192', type=click.IntRange(0, 192), default=16, show_default=True, help="Number of mutation types (maximum 192) required to calculate and plot 192-component mutational spectra")
 @click.option('--substract12', "path_to_substract12",   type=click.Path(True), default=None, help="Mutational spectrum that will be substracted from calculated spectra 12 component")
 @click.option('--substract192', "path_to_substract192", type=click.Path(True), default=None, help="Mutational spectrum that will be substracted from calculated spectra 192 component")
@@ -46,9 +47,11 @@ def dump_expected(exp, path):
 @click.option('--plot', is_flag=True, help="Plot spectra plots")
 @click.option("-x", '--ext', "image_extension", default="pdf", show_default=True, type=click.Choice(['pdf', 'png', 'jpg'], case_sensitive=False), help="Images format to save")
 def main(
-    path_to_obs, path_to_exp, outdir, label, use_proba, proba_min, proba_cutoff, exclude, 
-    all_muts, syn, syn4f, mnum192, path_to_substract12, path_to_substract192, 
-    branches, subset, plot, image_extension,
+        path_to_obs, path_to_exp, outdir, label, 
+        use_proba, proba_min, proba_cutoff, exclude, 
+        all_muts, syn, syn4f, nonsyn, mnum192, 
+        path_to_substract12, path_to_substract192, 
+        branches, subset, plot, image_extension,
     ):
     proba_cutoff = proba_cutoff or proba_min
 
@@ -65,6 +68,9 @@ def main(
     if syn4f:
         lbl_ids.append(2)
         lbls.append("ff")
+    if nonsyn:
+        lbl_ids.append(None) # ???
+        lbls.append("nonsyn")
     if len(lbls) == 0:
         lbl_ids, lbls = [0], ["all"]
 
@@ -120,11 +126,12 @@ def main(
         obs = obs[(obs.ProbaFull > proba_cutoff)]
 
     for lbl_id, lbl in zip(lbl_ids, lbls):
-        cur_obs = obs[obs.Label >= lbl_id]
-        if not cur_obs.shape[0]:
-            continue
+        if lbl == "nonsyn":
+            cur_obs = obs[obs.Label == 0]
+        else:
+            cur_obs = obs[obs.Label >= lbl_id]
 
-        if lbl not in exp_mean.index:
+        if not cur_obs.shape[0] or lbl not in exp_mean.index:
             continue
 
         cur_exp = exp_mean.loc[lbl].to_dict()
