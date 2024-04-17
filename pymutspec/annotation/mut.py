@@ -152,6 +152,7 @@ class CodonAnnotation:
         n, m = len(g1), len(g2)
         assert n == m, f"genomes lengths are not equal: {n} != {m}"
         assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
+        nucleotides = set("ACGTacgt")
 
         mutations = []
         # pass initial codon and last nucleotide without right context
@@ -173,8 +174,8 @@ class CodonAnnotation:
                 continue
             if sum([cdn1[_] == cdn2[_] for _ in range(3)]) != 2:
                 continue
-            if len(set(g1[pos - 2: pos + 3]).union(g2[pos - 2: pos + 3]) - set(self.nucl_order)) != 0:
-                continue  # pentanucleotide context must contain only explicit nucleotides
+            if len(set(g1[pos -1: pos + 2]).union(g2[pos - 1: pos + 2]) - nucleotides) != 0:
+                continue  # trinucleotide context must contain only explicit nucleotides
 
             label, aa1, aa2 = self.get_mut_type(cdn1_str, cdn2_str, pic)
             sbs = {
