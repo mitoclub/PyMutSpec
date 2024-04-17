@@ -241,7 +241,7 @@ class MutSpec(CodonAnnotation, GenesStates):
             visited_nodes.add(ref_node.name)
             
             if len(genome_mutations) == 0:
-                logger.info(f"0.00 mutations from {ei:03} branch ({ref_node.name} - {alt_node.name})")
+                logger.info(f"0.00 mutations from branch {ei:03} ({ref_node.name} - {alt_node.name})")
                 continue
 
             genome_mutations_df = pd.concat(genome_mutations)

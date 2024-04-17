@@ -14,9 +14,15 @@ def is_coded(aln):
     return ncoded == len(aln) - 1 and noutgrp == 1
 
 
+def is_outgroup(header: str, outgroup: str):
+    is_equal = header == outgroup
+    is_substring = outgroup in header
+    return is_equal or is_substring
+
+
 @click.command("Fasta header coder", help="")
 @click.option("-a", "--alignment", type=click.Path(True), help="Fasta nucleotide alignment")
-@click.option("-g", "--outgroup", help="Outrgoup header name")
+@click.option("-g", "--outgroup", help="Outrgoup header. Can be substring of header")
 @click.option("-o", "--outfile", type=click.Path(writable=True), help="Output fasta file with coded headers")
 @click.option("-m", "--outmap", type=click.Path(writable=True), help="Mapping of headers to coders (txt)")
 def main(alignment, outgroup, outfile, outmap):
@@ -28,7 +34,7 @@ def main(alignment, outgroup, outfile, outmap):
         sp_map = dict()
         for i, rec in enumerate(aln, 1):
             header = rec.description
-            coded_header = "OUTGRP" if header == outgroup else "RN_{}".format(i)
+            coded_header = "OUTGRP" if is_outgroup(header, outgroup) else "RN_{}".format(i)
             sp_map[coded_header] = header
 
             rec.id = coded_header
