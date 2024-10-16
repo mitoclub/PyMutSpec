@@ -111,6 +111,49 @@ def calculate_mutspec(
     return mutspec
 
 
+def sample_spectrum(obs_df: pd.DataFrame, exp_freqs, 
+                    use_proba=True, use_context=False,
+                    frac=0.5, nreplics=100):
+    """
+    Sample half of branches and calculate spectrum
+    """
+    samples = []    
+    for _ in range(nreplics):
+        obs_smpl = obs_df.groupby('AltNode').sample(frac=frac, replace=False)
+        one_spectrum = calculate_mutspec(obs_smpl, exp_freqs, use_context=use_context, 
+                                 use_proba=use_proba, drop_underrepresented=False)
+        samples.append(one_spectrum)
+
+    sampled = pd.concat(samples)
+
+    quartiles = sampled.groupby('Mut')['MutSpec'].quantile([0.05, 0.5, 0.95]).unstack().rename(
+        columns={0.05: "MutSpec_q05", 0.5: "MutSpec_median", 0.95: "MutSpec_q95"})
+    return quartiles
+    
+
+def _get_iqr_bounds(series: pd.Series):
+    "function calculates Interquartile range (IQR) for outliers filtrtation"
+    q1 = series.quantile(0.25)
+    q3 = series.quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
+    return lower_bound, upper_bound
+
+
+def filter_outlier_branches(obs_df: pd.DataFrame, use_proba=True):
+    if use_proba:
+        edge_nobs = obs_df.groupby('AltNode')['ProbaMut'].sum()
+    else:
+        edge_nobs = obs_df.groupby('AltNode')['Mut'].count()
+
+    _, upper_bound = _get_iqr_bounds(edge_nobs)
+    edge_nobs_flt = edge_nobs[edge_nobs < upper_bound]
+    selected_branches = edge_nobs_flt.index
+    obs_df_flt = obs_df[obs_df['AltNode'].isin(selected_branches)]
+    return obs_df_flt
+
+
 def collapse_mutspec(ms192: pd.DataFrame):
     assert ms192.shape[0] == 192
     for c in ["Mut", "ObsFr", "ExpFr"]:

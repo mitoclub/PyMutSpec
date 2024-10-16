@@ -61,3 +61,9 @@ plot_mutspec192(spectra192)
 
 1. [IQ-Tree2](http://www.iqtree.org/) - efficient software for phylogenomic inference
 2. [Genetic codes](https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi?chapter=tgencodes#SG1)
+
+## How to cite?
+
+```text
+Bogdan Efimenko, Konstantin Popadin, Konstantin Gunbin, NeMu: a comprehensive pipeline for accurate reconstruction of neutral mutation spectra from evolutionary data, Nucleic Acids Research, Volume 52, Issue W1, 5 July 2024, Pages W108–W115, https://doi.org/10.1093/nar/gkae438
+```

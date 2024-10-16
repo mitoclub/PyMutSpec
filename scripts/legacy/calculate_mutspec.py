@@ -7,7 +7,7 @@ from functools import partial
 import click
 import pandas as pd
 
-from pymutspec.annotation import calculate_mutspec, filter_outlier_branches, sample_spectrum
+from pymutspec.annotation import calculate_mutspec
 from pymutspec.constants import possible_sbs12, possible_sbs192
 from pymutspec.draw import plot_mutspec12, plot_mutspec192
 
@@ -115,18 +115,15 @@ def main(
     else:
         raise RuntimeError("Expected another columns in the table {}".format(path_to_exp))
     
+    plot_mutspec12_func = partial(plot_mutspec12, style="box")
+    if "Replica" not in obs.columns:
+        obs["Replica"] = 1
+        plot_mutspec12_func = partial(plot_mutspec12, style="bar")
+    if substract12 is not None:
+        plot_mutspec12_func = partial(plot_mutspec12, style="bar")
+
     if use_proba:
         obs = obs[(obs.ProbaFull > proba_cutoff)]
-        print(f'Observed {obs.ProbaFull.sum():.2f} mutations')
-    else:
-        print(f'Observed {obs.shape[0]} mutations')
-    
-    # filter branches that have too many mutations (outliers)
-    obs = filter_outlier_branches(obs, use_proba)
-    if use_proba:
-        print(f'After filtration observed {obs.ProbaFull.sum():.2f} mutations')
-    else:
-        print(f'After filtration observed {obs.shape[0]} mutations')
 
     for lbl_id, lbl in zip(lbl_ids, lbls):
         if lbl == "nonsyn":
@@ -139,33 +136,44 @@ def main(
 
         cur_exp = exp_mean.loc[lbl].to_dict()
 
-        ms12_simple = calculate_mutspec(cur_obs, cur_exp, use_context=False, use_proba=use_proba)
-        ms12_quartiles = sample_spectrum(cur_obs, cur_exp, use_context=False, use_proba=use_proba)
-        ms12 = ms12_simple.merge(ms12_quartiles, "left", right_index=True, left_on='Mut')
-        # TODO check save_tsv func
-        save_tsv(ms12, path_to_ms12.format(lbl, label))
-        if plot:
-            if substract12 is None:
-                # TODO modify according to quartiles
-                plot_mutspec12(
-                    ms12, 
-                    title=f"{lbl} mutational spectrum", 
-                    savepath=path_to_ms12plot.format(lbl, label, image_extension), 
-                    show=False,
-                )
-            else:
-                ms12 = ms12.rename(columns={"MutSpec": "MutSpec_exp"})\
-                    .merge(substract12.rename(columns={"MutSpec": "MutSpec_obs"})[["Mut", "MutSpec_obs"]], on="Mut")
-                ms12["MutSpec"] = ms12["MutSpec_obs"] - ms12["MutSpec_exp"]
-                plot_mutspec12(
-                    ms12, 
-                    title=f"{lbl} mutational spectrum difference\n(reconstructed - simulated (obs - exp))", 
-                    savepath=path_to_ms12plot.format(lbl, label, image_extension), 
-                    show=False,
-                )
+        ms12_collection  = []
+        ms192_collection = []
+        for replica in cur_obs["Replica"].unique():
+            cur_obs_repl = cur_obs[cur_obs["Replica"] == replica]
+            if not cur_obs_repl.shape[0]:
+                continue
+            ms12 = calculate_mutspec(cur_obs_repl, cur_exp, use_context=False, use_proba=use_proba)
+            ms12_collection.append(ms12)
 
-        if cur_obs.Mut.nunique() >= mnum192:
-            ms192 = calculate_mutspec(cur_obs, cur_exp, use_context=True, use_proba=use_proba)
+            if cur_obs_repl.Mut.nunique() >= mnum192:
+                ms192 = calculate_mutspec(cur_obs_repl, cur_exp, use_context=True, use_proba=use_proba)
+                ms192_collection.append(ms192)
+                
+        
+        if ms12_collection:
+            ms12 = pd.concat(ms12_collection)
+            save_tsv(ms12, path_to_ms12.format(lbl, label))
+            if plot:
+                if substract12 is None:
+                    plot_mutspec12_func(
+                        ms12, 
+                        title=f"{lbl} mutational spectrum", 
+                        savepath=path_to_ms12plot.format(lbl, label, image_extension), 
+                        show=False,
+                    )
+                else:
+                    ms12 = ms12.rename(columns={"MutSpec": "MutSpec_exp"})\
+                        .merge(substract12.rename(columns={"MutSpec": "MutSpec_obs"})[["Mut", "MutSpec_obs"]], on="Mut")
+                    ms12["MutSpec"] = ms12["MutSpec_obs"] - ms12["MutSpec_exp"]
+                    plot_mutspec12_func(
+                        ms12, 
+                        title=f"{lbl} mutational spectrum difference\n(reconstructed - simulated (obs - exp))", 
+                        savepath=path_to_ms12plot.format(lbl, label, image_extension), 
+                        show=False,
+                    )
+
+        if ms192_collection:
+            ms192 = pd.concat(ms192_collection)
             save_tsv(ms192, path_to_ms192.format(lbl, label))
             if plot:
                 if substract192 is None:
