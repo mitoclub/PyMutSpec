@@ -202,6 +202,4 @@ def main(
 
 if __name__ == "__main__":
     main()
-    # pt = '/home/kpotoh/nemu-pipeline/example_mam_run/outdir/mutspec_tables'
-    # main(f"-b {pt}/observed_mutations_iqtree.tsv -e {pt}/expected_freqs.tsv -o {pt}/test_branches -l debug --branches --syn".split())
     # main("-b data/mouse_cytb/tables/observed_mutations.tsv -e data/mouse_cytb/tables/expected_freqs.tsv -o data/mouse_cytb/test/ --syn --all -p --plot".split())
