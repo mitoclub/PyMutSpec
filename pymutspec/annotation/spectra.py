@@ -111,15 +111,18 @@ def calculate_mutspec(
     return mutspec
 
 
-def sample_spectrum(obs_df: pd.DataFrame, exp_freqs, 
-                    use_proba=True, use_context=False,
+def sample_spectrum(obs_df: pd.DataFrame, exp_freqs,
+                    use_proba=True, use_context=False, 
                     frac=0.5, nreplics=100):
     """
     Sample half of branches and calculate spectrum
     """
-    samples = []    
+    samples = []
+    edges = obs_df.AltNode.unique()
+    n_to_sample = int(len(edges) * frac)
     for _ in range(nreplics):
-        obs_smpl = obs_df.groupby('AltNode').sample(frac=frac, replace=False)
+        cur_edges = np.random.choice(edges, n_to_sample, replace=False)
+        obs_smpl = obs_df[obs_df['AltNode'].isin(cur_edges)]
         one_spectrum = calculate_mutspec(obs_smpl, exp_freqs, use_context=use_context, 
                                  use_proba=use_proba, drop_underrepresented=False)
         samples.append(one_spectrum)
@@ -127,7 +130,7 @@ def sample_spectrum(obs_df: pd.DataFrame, exp_freqs,
     sampled = pd.concat(samples)
 
     quartiles = sampled.groupby('Mut')['MutSpec'].quantile([0.05, 0.5, 0.95]).unstack().rename(
-        columns={0.05: "MutSpec_q05", 0.5: "MutSpec_median", 0.95: "MutSpec_q95"})
+        columns={0.05: "MutSpec_q05", 0.5: "MutSpec_median", 0.95: "MutSpec_q95"}).reset_index()
     return quartiles
     
 

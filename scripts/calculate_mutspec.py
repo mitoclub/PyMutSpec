@@ -10,6 +10,7 @@ import pandas as pd
 from pymutspec.annotation import calculate_mutspec, filter_outlier_branches, sample_spectrum
 from pymutspec.constants import possible_sbs12, possible_sbs192
 from pymutspec.draw import plot_mutspec12, plot_mutspec192
+from pymutspec.draw.sbs_orders import ordered_sbs192_kp
 
 
 def save_tsv(df: pd.DataFrame, path):
@@ -34,14 +35,12 @@ def dump_expected(exp, path):
 @click.option('--proba_min', default=0.3, show_default=True, help="LEGACY Minimal mutation probability to consider in spectra calculation. Used only with --use_proba")
 @click.option('--proba_cutoff', default=None, type=float, show_default=True, help="Minimal mutation probability to consider in spectra calculation. Used only with --use_proba")
 @click.option('--exclude', default="OUTGRP,ROOT", show_default=True, help="Name of source nodes to exclude from mutations set. Use comma to pass several names")
-@click.option('--all', 'all_muts', is_flag=True, help="Calculate and plot spectra for all mutations; "
+@click.option('--all', 'all_muts', is_flag=True, help="Calculate spectra based on all observed mutations excluding stop-loss and stop-gain mutaitons; "
                                                       "default if not specified at least one of --all, --syn, --syn4f")
-@click.option('--syn', is_flag=True, help="Calculate and plot spectra for synonymous mutations")
-@click.option('--syn4f', is_flag=True, help="Calculate and plot spectra for synonymous mutations in fourfols positions")
-@click.option('--nonsyn', is_flag=True, help="Calculate and plot spectra for non-synonymous mutations")
+@click.option('--syn', is_flag=True, help="Calculate spectra based on synonymous mutations")
+@click.option('--syn4f', is_flag=True, help="Calculate spectra based on synonymous mutations in fourfols positions")
+@click.option('--nonsyn', is_flag=True, help="Calculate spectra based on non-synonymous mutations")
 @click.option('--mnum192', type=click.IntRange(0, 192), default=16, show_default=True, help="Number of mutation types (maximum 192) required to calculate and plot 192-component mutational spectra")
-@click.option('--substract12', "path_to_substract12",   type=click.Path(True), default=None, help="Mutational spectrum that will be substracted from calculated spectra 12 component")
-@click.option('--substract192', "path_to_substract192", type=click.Path(True), default=None, help="Mutational spectrum that will be substracted from calculated spectra 192 component")
 @click.option('--branches', is_flag=True, help="Calculate tree branch specific spectra")
 @click.option('--subset', default="full", show_default=True, type=click.Choice(["full", "internal", "terminal"]), help="Used subset of tree branches")
 @click.option('--plot', is_flag=True, help="Plot spectra plots")
@@ -50,7 +49,6 @@ def main(
         path_to_obs, path_to_exp, outdir, label, 
         use_proba, proba_min, proba_cutoff, exclude, 
         all_muts, syn, syn4f, nonsyn, mnum192, 
-        path_to_substract12, path_to_substract192, 
         branches, subset, plot, image_extension,
     ):
     proba_cutoff = proba_cutoff or proba_min
@@ -86,9 +84,6 @@ def main(
     path_to_ms192plot = os.path.join(outdir, "ms192{}{}.{}")
     path_to_ms192     = os.path.join(outdir, "ms192{}{}.tsv")
 
-    substract12  = pd.read_csv(path_to_substract12,  sep="\t") if path_to_substract12  is not None else None
-    substract192 = pd.read_csv(path_to_substract192, sep="\t") if path_to_substract192 is not None else None
-
     obs = pd.read_csv(path_to_obs, sep="\t")
     # exclude ROOT node because RAxML don't change input tree that contains one node more than it's need
     obs = obs[~obs.AltNode.isin(exclude)]
@@ -117,16 +112,16 @@ def main(
     
     if use_proba:
         obs = obs[(obs.ProbaFull > proba_cutoff)]
-        print(f'Observed {obs.ProbaFull.sum():.2f} mutations')
+        print(f'Observed {obs.ProbaFull.sum():.2f} mutations', file=sys.stderr)
     else:
-        print(f'Observed {obs.shape[0]} mutations')
+        print(f'Observed {obs.shape[0]} mutations', file=sys.stderr)
     
     # filter branches that have too many mutations (outliers)
     obs = filter_outlier_branches(obs, use_proba)
     if use_proba:
-        print(f'After filtration observed {obs.ProbaFull.sum():.2f} mutations')
+        print(f'After filtration observed {obs.ProbaFull.sum():.2f} mutations', file=sys.stderr)
     else:
-        print(f'After filtration observed {obs.shape[0]} mutations')
+        print(f'After filtration observed {obs.shape[0]} mutations', file=sys.stderr)
 
     for lbl_id, lbl in zip(lbl_ids, lbls):
         if lbl == "nonsyn":
@@ -141,60 +136,32 @@ def main(
 
         ms12_simple = calculate_mutspec(cur_obs, cur_exp, use_context=False, use_proba=use_proba)
         ms12_quartiles = sample_spectrum(cur_obs, cur_exp, use_context=False, use_proba=use_proba)
-        ms12 = ms12_simple.merge(ms12_quartiles, "left", right_index=True, left_on='Mut')
-        # TODO check save_tsv func
+        ms12 = ms12_simple.merge(ms12_quartiles, on='Mut')
         save_tsv(ms12, path_to_ms12.format(lbl, label))
         if plot:
-            if substract12 is None:
-                # TODO modify according to quartiles
-                plot_mutspec12(
-                    ms12, 
-                    title=f"{lbl} mutational spectrum", 
-                    savepath=path_to_ms12plot.format(lbl, label, image_extension), 
-                    show=False,
-                )
-            else:
-                ms12 = ms12.rename(columns={"MutSpec": "MutSpec_exp"})\
-                    .merge(substract12.rename(columns={"MutSpec": "MutSpec_obs"})[["Mut", "MutSpec_obs"]], on="Mut")
-                ms12["MutSpec"] = ms12["MutSpec_obs"] - ms12["MutSpec_exp"]
-                plot_mutspec12(
-                    ms12, 
-                    title=f"{lbl} mutational spectrum difference\n(reconstructed - simulated (obs - exp))", 
-                    savepath=path_to_ms12plot.format(lbl, label, image_extension), 
-                    show=False,
-                )
+            plot_mutspec12(
+                ms12, 
+                title=f"{lbl} mutations spectrum", 
+                savepath=path_to_ms12plot.format(lbl, label, image_extension), 
+                show=False,
+            )
 
         if cur_obs.Mut.nunique() >= mnum192:
-            ms192 = calculate_mutspec(cur_obs, cur_exp, use_context=True, use_proba=use_proba)
+            ms192_simple = calculate_mutspec(cur_obs, cur_exp, use_context=True, use_proba=use_proba)
+            ms192_quartiles = sample_spectrum(cur_obs, cur_exp, use_context=True, use_proba=use_proba)
+            ms192 = ms192_simple.merge(ms192_quartiles, on='Mut')
             save_tsv(ms192, path_to_ms192.format(lbl, label))
             if plot:
-                if substract192 is None:
-                    plot_mutspec192(
-                        ms192[(ms192["ObsNum"] > 1) & (ms192["ExpNum"] > 1)], 
-                        title=f"{lbl} mutational spectrum",
-                        savepath=path_to_ms192plot.format(lbl, label, image_extension), 
-                        show=False,
-                    )
-                else:
-                    # TODO don't show useless bars
-                    substract192.loc[(substract192["ObsNum"] <= 1) | (substract192["ExpNum"] <= 1), "MutSpec"] = 0.
-                    substract192 = substract192.rename(columns={"MutSpec": "MutSpec_obs"})[["Mut", "MutSpec_obs"]]
-                    ms192 = ms192.rename(columns={"MutSpec": "MutSpec_exp"}).merge(substract192, on="Mut")
-                    ms192["MutSpec"] = ms192["MutSpec_obs"] - ms192["MutSpec_exp"]
-                    plot_mutspec192(
-                        ms192, 
-                        title=f"{lbl} mutational spectrum difference\n(reconstructed - simulated (obs - exp))",
-                        savepath=path_to_ms192plot.format(lbl, label, image_extension), 
-                        show=False,
-                    )
+                plot_mutspec192(
+                    ms192, title=f"{lbl} mutations spectrum",
+                    savepath=path_to_ms192plot.format(lbl, label, image_extension), 
+                    show=False
+                )
         if branches:
             # prepare branch-specific frequencies (sbs12 + sbs192)
             exp_freqs_lbl = exp_freqs[exp_freqs.Label == lbl].drop(["Gene", "Label"], axis=1).set_index('Node')
             assert exp_freqs_lbl.shape[1] == 192 + 12, f'prepared expected freqs absent some substitutions; freqs shape: {exp_freqs_lbl.shape}'
 
-            if substract12 is not None or substract192 is not None:
-                print("Ignoring substract agruments, substraction is not available for branch spectra", file=sys.stderr)
-            
             branch_mutspec12, branch_mutspec192 = [], []
             for alt_node in cur_obs["AltNode"].unique():
                 branch_obs = cur_obs[cur_obs["AltNode"] == alt_node]
@@ -222,6 +189,7 @@ def main(
 
 
 if __name__ == "__main__":
-    main()
+    # main()
     # pt = '/home/kpotoh/nemu-pipeline/example_mam_run/outdir/mutspec_tables'
     # main(f"-b {pt}/observed_mutations_iqtree.tsv -e {pt}/expected_freqs.tsv -o {pt}/test_branches -l debug --branches --syn".split())
+    main("-b data/mouse_cytb/tables/observed_mutations.tsv -e data/mouse_cytb/tables/mean_expexted_mutations.tsv -o data/mouse_cytb/test/ --syn --all -p --plot".split())
