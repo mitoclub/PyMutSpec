@@ -123,8 +123,8 @@ def sample_spectrum(obs_df: pd.DataFrame, exp_freqs,
     for _ in range(nreplics):
         cur_edges = np.random.choice(edges, n_to_sample, replace=False)
         obs_smpl = obs_df[obs_df['AltNode'].isin(cur_edges)]
-        one_spectrum = calculate_mutspec(obs_smpl, exp_freqs, use_context=use_context, 
-                                 use_proba=use_proba, drop_underrepresented=False)
+        one_spectrum = calculate_mutspec(
+            obs_smpl, exp_freqs, use_context=use_context, use_proba=use_proba)
         samples.append(one_spectrum)
 
     sampled = pd.concat(samples)

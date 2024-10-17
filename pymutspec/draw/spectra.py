@@ -4,7 +4,6 @@ Functionality to plot mutational spectrums
 
 from typing import Iterable
 
-import numpy as np
 import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
@@ -92,16 +91,14 @@ def plot_mutspec12(
     if style == "bar":
         _cols = set(mutspec.columns)
         if 'MutSpec_median' in _cols and 'MutSpec_q05' in _cols and 'MutSpec_q95' in _cols:
-            ax = sns.barplot(data=mutspec, x="Mut", y='MutSpec_median', 
+            ax = sns.barplot(data=mutspec, x="Mut", y='MutSpec', 
                         order=sbs12_ordered, ax=ax, **kwargs)
             mutspec_ordered = mutspec.set_index('Mut').loc[sbs12_ordered]
             mutspec_ordered['MutSpec_q05'] = mutspec_ordered['MutSpec_median'] - mutspec_ordered['MutSpec_q05']
             mutspec_ordered['MutSpec_q95'] -= mutspec_ordered['MutSpec_median']
             ax.errorbar(mutspec_ordered.index, mutspec_ordered['MutSpec_median'], 
                         yerr=mutspec_ordered[['MutSpec_q05', 'MutSpec_q95']].values.T, 
-                        fmt="none", color="gray", elinewidth=0.7, capsize=4)
-            ax.scatter(mutspec_ordered.index, mutspec_ordered['MutSpec'], 
-                        color="darkgray", marker="D", s=5)
+                        fmt=".", color="gray", elinewidth=0.7, capsize=4)
         else:
             ax = sns.barplot(data=mutspec, x="Mut", y=spectra_col, 
                         order=sbs12_ordered, ax=ax, **kwargs)
@@ -194,27 +191,24 @@ def plot_mutspec192(
     if style == "bar":
         _cols = set(ms192.columns)
         if 'MutSpec_median' in _cols and 'MutSpec_q05' in _cols and 'MutSpec_q95' in _cols:
-            ax = sns.barplot(data=ms192, x='Mut', y='MutSpec_median', order=order, ax=ax, **kwargs)
+            ax = sns.barplot(data=ms192, x='Mut', y='MutSpec', order=order, ax=ax, **kwargs)
             mutspec_ordered = ms192.set_index('Mut').loc[sbs_order]
             mutspec_ordered['MutSpec_q05'] = mutspec_ordered['MutSpec_median'] - mutspec_ordered['MutSpec_q05']
             mutspec_ordered['MutSpec_q95'] -= mutspec_ordered['MutSpec_median']
 
-            ysim, ytot, yerr_min, yerr_max = [], [], [], []
+            ymed, yerr_min, yerr_max = [], [], []
             for mt in order:
                 if mt == '':
-                    ysim.append(0.)
-                    ytot.append(0.)
+                    ymed.append(0.)
                     yerr_min.append(0.)
                     yerr_max.append(0.)
                 else:
-                    ysim.append(mutspec_ordered.loc[mt, 'MutSpec_median'])
-                    ytot.append(mutspec_ordered.loc[mt, 'MutSpec'])
+                    ymed.append(mutspec_ordered.loc[mt, 'MutSpec_median'])
                     yerr_min.append(mutspec_ordered.loc[mt, 'MutSpec_q05'])
                     yerr_max.append(mutspec_ordered.loc[mt, 'MutSpec_q95'])
-            yerr = np.array([yerr_min, yerr_max])
+            yerr = [yerr_min, yerr_max]
             x = list(range(len(order)))
-            ax.errorbar(x, ysim, yerr=yerr, fmt="none", color="gray", elinewidth=0.7, capsize=2)
-            ax.scatter(x, ytot, color="darkgray", marker="D", s=5)
+            ax.errorbar(x, ymed, yerr=yerr, fmt=".", color="gray", elinewidth=0.7, capsize=2)
         else:
             ax = sns.barplot(data=ms192, x=x_col, y=spectra_col, order=order, errwidth=1, ax=ax, **kwargs)
     elif style == "box":
