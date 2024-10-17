@@ -134,8 +134,8 @@ def sample_spectrum(obs_df: pd.DataFrame, exp_freqs,
     return quartiles
     
 
-def _get_iqr_bounds(series: pd.Series):
-    "function calculates Interquartile range (IQR) for outliers filtrtation"
+def get_iqr_bounds(series: pd.Series):
+    "Function calculates Interquartile range (IQR) and used for outliers filtrtation"
     q1 = series.quantile(0.25)
     q3 = series.quantile(0.75)
     iqr = q3 - q1
@@ -150,7 +150,7 @@ def filter_outlier_branches(obs_df: pd.DataFrame, use_proba=True):
     else:
         edge_nobs = obs_df.groupby('AltNode')['Mut'].count()
 
-    _, upper_bound = _get_iqr_bounds(edge_nobs)
+    _, upper_bound = get_iqr_bounds(edge_nobs)
     edge_nobs_flt = edge_nobs[edge_nobs < upper_bound]
     selected_branches = edge_nobs_flt.index
     obs_df_flt = obs_df[obs_df['AltNode'].isin(selected_branches)]

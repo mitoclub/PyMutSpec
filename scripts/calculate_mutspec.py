@@ -7,7 +7,9 @@ from functools import partial
 import click
 import pandas as pd
 
-from pymutspec.annotation import calculate_mutspec, filter_outlier_branches, sample_spectrum
+from pymutspec.annotation import (
+    calculate_mutspec, filter_outlier_branches, sample_spectrum, get_iqr_bounds
+)
 from pymutspec.constants import possible_sbs12, possible_sbs192
 from pymutspec.draw import plot_mutspec12, plot_mutspec192
 from pymutspec.draw.sbs_orders import ordered_sbs192_kp
@@ -24,6 +26,15 @@ def dump_expected(exp, path):
         "Label", exp_melted.columns.values[1:], var_name="Mut", value_name="Count"
     ).sort_values(["Mut", "Label"])
     save_tsv(exp_melted, path)
+
+
+def filter_short_exp_seqs(exp_freqs: pd.DataFrame):
+    gene_len_proxy = exp_freqs.set_index(['Label', 'Node'])[possible_sbs12]\
+        .sum(1).unstack(0).iloc[:, 0]
+    lower_bound, upper_bound = get_iqr_bounds(gene_len_proxy)
+    used_nodes = gene_len_proxy.between(lower_bound, upper_bound).index.values
+    exp_freqs_flt = exp_freqs[exp_freqs.Node.isin(used_nodes)]
+    return exp_freqs_flt
 
 
 @click.command("MutSpec calculator", help="Calculate and visualize mutational spectra")
@@ -96,11 +107,12 @@ def main(
     exp_raw = pd.read_csv(path_to_exp, sep="\t")
     # if all substitutions are columns
     if len(set(possible_sbs12 + possible_sbs192).difference(exp_raw.columns)) == 0:
-        exp_mean = exp_raw.drop_duplicates().drop(["Node", "Gene"], axis=1, errors="ignore").groupby("Label").mean()
+        exp_freqs = filter_short_exp_seqs(exp_raw.drop_duplicates())
+        del exp_raw
+        exp_mean = exp_freqs.drop(["Node", "Gene"], axis=1, errors="ignore")\
+            .groupby("Label").mean()
         path_to_united_exp = os.path.join(outdir, "mean_expexted_mutations{}.tsv".format(label))
         dump_expected(exp_mean, path_to_united_exp)
-        exp_freqs = exp_raw
-        del exp_raw
     elif list(exp_raw.columns) == ["Label", "Mut", "Count"]:
         if branches:
             raise ValueError("For branch specific spectra expected mutations required for every internal tree node")
@@ -192,4 +204,4 @@ if __name__ == "__main__":
     # main()
     # pt = '/home/kpotoh/nemu-pipeline/example_mam_run/outdir/mutspec_tables'
     # main(f"-b {pt}/observed_mutations_iqtree.tsv -e {pt}/expected_freqs.tsv -o {pt}/test_branches -l debug --branches --syn".split())
-    main("-b data/mouse_cytb/tables/observed_mutations.tsv -e data/mouse_cytb/tables/mean_expexted_mutations.tsv -o data/mouse_cytb/test/ --syn --all -p --plot".split())
+    main("-b data/mouse_cytb/tables/observed_mutations.tsv -e data/mouse_cytb/tables/expected_freqs.tsv -o data/mouse_cytb/test/ --syn --all -p --plot".split())
