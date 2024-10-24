@@ -4,8 +4,9 @@ Functionality to plot mutational spectrums
 
 from typing import Iterable
 
-import matplotlib.pyplot as plt
 import pandas as pd
+import matplotlib
+import matplotlib.pyplot as plt
 import seaborn as sns
 
 from pymutspec.constants import possible_sbs192, possible_sbs96
@@ -72,20 +73,43 @@ def plot_mutspec12(
         ticksize=8,
         titlesize=14,
         ylabelsize=12,
-        show=True, 
+        show=True,
+        ax=None,
         **kwargs,
     ):
     # TODO add checks of mutspec12
     # TODO add description to all plot* functions
+
+    if ax is None:
+        fig = plt.figure(figsize=figsize)
+        ax = fig.gca()
+    elif isinstance(ax, matplotlib.axes._subplots.AxesSubplot):
+        pass
+    else:
+        raise ValueError('ax must be None or matplotlib.axes._subplots.AxesSubplot')
+
     if style == "bar":
-        plot_func = sns.barplot
+        _cols = set(mutspec.columns)
+        if 'MutSpec_median' in _cols and 'MutSpec_q05' in _cols and 'MutSpec_q95' in _cols:
+            ax = sns.barplot(data=mutspec, x="Mut", y='MutSpec', 
+                        order=sbs12_ordered, ax=ax, **kwargs)
+            mutspec_ordered = mutspec.set_index('Mut').loc[sbs12_ordered]
+            mutspec_ordered['MutSpec_q05'] = mutspec_ordered['MutSpec_median'] - mutspec_ordered['MutSpec_q05']
+            mutspec_ordered['MutSpec_q95'] -= mutspec_ordered['MutSpec_median']
+            ax.errorbar(mutspec_ordered.index, mutspec_ordered['MutSpec_median'], 
+                        yerr=mutspec_ordered[['MutSpec_q05', 'MutSpec_q95']].values.T, 
+                        fmt=".", color="gray", elinewidth=0.7, capsize=4)
+        else:
+            ax = sns.barplot(data=mutspec, x="Mut", y=spectra_col, 
+                        order=sbs12_ordered, ax=ax, **kwargs)
+    
     elif style == "box":
-        plot_func = sns.boxplot
+        ax = sns.boxplot(x="Mut", y=spectra_col, data=mutspec, 
+                    order=sbs12_ordered, ax=ax, **kwargs)
+    
     else:
         raise NotImplementedError
-
-    fig = plt.figure(figsize=figsize)
-    ax = plot_func(x="Mut", y=spectra_col, data=mutspec, order=sbs12_ordered, ax=fig.gca(), **kwargs)
+    
     ax.grid(axis="y", alpha=.7, linewidth=0.5)
 
     # map colors to bars
@@ -99,7 +123,7 @@ def plot_mutspec12(
     plt.xticks(fontsize=ticksize, fontname=fontname)
 
     if savepath is not None:
-        plt.savefig(savepath)
+        plt.savefig(savepath, bbox_inches="tight")
     if show:
         plt.show()
     else:
@@ -121,7 +145,8 @@ def plot_mutspec192(
         ticksize=6,
         titlesize=16,
         ylabelsize=16,
-        show=True, 
+        show=True,
+        ax=None,
         **kwargs,
     ):
     """
@@ -142,7 +167,7 @@ def plot_mutspec192(
         savepath = kwargs["filepath"]
         print("savepath =", savepath)
         kwargs.pop("filepath")
-    
+
     # TODO add checks of mutspec192
     ms192 = mutspec192.copy()
     if labels_style == "long":
@@ -154,15 +179,44 @@ def plot_mutspec192(
         x_col = "Mut"
     else:
         raise ValueError("Available labels_style are: 'cosmic' and 'long'")
-    fig = plt.figure(figsize=figsize)
+
+    if ax is None:
+        fig = plt.figure(figsize=figsize)
+        ax = fig.gca()
+    elif isinstance(ax, matplotlib.axes._subplots.AxesSubplot):
+        pass
+    else:
+        raise ValueError('ax must be None or matplotlib.axes._subplots.AxesSubplot')
+    
     if style == "bar":
-        ax = sns.barplot(
-            x=x_col, y=spectra_col, data=ms192, order=order, errwidth=1, ax=fig.gca(), **kwargs,
-        )
+        _cols = set(ms192.columns)
+        if 'MutSpec_median' in _cols and 'MutSpec_q05' in _cols and 'MutSpec_q95' in _cols:
+            ax = sns.barplot(data=ms192, x='Mut', y='MutSpec', order=order, ax=ax, **kwargs)
+            mutspec_ordered = ms192.set_index('Mut').loc[sbs_order]
+            mutspec_ordered['MutSpec_q05'] = mutspec_ordered['MutSpec_median'] - mutspec_ordered['MutSpec_q05']
+            mutspec_ordered['MutSpec_q95'] -= mutspec_ordered['MutSpec_median']
+
+            ymed, yerr_min, yerr_max = [], [], []
+            for mt in order:
+                if mt == '':
+                    ymed.append(0.)
+                    yerr_min.append(0.)
+                    yerr_max.append(0.)
+                else:
+                    ymed.append(mutspec_ordered.loc[mt, 'MutSpec_median'])
+                    yerr_min.append(mutspec_ordered.loc[mt, 'MutSpec_q05'])
+                    yerr_max.append(mutspec_ordered.loc[mt, 'MutSpec_q95'])
+            yerr = [yerr_min, yerr_max]
+            x = list(range(len(order)))
+            ax.errorbar(x, ymed, yerr=yerr, fmt=".", color="gray", elinewidth=0.7, capsize=2)
+        else:
+            ax = sns.barplot(data=ms192, x=x_col, y=spectra_col, order=order, errwidth=1, ax=ax, **kwargs)
     elif style == "box":
         ax = sns.boxplot(
             x=x_col, y=spectra_col, data=ms192, order=order, ax=fig.gca(), **kwargs,
         )
+    # plt.savefig(savepath, dpi=300, bbox_inches="tight")
+    # return
     ax.grid(axis="y", alpha=.7, linewidth=0.5)
     ax.set_title(title, fontsize=titlesize, fontname=fontname)
     ax.set_ylabel(ylabel if ylabel else "", fontsize=ylabelsize, fontname=fontname)

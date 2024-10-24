@@ -3,7 +3,8 @@ from .tree import iter_tree_edges, node_parent, calc_phylocoefs, get_ingroup_roo
 from .spectra import (
     calculate_mutspec, collapse_mutspec, calc_edgewise_spectra, 
     complete_sbs192_columns, jackknife_spectra_sampling, collapse_sbs192, 
-    get_cossim, get_eucdist,
+    get_cossim, get_eucdist, filter_outlier_branches, sample_spectrum,
+    get_iqr_bounds,
 )
 from .mut import CodonAnnotation, mutations_summary
 
