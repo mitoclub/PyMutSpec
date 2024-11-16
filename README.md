@@ -1,5 +1,15 @@
 # PyMutSpec
 
+[![PyPI Latest Release](https://img.shields.io/pypi/v/pymutspec.svg)](https://pypi.org/project/pymutspec/)
+[![PyPI Downloads](https://img.shields.io/pypi/dm/pymutspec.svg?label=PyPI%20downloads)](
+https://pypi.org/project/pymutspec/)
+[![NeMu Paper](https://img.shields.io/badge/DOI-10.1093%2Fnar%2Fgkae438-blue)](https://doi.org/10.1093/nar/gkae438)
+![GitHub commit activity](https://img.shields.io/github/commit-activity/y/mitoclub/pymutspec)
+![GitHub last commit](https://img.shields.io/github/last-commit/mitoclub/pymutspec)
+
+<!-- [![CI - Test](https://github.com/pandas-dev/pandas/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/pandas-dev/pandas/actions/workflows/unit-tests.yml) -->
+<!-- [![Coverage](https://codecov.io/github/pandas-dev/pandas/coverage.svg?branch=main)](https://codecov.io/gh/pandas-dev/pandas) -->
+
 Python library for mutational spectra analysis
 
 <!-- Calculate mutational spectra using ancestral states from phylogenetic tree -->
@@ -64,6 +74,4 @@ plot_mutspec192(spectra192)
 
 ## How to cite?
 
-```text
 Bogdan Efimenko, Konstantin Popadin, Konstantin Gunbin, NeMu: a comprehensive pipeline for accurate reconstruction of neutral mutation spectra from evolutionary data, Nucleic Acids Research, Volume 52, Issue W1, 5 July 2024, Pages W108–W115, https://doi.org/10.1093/nar/gkae438
-```
