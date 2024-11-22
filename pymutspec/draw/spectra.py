@@ -83,10 +83,6 @@ def plot_mutspec12(
     if ax is None:
         fig = plt.figure(figsize=figsize)
         ax = fig.gca()
-    elif isinstance(ax, matplotlib.axes._subplots.AxesSubplot):
-        pass
-    else:
-        raise ValueError('ax must be None or matplotlib.axes._subplots.AxesSubplot')
 
     if style == "bar":
         _cols = set(mutspec.columns)
@@ -183,11 +179,7 @@ def plot_mutspec192(
     if ax is None:
         fig = plt.figure(figsize=figsize)
         ax = fig.gca()
-    elif isinstance(ax, matplotlib.axes._subplots.AxesSubplot):
-        pass
-    else:
-        raise ValueError('ax must be None or matplotlib.axes._subplots.AxesSubplot')
-    
+
     if style == "bar":
         _cols = set(ms192.columns)
         if 'MutSpec_median' in _cols and 'MutSpec_q05' in _cols and 'MutSpec_q95' in _cols:
