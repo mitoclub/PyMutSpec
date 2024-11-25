@@ -1,6 +1,9 @@
-from .auxiliary import get_aln_files, load_scheme, read_genbank_ref
-from .states import GenesStates, read_rates
+from .auxiliary import get_aln_files, load_scheme
+from .gb import read_genbank_ref
+from .states import GenomeStates, GenomeStatesTotal, read_rates, read_alignment
 
 __all__ = [
-    "get_aln_files", "load_scheme", "read_genbank_ref", "GenesStates", "read_rates",
+    'GenomeStates', 'GenomeStatesTotal', 
+    'read_alignment', 'read_genbank_ref', 'read_rates', 
+    'get_aln_files', 'load_scheme',
 ]
