@@ -75,10 +75,10 @@ def get_ingroup_root(tree: PhyloTree, outgrp='OUTGRP'):
 
 def calc_phylocoefs(tree: PhyloTree, outgrp='OUTGRP'):
     tree_len = get_tree_len(get_ingroup_root(tree, outgrp ), 'geom_mean')
-    phylocoefs = {}
+    phylocoefs = {tree.name: 1 - min(0.999, tree.get_closest_leaf()[1] / tree_len)}
     for node in tree.iter_descendants():
-        d = node.get_closest_leaf()[1]
-        phylocoefs[node.name] = 1 - min(0.9999, d / tree_len)
+        _closest, d = node.get_closest_leaf()
+        phylocoefs[node.name] = 1 - min(0.99999, d / tree_len)
     return phylocoefs
 
 

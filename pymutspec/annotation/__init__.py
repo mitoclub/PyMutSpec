@@ -6,6 +6,6 @@ from .spectra import (
     get_cossim, get_eucdist, filter_outlier_branches, sample_spectrum,
     get_iqr_bounds,
 )
-from .mut import CodonAnnotation, mutations_summary
+from .mut import Branch, MutSpec, CodonAnnotation, mutations_summary
 
 translator = transcriptor

@@ -1,13 +1,22 @@
+import os
+import sys
 from collections import defaultdict
 from typing import Set, Union, Dict, Iterable
-import sys
+import multiprocessing as mp
+from warnings import warn
 
 import numpy as np
 import pandas as pd
 from Bio.Data import CodonTable
 from Bio.Data.CodonTable import NCBICodonTableDNA
+from ete3 import PhyloTree
 
 from pymutspec.constants import *
+from pymutspec.utils import basic_logger
+from ..io import GenomeStatesTotal
+from .tree import iter_tree_edges, calc_phylocoefs
+
+nucl_order5 = ['A', 'C', 'G', 'T', '-']
 
 
 class CodonAnnotation:
@@ -747,6 +756,337 @@ class CodonAnnotation:
     def read_start_stop_codons(codontable: Union[NCBICodonTableDNA, int]):
         codontable = CodonAnnotation._prepare_codontable(codontable)
         return set(codontable.start_codons), set(codontable.stop_codons)
+
+
+class Branch:
+    def __init__(self, index: int, ref_name: str, alt_name: str, 
+                 ref_genome: pd.DataFrame, alt_genome: pd.DataFrame, 
+                 phylocoef: float, proba_cutoff: float, genome_size: int, 
+                 site2index: Dict[int, int], logger=None) -> None:
+        self.index = index
+        self.ref_name = ref_name
+        self.alt_name = alt_name
+        self.ref_genome = ref_genome
+        self.alt_genome = alt_genome
+        self.phylocoef = phylocoef
+        self.proba_cutoff = proba_cutoff
+        self.genome_size = genome_size
+        self.site2index = site2index
+        self.logger = logger or basic_logger()
+
+    def is_substitution(self, cxt1, cxt2):
+        """
+        check that contexts contain substitution.
+
+        Example inputs and outputs:
+        - (CAT,CGG) -> False (T != G)
+        - (CAT,CAG) -> False (central nuclaotide are constant)
+        - (ACTAC,ACAAC) -> True
+        - (ACTAC,AC-AC) -> False (indel != substitution)
+        """
+        ok = True
+        center_pos = len(cxt1) // 2
+        if cxt1[center_pos] == cxt2[center_pos]:
+            ok = False
+        elif cxt1[center_pos] == '-' or cxt2[center_pos] == '-':
+            ok = False
+        elif cxt1[center_pos-1] != cxt2[center_pos-1] or \
+             cxt1[center_pos+1] != cxt2[center_pos+1]:
+            self.logger.warning(f"Neighbouring positions of substitution are different: {cxt1}, {cxt2}")
+            ok = False
+        return ok
+
+    def process_branch(self):
+        edge_mutations = self.extract_mutations_proba(
+            self.ref_genome, self.alt_genome, self.phylocoef, self.proba_cutoff)
+        
+        edge_mutations["RefNode"] = self.ref_name
+        edge_mutations["AltNode"] = self.alt_name
+
+        mut_num = edge_mutations['ProbaFull'].sum() if 'ProbaFull' in edge_mutations.columns else len(edge_mutations)
+        if mut_num == 0:
+            self.logger.info(f"No mutations from branch {self.index:03} ({self.ref_name} - {self.alt_name})")
+        elif mut_num > self.genome_size * 0.1:
+            self.logger.warning(f"Observed too many mutations ({mut_num} > {self.genome_size} * 0.1) "
+                           f"for branch ({self.ref_name} - {self.alt_name})")
+        else:
+            self.logger.info(f"{mut_num:.2f} mutations from branch {self.index:03} ({self.ref_name} - {self.alt_name})")
+
+        return edge_mutations
+
+    def extract_mutations_proba(self, g1: pd.DataFrame, g2: pd.DataFrame, 
+                                phylocoef: float, mut_proba_cutoff: float):
+        """
+        Extract alterations of g2 comparing to g1
+
+        conditions:
+        - in one codon could be only sbs
+        - in the context of one mutation couldn't be other sbs
+        - indels are not sbs and codons and contexts with sbs are not considered
+
+        Arguments
+        - g1 - reference sequence (parent node)
+        - g2 - alternative sequence (child node)
+
+        return:
+        - mut - dataframe of mutations
+        """
+        n, m = len(g1), len(g2)
+        assert n == m, f"genomes lengths are not equal: {n} != {m}"
+
+        mutations = []
+        g1_most_prob = g1.values.argmax(1)
+        g2_most_prob = g2.values.argmax(1)
+        # pass initial and last nucleotides without context
+        for site in g1.index[2:-2]:
+            site_mutations = self.process_site(
+                g1, g2, site, g1_most_prob, g2_most_prob, mut_proba_cutoff, phylocoef)
+            mutations.extend(site_mutations)
+        mut_df = pd.DataFrame(mutations)
+        return mut_df
+
+    def process_site(self, g1: pd.DataFrame, g2: pd.DataFrame, site: int,
+                     g1_most_prob: np.ndarray, g2_most_prob: np.ndarray, 
+                     mut_proba_cutoff: float, phylocoef: float):
+        pos_in_states = self.site2index[site]
+        states1, states2 = self.prepare_local_states(
+            g1.values, g2.values, pos_in_states, g1_most_prob, g2_most_prob)
+        if states1 is None:
+            return []
+
+        mutations = []
+        for cxt1, proba1 in self.sample_context5(2, states1, mut_proba_cutoff):
+            for cxt2, proba2 in self.sample_context5(2, states2, mut_proba_cutoff):
+                if not self.is_substitution(cxt1, cxt2):
+                    continue
+
+                p = proba1 * proba2
+                if p < mut_proba_cutoff:
+                    continue
+                
+                p_adj = p * phylocoef
+                
+                cxt1 = ''.join(cxt1)
+                cxt2 = ''.join(cxt2)
+                muttype = f'{cxt1[0:2]}[{cxt1[2]}>{cxt2[2]}]{cxt1[3:]}'
+                sbs = {
+                    "Mut": muttype,
+                    "Site": site,
+                    "ProbaRef": proba1,
+                    "ProbaMut": p,
+                    "ProbaFull": p_adj,
+                }
+                mutations.append(sbs)
+        return mutations
+
+    def prepare_local_states_simple(self, g1: np.ndarray, g2: np.ndarray, pos: int):
+        return g1[pos-2: pos+3], g2[pos-2: pos+3]
+
+    def prepare_local_states(self, g1: np.ndarray, g2: np.ndarray, pos: int,
+                             g1_most_prob: np.ndarray, g2_most_prob: np.ndarray):
+        # prepare local states: exclude gaps from both seqs
+        ## first, search upstream
+        up_states1, up_states2 = [g1[pos]], [g2[pos]]
+        down_states1, down_states2 = [], []
+        for i in range(1, 10): # don't collect gaps at all
+            cur_state1, cur_state2 = g1[pos-i], g2[pos-i]
+            state_id1, state_id2 = g1_most_prob[pos-i], g2_most_prob[pos-i]
+            if not (state_id1 == state_id2 == 4): # both states are not equal to gap
+                up_states1.append(cur_state1)
+                up_states2.append(cur_state2)
+            if len(up_states1) == 3 or pos-i-1 <= 0:
+                break
+
+        ## second, search downstream
+        for i in range(1, 10):
+            cur_state1, cur_state2 = g1[pos+i], g2[pos+i]
+            state_id1, state_id2 = g1_most_prob[pos+i], g2_most_prob[pos+i]
+            if not (state_id1 == state_id2 == 4): # not equal to gap
+                down_states1.append(cur_state1)
+                down_states2.append(cur_state2)
+            if len(down_states1) == 2 or pos+i+1 >= len(g1):
+                break
+        
+        if any([len(up_states1) != 3, 
+                len(up_states2) != 3, 
+                len(down_states1) != 2 , 
+                len(down_states2) != 2]):
+            self.logger.warning(f'Cannot collect local contexts for position {pos}')
+            return None, None
+
+        up_states1.reverse()
+        up_states2.reverse()
+        up_states1.extend(down_states1)
+        up_states2.extend(down_states2)
+        states1 = np.array(up_states1)
+        states2 = np.array(up_states2)
+
+        return states1, states2
+
+    def sample_context5(self, pos: int, g: np.ndarray, cutoff=0.25):
+        probas = g[pos-2] * g[pos-1][:, None] * g[pos][:, None, None] * \
+            g[pos+1][:, None, None, None] * g[pos+2][:, None, None, None, None]
+        
+        indexes = np.where(probas > cutoff)
+        for idx in range(len(indexes[0])):
+            cxt_ids = [indexes[i][idx] for i in list(range(len(indexes)))[::-1]]
+            cxt = tuple(nucl_order5[x] for x in cxt_ids)
+            pr = probas[tuple(cxt_ids[::-1])]
+            yield cxt, pr
+
+    def sample_context7(self, pos: int, g: np.ndarray, cutoff=0.25):
+        probas = g[pos-3] * g[pos-2][:, None] * g[pos-1][:, None, None] * \
+            g[pos][:, None, None, None] * g[pos+1][:, None, None, None, None] * \
+                g[pos+2][:, None, None, None, None, None] * \
+                    g[pos+3][:, None, None, None, None, None, None]
+        
+        indexes = np.where(probas > cutoff)
+        for idx in range(len(indexes[0])):
+            cxt_ids = [indexes[i][idx] for i in list(range(len(indexes)))[::-1]]
+            cxt = tuple(nucl_order5[x] for x in cxt_ids)
+            pr = probas[tuple(cxt_ids[::-1])]
+            yield cxt, pr
+
+
+class MutSpecExtractor(CodonAnnotation):
+    def __init__(
+            self, path_to_tree, outdir, gcode=2,
+            use_proba=False, proba_cutoff=0.25, use_phylocoef=False,
+            genomes: GenomeStatesTotal = None, num_processes=8, 
+            logger=None,
+        ):
+        if not os.path.exists(path_to_tree):
+            raise ValueError(f"Path to tree doesn't exist: '{path_to_tree}'")
+
+        CodonAnnotation.__init__(self, gencode=gcode)
+
+        self.num_processes = num_processes
+        self.genomes = genomes
+        self.gcode = gcode
+        self.use_proba = use_proba
+        self.proba_cutoff = proba_cutoff
+        self.use_phylocoef = use_phylocoef if use_proba else False
+        self.outdir = outdir
+        self.logger = logger or basic_logger()
+        
+        self.logger.info(f"Using gencode {gcode}")
+        self.logger.info(f"Use probabilities of genomic states: {use_proba}")
+        self.logger.info(f"Use phylogenetic uncertainty coefficient: {use_phylocoef}")
+        self.logger.info(f"Minimal probability for mutations to use: {proba_cutoff}")
+
+        self.fp_format = np.float32
+        self.tree = PhyloTree(path_to_tree, format=1)
+        self.logger.info(
+            f"Tree loaded, number of leaf nodes: {len(self.tree)}, "
+            f"total number of nodes: {len(self.tree.get_cached_content())}, "
+        )
+        rnd_genome = self.genomes.get_random_genome()
+        self.logger.info(f"Number of MSA sites: {len(rnd_genome)}")
+
+         # mapping of MSA sites to truncated states ids
+        self.site2index = dict(zip(rnd_genome.index, range(len(rnd_genome))))
+
+    def open_handles(self, outdir):
+        self.handle = dict()
+        self.handle["mut"]  = open(os.path.join(outdir, "mutations.tsv"), "w")
+        self.logger.debug("Handles opened")
+
+    def close_handles(self):
+        for file in self.handle.values():
+            file.close()
+        self.logger.debug("Handles closed")
+
+    def extract_mutspec_from_tree(self):
+        t = self.num_processes
+        if not isinstance(t, int) or t < 1:
+            raise ValueError('num_processes must be positive integer')
+
+        if t == 1:
+            self._derive_mutspec()
+        elif t > 1:
+            self._derive_mutspec_parallel()
+
+    def _derive_mutspec(self):
+        self.logger.info("Start mutation extraction from tree")
+        self.open_handles(self.outdir)
+        add_header = defaultdict(lambda: True)
+        total_mut_num = 0
+
+        for edge_data in self.iter_branches():
+            edge_mutations = self.process_branch(*edge_data[1:])
+            mut_num = edge_mutations['ProbaFull'].sum() if self.use_proba and \
+                'ProbaFull' in edge_mutations.columns else len(edge_mutations)
+            total_mut_num += mut_num
+
+            # dump current edge mutations
+            self.dump_table(edge_mutations, self.handle["mut"], add_header["mut"])
+            add_header["mut"] = False
+
+        self.close_handles()
+        self.logger.info(f"Processed {edge_data[1]} tree edges")
+        self.logger.info(f"Observed {total_mut_num:.3f} substitutions")
+        self.logger.info("Extraction of mutations from phylogenetic tree completed succesfully")
+
+    def _derive_mutspec_parallel(self):
+        self.logger.info("Start parallel mutation extraction from tree")
+
+        with mp.Pool(processes=self.num_processes) as pool:
+            genome_mutations_lst = pool.map(Branch.process_branch, self.iter_branches())
+
+        genome_mutations = pd.concat(genome_mutations_lst)
+
+        self.open_handles(self.outdir)
+        self.dump_table(genome_mutations, self.handle["mut"], True)
+        self.close_handles()
+
+        total_mut_num = genome_mutations['ProbaFull'].sum() if self.use_proba and \
+            'ProbaFull' in genome_mutations.columns else len(genome_mutations)
+        self.logger.info(f"Observed {total_mut_num:.3f} substitutions")
+        self.logger.info("Extraction of mutations from phylogenetic tree completed succesfully")
+
+    def iter_branches(self):
+        """yield (self, edge_id, ref_node_name, alt_node_name, ref_genome, alt_genome, phylocoef)"""
+        # calculate phylogenetic uncertainty correction
+        if self.use_phylocoef:
+            phylocoefs = calc_phylocoefs(self.tree)
+
+        for ei, (ref_node, alt_node) in enumerate(iter_tree_edges(self.tree), 1):
+            if alt_node.name not in self.genomes.nodes:
+                self.logger.warning(f"Skip edge '{ref_node.name}'-'{alt_node.name}' due to absence of '{alt_node.name}' genome")
+                continue
+            if ref_node.name not in self.genomes.nodes:
+                self.logger.warning(f"Skip edge '{ref_node.name}'-'{alt_node.name}' due to absence of '{ref_node.name}' genome")
+                continue
+
+            # calculate phylogenetic uncertainty correction: 
+            #   coef for ref edge * coef for alt edge
+            if self.use_phylocoef:
+                phylocoef = self.fp_format(phylocoefs[ref_node.name] * phylocoefs[alt_node.name])
+            else:
+                phylocoef = self.fp_format(1)
+
+            # get genomes from storage
+            ref_genome = self.genomes.get_genome(ref_node.name)
+            alt_genome = self.genomes.get_genome(alt_node.name)
+            self.logger.debug(f'Genomes retrieved for branch {ei}')
+
+            yield Branch(ei, ref_node.name, alt_node.name, ref_genome, alt_genome, 
+                         phylocoef, self.proba_cutoff, self.genomes.genome_size, self.site2index)
+
+    def get_edges_data(self):
+        return list(self.iter_branches())
+
+    @staticmethod
+    def dump_table(df: pd.DataFrame, handle, header=False):
+        if header:
+            handle.write("\t".join(df.columns) + "\n")
+        handle.write(df.to_csv(sep="\t", index=None, header=None, float_format='%g'))
+
+    def turn_to_MAP(self, states: np.ndarray):
+        if isinstance(states, pd.DataFrame):
+            warn('pd.DataFrame used as input instead of np.ndarray', ResourceWarning)
+            states = states.values
+        return ''.join([nucl_order5[x] for x in states.argmax(1)])
 
 
 def mutations_summary(mutations: pd.DataFrame, gene_col=None, proba_col=None, gene_name_mapper: dict = None):
