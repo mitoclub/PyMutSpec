@@ -58,40 +58,25 @@ def get_tree_len(tree: PhyloTree, mode='geom_mean'):
     return md
 
 
-def get_ingroup_root(tree: PhyloTree, outgrp='OUTGRP'):
-    found_outgrp, found_ingroup = False, False
-    ingroup = None
-    for n in tree.children:
-        if n.name == outgrp:
-            found_outgrp = True
+def get_ingroup_root(tree: PhyloTree) -> PhyloTree:
+    assert len(tree.children) == 2, 'Tree must be binary'
+    found_outgroup = False
+    for node in tree.children:
+        if node.is_leaf():
+            found_outgroup = True
         else:
-            found_ingroup = True
-            ingroup = n
-    if found_ingroup and found_outgrp:
-        return ingroup
+            ingrp = node
+
+    if found_outgroup:
+        return ingrp
     else:
-        raise Exception('Cannot extract ingroup root')
+        return tree
 
 
-def calc_phylocoefs(tree: PhyloTree, outgrp='OUTGRP'):
-    tree_len = get_tree_len(get_ingroup_root(tree, outgrp ), 'geom_mean')
+def calc_phylocoefs(tree: PhyloTree):
+    tree_len = get_tree_len(get_ingroup_root(tree), 'geom_mean')
     phylocoefs = {tree.name: 1 - min(0.999, tree.get_closest_leaf()[1] / tree_len)}
     for node in tree.iter_descendants():
         _closest, d = node.get_closest_leaf()
         phylocoefs[node.name] = 1 - min(0.99999, d / tree_len)
     return phylocoefs
-
-
-def get_tree_outgrp_name(tree: PhyloTree):
-    c1, c2 = tree.children
-    done = False
-    if len(c1.children) == 0:
-        done = True
-        outgrp = c1
-    if not done and len(c2.children) == 0:
-        done = True
-        outgrp = c2
-    if not done:
-        raise Exception("Cannot get outgroup from tree")
-        
-    return outgrp.name

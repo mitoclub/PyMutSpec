@@ -17,7 +17,7 @@ from ete3 import PhyloTree
 
 from pymutspec.annotation import (
     CodonAnnotation, calculate_mutspec, 
-    iter_tree_edges, lbl2lbl_id, calc_phylocoefs, get_tree_outgrp_name,
+    iter_tree_edges, lbl2lbl_id, calc_phylocoefs,
 )
 from pymutspec.constants import possible_sbs12, possible_sbs192
 from pymutspec.io import GenesStates
@@ -78,11 +78,9 @@ class MutSpec(CodonAnnotation, GenesStates):
         logger.info(f"Types of mutations to collect and process: {self.mut_labels}")
         self.fp_format = np.float32
         self.tree = PhyloTree(path_to_tree, format=1)
-        self.outgrp_name = get_tree_outgrp_name(self.tree)
         logger.info(
             f"Tree loaded, number of leaf nodes: {len(self.tree)}, "
-            f"total number of nodes: {len(self.tree.get_cached_content())}, "
-            f"outgroup name: {self.outgrp_name}"
+            f"total number of nodes: {len(self.tree.get_cached_content())}"
         )
         rnd_genome = self.get_random_genome()
         logger.info(f"Number of genes: {len(rnd_genome)}, number of sites: {[len(x) for x in rnd_genome.values()]}")
@@ -119,7 +117,7 @@ class MutSpec(CodonAnnotation, GenesStates):
 
         # calculate phylogenetic uncertainty correction
         if self.use_phylocoef:
-            phylocoefs = calc_phylocoefs(self.tree, self.outgrp_name)
+            phylocoefs = calc_phylocoefs(self.tree)
 
         for ei, (ref_node, alt_node) in enumerate(iter_tree_edges(self.tree), 1):
             if alt_node.name not in self.nodes:
