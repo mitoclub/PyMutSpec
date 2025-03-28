@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "PyMutSpec"
-version = "0.0.12"
+version = "0.0.13"
 description = "Mutational spectra analysis package"
 authors = [
   { name="kpotoh", email="axepon@mail.ru" },
@@ -25,16 +25,17 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
 ]
 dependencies = [
-    "numpy~=1.22.2",
-    "pandas~=1.4.0",
+    "numpy<2.0",
+    "pandas<2.0",
     "seaborn==0.12.2",
-    "biopython==1.79",
-    "ete3==3.1.2",
-    "tqdm~=4.62.3",
-    "PyYAML~=6.0",
-    "pytest~=7.1.2",
-    "click~=8.1.3",
+    "biopython>=1.75",
+    "ete3>=3",
+    "tqdm",
+    "PyYAML",
+    "pytest",
+    "click",
 ]
+# TODO incluce scripts
 
 [project.urls]
 "Homepage" = "https://github.com/mitoclub/PyMutSpec"
