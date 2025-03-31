@@ -11,3 +11,6 @@ evn*
 tmp
 .idea
 .coverage
+*.egg-info
+dist
+build
