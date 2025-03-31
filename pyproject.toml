@@ -54,3 +54,6 @@ script-files = ["scripts/multifasta_coding.py", "scripts/alignment2iqtree_states
 
 [tool.setuptools.dynamic]
 version = {attr = "pymutspec.__version__"}  # any module attribute compatible with ast.literal_eval
+
+[tool.pytest.ini_options]
+pythonpath = ["pymutspec"]
