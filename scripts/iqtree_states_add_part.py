@@ -6,7 +6,12 @@ script add "Part" column to states (tsv) file
 import sys
 
 
-def main(path_to_states, path_to_out):
+def main():
+    try:
+        path_to_states, path_to_out = sys.argv[1:]
+    except:
+        print("ERROR\nUSAGE: script.py path_to_states path_to_out_states", file=sys.stderr)
+    
     with open(path_to_out, "w") as fout:
         with open(path_to_states) as fin:
             for line in fin:
@@ -22,8 +27,4 @@ def main(path_to_states, path_to_out):
 
 
 if __name__ == "__main__":
-    try:
-        path_to_states, path_to_out = sys.argv[1:]
-        main(path_to_states, path_to_out)
-    except:
-        print("ERROR\nUSAGE: script.py path_to_states path_to_out_states", file=sys.stderr)
+    main()
