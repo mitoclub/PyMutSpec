@@ -9,8 +9,7 @@ description = "Mutational spectra analysis package"
 authors = [
   { name="kpotoh", email="axepon@mail.ru" },
 ]
-license = "MIT"
-license-files = ["LICEN[CS]E"]
+license = {file = "LICENSE"}
 readme = {file = "README.md", content-type = "text/markdown"}
 keywords = ["Bioinformatics", "Genetics", "Mutational spectra"]
 classifiers = [
@@ -23,6 +22,7 @@ classifiers = [
     "Topic :: Scientific/Engineering",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Topic :: Software Development :: Libraries :: Python Modules",
+    "License :: OSI Approved :: MIT License",
 ]
 requires-python = ">=3.8"
 dependencies = [
