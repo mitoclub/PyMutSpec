@@ -1,15 +1,133 @@
 import os
 import sys
+import random
 import sqlite3
 from collections import defaultdict
 from typing import List
-from unicodedata import category
 
+import tqdm
 import numpy as np
 import pandas as pd
 from Bio import SeqIO
-import tqdm
 
+from ..utils import basic_logger
+
+
+class GenomeStates:
+    def __init__(self, path_to_states, path_to_gappy_sites=None, format='tsv', logger=None):
+        for path in list([path_to_states, path_to_gappy_sites]):
+            if not os.path.exists(path):
+                raise ValueError(f"Path to states doesn't exist: '{path}'")
+
+        self.logger = logger or basic_logger()
+
+        self.logger.info(f'Reading states "{path_to_states}"')
+        states = self.read_states(path, format)
+
+        nodes_arr = states['Node'].unique()
+        self.node2id = dict(zip(nodes_arr, range(len(nodes_arr))))
+        self.nodes = set(nodes_arr)
+        self.logger.info(f'Loaded {len(self.nodes)} genomes')
+
+        states['NodeId'] = states['Node'].map(self.node2id)
+        if len(self.nodes) < 2 ** 31 - 1:
+            states['NodeId'] = states['NodeId'].astype(np.int32)
+
+        states.drop('Node', axis=1, inplace=True)
+        self.logger.debug('Node column deleted')
+
+        states.set_index('NodeId', inplace=True)
+        self.logger.debug('States reindexed')
+
+        self.genome_size = len(states.loc[0])
+        self.logger.info(f'Total alignement size = {self.genome_size}')
+
+        self.nongappy_sites = self.read_nongappy_sites(path_to_gappy_sites)
+        self.states = states
+        self.logger.info('States initialiaztion is done')
+
+    def __contains__(self, item: str):
+        return item in self.nodes
+
+    def __getitem__(self, item: str):
+        return self.get_genome(item)
+
+    def read_states(self, path, fmt='iqtree'):
+        fpt = np.float32
+        dtype = {
+            "p_A":  fpt, "p_C": fpt, "p_G":  fpt, "p_T": fpt,
+            "Site": np.int32, "Node": str,
+        }
+        if fmt == 'iqtree':
+            states = pd.read_csv(path, sep='\t', comment='#', dtype=dtype)
+        if fmt == 'csv':
+            states = pd.read_csv(path, dtype=dtype)
+        elif fmt == 'tsv':
+            states = pd.read_csv(path, sep='\t', dtype=dtype)
+        elif fmt == 'parquet':
+            states = pd.read_parquet(path)
+        return states
+
+    def read_nongappy_sites(self, path):
+        '''path must contain list of 1-based sites of alignment that must be excluded from loaded alignment
+        
+        return array of sorted non-gappy sites in 1-based mode
+        '''
+        if path is None:
+            nongappy_sites = np.arange(1, self.genome_size + 1)
+            self.logger.debug('Use all alignment sites')
+        else:
+            self.logger.debug(f'Reading gappy sites "{path}"')
+            gappy_sites = set(pd.read_csv(path, header=None).values.flatten().tolist())
+            nongappy_sites = np.array([i for i in range(1, self.genome_size + 1) \
+                                    if i not in gappy_sites])
+            self.logger.debug(f'Number of used (non-gappy) sites = {len(nongappy_sites)}')
+        return nongappy_sites
+
+    def get_genome(self, node: str) -> pd.DataFrame:
+        if node not in self.nodes:
+            raise ValueError(f'Input node "{node}" have no genome')
+        node_id = self.node2id[node]
+        genome = self.states.loc[node_id].set_index('Site').loc[self.nongappy_sites]
+        return genome
+
+
+class GenomeStatesTotal():
+    def __init__(self, path_to_states1: str, path_to_states2: str, path_to_gappy_sites: str):
+        gs1 = GenomeStates(path_to_states1, path_to_gappy_sites)
+        gs2 = GenomeStates(path_to_states2, path_to_gappy_sites)
+        
+        assert gs1.genome_size == gs2.genome_size
+        self.genome_size = gs1.genome_size
+        
+        self.nodes = gs1.nodes.union(gs2.nodes)
+        self.gs1 = gs1
+        self.gs2 = gs2
+
+    def __contains__(self, item):
+        return item in self.nodes
+
+    def __getitem__(self, item):
+        if item in self.gs1:
+            genome = self.gs1[item]
+        elif item in self.gs2:
+            genome = self.gs2[item]
+        else:
+            raise ValueError('node does not exist')
+        return genome
+
+    def get_genome(self, node: str) -> pd.DataFrame:
+        if node in self.gs1:
+            genome = self.gs1[node]
+        elif node in self.gs2:
+            genome = self.gs2[node]
+        else:
+            raise ValueError('node does not exist')
+        return genome
+
+    def get_random_genome(self) -> pd.DataFrame:
+        node = random.choice(list(self.nodes))
+        return self[node]
 
 
 class GenesStates:
@@ -304,3 +422,61 @@ def read_rates(path: str):
     df = pd.read_csv(path, sep="\t", comment="#").sort_values("Site")
     category = df.Cat.values
     return category
+
+
+def read_alignment(files: list, fmt="fasta"):
+    """
+    Read files alignments and prepare states table
+
+    Arguments
+    ---------
+    files: list or iterable of string
+        files with alignments; if some records not presented in all files table will be filled by '-' (gaps) 
+    fmt: string
+        format of files aligment; supported any format from biopython (fasta, phylip, etc.)
+    
+    Return
+    ---------
+        states: pd.DataFrame
+    """
+    ngenes = len(files)  
+    columns = "Node Part Site State p_A p_C p_G p_T".split()
+    nucls = "ACGT"
+    aln_lens = dict()
+    files = set(files)
+    history = defaultdict(list)
+    data = []
+    for filepath in files:
+        part = "1" if ngenes == 1 else os.path.basename(filepath).replace(".fna", "")
+        alignment = SeqIO.parse(filepath, fmt)
+        for rec in alignment:
+            node = rec.name
+            history[node].append(part)
+            seq = str(rec.seq)
+            for site, state in enumerate(seq, 1):
+                site_data = [node, part, site, state]
+                for nucl in nucls:
+                    p = int(nucl == state)
+                    site_data.append(p)
+                data.append(site_data)
+        aln_lens[part] = len(seq)
+
+    if ngenes > 1:
+        # get max set of parts. Only for multiple files
+        for node, parts in history.items():
+            if len(parts) == ngenes:
+                full_parts = parts.copy()
+                break
+
+        # fill missing genes by '-'. Only for multiple files
+        for node, parts in history.items():
+            if len(parts) != ngenes:
+                unseen_parts = set(full_parts).difference(parts)
+                for unp in unseen_parts:
+                    print(f"Gap filling for node {node}, part {unp}...", file=sys.stderr)
+                    for site in range(1, aln_lens[unp] + 1):
+                        site_data = [node, unp, site, "-", 0, 0, 0, 0]
+                        data.append(site_data)
+
+    df = pd.DataFrame(data, columns=columns)
+    return df

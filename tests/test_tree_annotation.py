@@ -1,20 +1,15 @@
 import pytest
-from pymutspec.annotation import get_tree_outgrp_name, get_ingroup_root, get_tree_len, calc_phylocoefs
-
-
-def test_get_tree_outgrp_name(tree_rooted):
-    outgrp = get_tree_outgrp_name(tree_rooted)
-    assert outgrp == 'Acanthisitta_chloris'
+from pymutspec.annotation import get_ingroup_root, get_tree_len, calc_phylocoefs
 
 
 def test_get_ingroup_root(tree_rooted):
-    ingroup = get_ingroup_root(tree_rooted, 'Acanthisitta_chloris')
+    ingroup = get_ingroup_root(tree_rooted)
     assert ingroup.name == 'Node1'
     assert round(ingroup.dist, 4) == 0.0739
 
 
 def test_get_tree_len(tree_rooted):
-    ingroup = get_ingroup_root(tree_rooted, 'Acanthisitta_chloris')
+    ingroup = get_ingroup_root(tree_rooted)
 
     l1 = get_tree_len(tree_rooted, 'geom_mean')
     l2 = get_tree_len(ingroup, 'geom_mean')
@@ -24,9 +19,9 @@ def test_get_tree_len(tree_rooted):
 
 
 def test_calc_phylocoefs(tree_rooted):
-    phylocoefs = calc_phylocoefs(tree_rooted, 'Acanthisitta_chloris')
+    phylocoefs = calc_phylocoefs(tree_rooted)
 
-    ingroup = get_ingroup_root(tree_rooted, 'Acanthisitta_chloris')
+    ingroup = get_ingroup_root(tree_rooted)
     tl = get_tree_len(ingroup, 'geom_mean')
     
     node = 'Node1'

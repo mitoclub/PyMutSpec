@@ -23,7 +23,12 @@ def agrmax(a):
     return imax
 
 
-def main(path_to_raxml_states, out_path):
+def main():
+    try:
+        path_to_raxml_states, out_path = sys.argv[1], sys.argv[2]
+    except:
+        RuntimeError("USAGE: script.py PATH_TO_RAxML_STATES PATH_TO_OUT_IQTREE_STATES")
+
     with open(out_path, "w") as fout:
         fout.write("\t".join(header) + "\n")
         with open(path_to_raxml_states) as fin:
@@ -45,7 +50,4 @@ def main(path_to_raxml_states, out_path):
 if __name__ == "__main__":
     # path_to_raxml_states = "data/RAxML_marginalAncestralProbabilities.tsv"
     # out_path = "data/out.state"
-    try:
-        main(sys.argv[1], sys.argv[2])
-    except:
-        RuntimeError("USAGE: script.py PATH_TO_RAxML_STATES PATH_TO_OUT_IQTREE_STATES")
+    main()

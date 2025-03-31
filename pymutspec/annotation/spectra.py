@@ -4,7 +4,7 @@ from typing import Set, Union, Dict, Iterable
 import numpy as np
 import pandas as pd
 
-from pymutspec.constants import (
+from ..constants import (
     possible_sbs12_set, possible_sbs192_set, 
     possible_sbs192, possible_sbs12
 )

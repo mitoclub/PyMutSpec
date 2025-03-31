@@ -13,8 +13,13 @@ def node_parent(node: PhyloNode):
         return None
 
 
-def main(path_to_dist_tree, path_to_named_tree, path_to_out):
+def main():
     """Iteratively going from leaves to root and add names to dist tree"""
+    try:
+        _, path_to_dist_tree, path_to_named_tree, path_to_out = sys.argv
+    except:
+        print("ERROR\nUSAGE: script.py path_to_dist_tree path_to_named_tree path_to_out_tree", file=sys.stderr)
+    
     tree_dist = PhyloTree(path_to_dist_tree, format=0)
     tree_named = PhyloTree(path_to_named_tree, format=8)
 
@@ -45,8 +50,5 @@ def main(path_to_dist_tree, path_to_named_tree, path_to_out):
 
 
 if __name__ == "__main__":
-    try:
-        _, path_to_dist_tree, path_to_named_tree, path_to_out = sys.argv
-        main(path_to_dist_tree, path_to_named_tree, path_to_out)
-    except:
-        print("ERROR\nUSAGE: script.py path_to_dist_tree path_to_named_tree path_to_out_tree", file=sys.stderr)
+    main()
+        
