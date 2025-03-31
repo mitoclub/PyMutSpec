@@ -41,7 +41,8 @@ dependencies = [
 dev = ["pytest", "pytest-cov", "flake8"]
 
 [project.urls]
-"Homepage" = "https://github.com/mitoclub/PyMutSpec"
+Homepage = "https://github.com/mitoclub/PyMutSpec"
+Changelog = "https://github.com/mitoclub/PyMutSpec/blob/master/CHANGELOG.md"
 "Bug Tracker" = "https://github.com/mitoclub/PyMutSpec/issues"
 
 [tool.setuptools]

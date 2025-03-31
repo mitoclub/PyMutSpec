@@ -9,7 +9,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from pymutspec.constants import possible_sbs192, possible_sbs96
+from ..constants import possible_sbs192, possible_sbs96
 from .sbs_orders import ordered_sbs192_kk, ordered_sbs192_kp
 
 color_mapping6 = {

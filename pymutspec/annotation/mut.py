@@ -11,8 +11,8 @@ from Bio.Data import CodonTable
 from Bio.Data.CodonTable import NCBICodonTableDNA
 from ete3 import PhyloTree
 
-from pymutspec.constants import *
-from pymutspec.utils import basic_logger
+from ..constants import *
+from ..utils import basic_logger
 from ..io import GenomeStatesTotal
 from .tree import iter_tree_edges, calc_phylocoefs
 
