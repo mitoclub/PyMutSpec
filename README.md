@@ -70,7 +70,28 @@ plot_mutspec192(spectra192)
 
 ## How to cite?
 
-    Bogdan Efimenko, Konstantin Popadin, Konstantin Gunbin, NeMu: a comprehensive pipeline for accurate reconstruction of neutral mutation spectra from evolutionary data, Nucleic Acids Research, Volume 52, Issue W1, 5 July 2024, Pages W108–W115, https://doi.org/10.1093/nar/gkae438
+If you use PyMutSpec in your work, please cite the paper that describes the methods:
+
+Efimenko, B., Popadin, K., & Gunbin, K. (2024). NeMu: a comprehensive pipeline for accurate
+reconstruction of neutral mutation spectra from evolutionary data. *Nucleic Acids Research*,
+52(W1), W108–W115. <https://doi.org/10.1093/nar/gkae438>
+
+Suggested BibTeX entry:
+
+```bibtex
+@article{Efimenko2024NeMu,
+    author  = {Efimenko, Bogdan and Popadin, Konstantin and Gunbin, Konstantin},
+    title   = {NeMu: a comprehensive pipeline for accurate reconstruction of neutral mutation spectra from evolutionary data},
+    journal = {Nucleic Acids Research},
+    volume  = {52},
+    number  = {W1},
+    pages   = {W108--W115},
+    year    = {2024},
+    doi     = {10.1093/nar/gkae438},
+}
+```
+
+Thank you for citing the work if PyMutSpec aids your research.
 
 
 <!-- ## How to upload to PyPI
@@ -83,3 +104,14 @@ python3 -m build --wheel
 twine check dist/*
 twine upload dist/*
 ``` -->
+
+## TODO
+
+- [x] Custom tree implementation
+- [x] new way of annotation from HGT
+- [x] separate scripts for mutation collection and annotation
+- [x] improve tests
+- [x] add more docstrings
+- [x] integrate parrallelization from HGT project
+- [x] add feature to calc the MutRate
+- [x] rename some functions and variables for better readability
