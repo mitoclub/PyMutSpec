@@ -14,3 +14,4 @@ tmp
 *.egg-info
 dist
 build
+test.ipynb
