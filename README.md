@@ -107,11 +107,11 @@ twine upload dist/*
 
 ## TODO
 
-- [x] Custom tree implementation
-- [x] new way of annotation from HGT
-- [x] separate scripts for mutation collection and annotation
-- [x] improve tests
-- [x] add more docstrings
-- [x] integrate parrallelization from HGT project
-- [x] add feature to calc the MutRate
-- [x] rename some functions and variables for better readability
+- [ ] Custom tree implementation
+- [ ] new way of annotation from HGT
+- [ ] separate scripts for mutation collection and annotation
+- [ ] improve tests
+- [ ] add more docstrings
+- [ ] integrate parrallelization from HGT project
+- [ ] add feature to calc the MutRate
+- [ ] rename some functions and variables for better readability
