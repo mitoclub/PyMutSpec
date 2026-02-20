@@ -1097,7 +1097,7 @@ def mutations_summary(mutations: pd.DataFrame, gene_col=None, proba_col=None, ge
     ---------
     mutations: pd.DataFrame 
         table must contain at least 2 columns:
-        - Mut: str; Pattern: '[ACGT]\[[ACGT]>[ACGT]\][ACGT]'
+        - Mut: str; Pattern: ``[ACGT]\\[[ACGT]>[ACGT]\\][ACGT]``
         - Label: int; [-3, 2]. See CodonAnnotation.get_mut_type
         - $gene_col, optional. If gene_col=None annotation will be formed on full mutations without genes splitting
         - $proba_col, optional. If proba_col=None each row of table assumed to be mutation, else probabilities will be used
@@ -1115,7 +1115,7 @@ def mutations_summary(mutations: pd.DataFrame, gene_col=None, proba_col=None, ge
         table with mutations annotation
     """
     mutations = mutations.copy()
-    mut_pattern = "[ACGT]\[[ACGT]>[ACGT]\][ACGT]"
+    mut_pattern = r"[ACGT]\[[ACGT]>[ACGT]\][ACGT]"
     label_mapper = {
         -3: "6Stop to stop",
         -2: "4Stop loss",
