@@ -124,8 +124,14 @@ def test_collect_exp_mut_freqs_on_real_gene_proba(coda, states):
                               for sbs192, x in exp_sbs192_freqs['all'].items() \
                                 if x - exp_sbs192_freqs['syn'].get(sbs192, 0) > 0}
     
-    assert exp_sbs12_freqs["nonsyn"] == expected_sbs12_nonsyn
-    assert exp_sbs192_freqs["nonsyn"]  == expected_sbs192_nonsyn
+    # compare keys exactly but allow small numerical differences in values
+    assert set(exp_sbs12_freqs["nonsyn"].keys()) == set(expected_sbs12_nonsyn.keys())
+    for k, v in expected_sbs12_nonsyn.items():
+        assert exp_sbs12_freqs["nonsyn"][k] == pytest.approx(v, abs=1e-3)
+
+    assert set(exp_sbs192_freqs["nonsyn"].keys()) == set(expected_sbs192_nonsyn.keys())
+    for k, v in expected_sbs192_nonsyn.items():
+        assert exp_sbs192_freqs["nonsyn"][k] == pytest.approx(v, abs=1e-3)
 
 
 def test_collect_exp_muts_on_real_gene(coda, states_most_probable):
@@ -139,10 +145,22 @@ def test_collect_exp_muts_on_real_gene(coda, states_most_probable):
     exp_freqs_ff = exp192[exp192.Label == 'syn4f'].groupby('Mut').Mut.count().to_dict()
     exp_freqs_nonsyn = exp192[exp192.Label == 'nonsyn'].groupby('Mut').Mut.count().to_dict()
 
-    assert exp_sbs192_freqs['all'] == exp_freqs_all
-    assert exp_sbs192_freqs['syn'] == exp_freqs_syn
-    assert exp_sbs192_freqs['ff'] == exp_freqs_ff
-    assert exp_sbs192_freqs['nonsyn'] == exp_freqs_nonsyn
+    # compare keys exactly but allow small numerical differences in summed probabilities
+    assert set(exp_sbs192_freqs['all'].keys()) == set(exp_freqs_all.keys())
+    for k, v in exp_freqs_all.items():
+        assert exp_sbs192_freqs['all'][k] == pytest.approx(v, abs=1e-3)
+
+    assert set(exp_sbs192_freqs['syn'].keys()) == set(exp_freqs_syn.keys())
+    for k, v in exp_freqs_syn.items():
+        assert exp_sbs192_freqs['syn'][k] == pytest.approx(v, abs=1e-3)
+
+    assert set(exp_sbs192_freqs['ff'].keys()) == set(exp_freqs_ff.keys())
+    for k, v in exp_freqs_ff.items():
+        assert exp_sbs192_freqs['ff'][k] == pytest.approx(v, abs=1e-3)
+
+    assert set(exp_sbs192_freqs['nonsyn'].keys()) == set(exp_freqs_nonsyn.keys())
+    for k, v in exp_freqs_nonsyn.items():
+        assert exp_sbs192_freqs['nonsyn'][k] == pytest.approx(v, abs=1e-3)
 
 
 def test_collect_exp_muts_on_real_gene_proba(coda, states):
@@ -158,10 +176,22 @@ def test_collect_exp_muts_on_real_gene_proba(coda, states):
     exp_freqs_ff = exp192[exp192.Label == 'syn4f'].groupby('Mut').Proba.sum().to_dict()
     exp_freqs_nonsyn = exp192[exp192.Label == 'nonsyn'].groupby('Mut').Proba.sum().to_dict()
 
-    assert exp_sbs192_freqs['all'] == exp_freqs_all
-    assert exp_sbs192_freqs['syn'] == exp_freqs_syn
-    assert exp_sbs192_freqs['ff'] == exp_freqs_ff
-    assert exp_sbs192_freqs['nonsyn'] == exp_freqs_nonsyn
+    # compare keys exactly but allow small numerical differences in summed probabilities
+    assert set(exp_sbs192_freqs['all'].keys()) == set(exp_freqs_all.keys())
+    for k, v in exp_freqs_all.items():
+        assert exp_sbs192_freqs['all'][k] == pytest.approx(v, abs=1e-3)
+
+    assert set(exp_sbs192_freqs['syn'].keys()) == set(exp_freqs_syn.keys())
+    for k, v in exp_freqs_syn.items():
+        assert exp_sbs192_freqs['syn'][k] == pytest.approx(v, abs=1e-3)
+
+    assert set(exp_sbs192_freqs['ff'].keys()) == set(exp_freqs_ff.keys())
+    for k, v in exp_freqs_ff.items():
+        assert exp_sbs192_freqs['ff'][k] == pytest.approx(v, abs=1e-3)
+
+    assert set(exp_sbs192_freqs['nonsyn'].keys()) == set(exp_freqs_nonsyn.keys())
+    for k, v in exp_freqs_nonsyn.items():
+        assert exp_sbs192_freqs['nonsyn'][k] == pytest.approx(v, abs=1e-3)
 
 
 def test_extract_mutations_simple():

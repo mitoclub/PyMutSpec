@@ -2,21 +2,20 @@ from queue import Queue
 from statistics import geometric_mean
 
 import numpy as np
-from .phylo_tree import TreeNode, Tree
 
 
-def node_parent(node: PhyloNode):
+def node_parent(node):
     """
     Return the parent node of *node*, or ``None`` if *node* is the root.
 
     Arguments
     ---------
-    node: PhyloNode
+    node
         A node in a phylogenetic tree.
 
     Return
     ------
-    parent: PhyloNode or None
+    parent or None
         The immediate ancestor of *node*, or ``None`` when *node* has no
         ancestors (i.e. it is the root).
     """
@@ -26,7 +25,7 @@ def node_parent(node: PhyloNode):
         return None
 
 
-def iter_tree_edges(tree: PhyloTree):
+def iter_tree_edges(tree):
     """
     Iterate over all directed edges (parent → child) in the tree via BFS.
 
@@ -36,14 +35,14 @@ def iter_tree_edges(tree: PhyloTree):
 
     Arguments
     ---------
-    tree: PhyloTree
+    tree
         Rooted phylogenetic tree.
 
     Yields
     ------
-    ref_node: PhyloNode
+    ref_node
         Parent (reference) node of the edge.
-    alt_node: PhyloNode
+    alt_node
         Child (alternative) node of the edge.
     """
     discovered_nodes = set()
@@ -63,14 +62,14 @@ def iter_tree_edges(tree: PhyloTree):
             yield ref_node, alt_node
 
 
-def get_tree_len(tree: PhyloTree, mode='geom_mean'):
+def get_tree_len(tree, mode='geom_mean'):
     """
     Return the characteristic length of a (sub)tree as the distance from
     the root to its leaves.
 
     Arguments
     ---------
-    tree: PhyloTree
+    tree
         Rooted phylogenetic tree or subtree.  Must not be named ``'ROOT'``.
     mode: str
         Aggregation method over leaf distances.  One of:
@@ -105,12 +104,12 @@ def get_tree_len(tree: PhyloTree, mode='geom_mean'):
             md = geometric_mean(distances_to_leaves)
 
     else:
-        raise TypeError(f"mode must be 'mean', 'geom_mean' or 'max'")
+        raise TypeError("mode must be 'mean', 'geom_mean' or 'max'")
 
     return md
 
 
-def get_ingroup_root(tree: PhyloTree) -> PhyloTree:
+def get_ingroup_root(tree):
     """
     Return the ingroup root of a binary rooted tree that contains an outgroup.
 
@@ -120,12 +119,12 @@ def get_ingroup_root(tree: PhyloTree) -> PhyloTree:
 
     Arguments
     ---------
-    tree: PhyloTree
+    tree
         Rooted binary tree with an outgroup leaf attached to the root.
 
     Return
     ------
-    ingrp: PhyloTree
+    ingrp
         Root of the ingroup clade.
 
     Raises
@@ -147,7 +146,7 @@ def get_ingroup_root(tree: PhyloTree) -> PhyloTree:
         return tree
 
 
-def calc_phylocoefs(tree: PhyloTree):
+def calc_phylocoefs(tree):
     """
     Calculate a phylogenetic coefficient for every node in the tree.
 
@@ -159,7 +158,7 @@ def calc_phylocoefs(tree: PhyloTree):
 
     Arguments
     ---------
-    tree: PhyloTree
+    tree
         Rooted binary phylogenetic tree (with an outgroup leaf).
 
     Return
