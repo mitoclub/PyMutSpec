@@ -89,7 +89,7 @@ def get_tree_len(tree: PhyloTree, mode='geom_mean'):
     TypeError
         If *mode* is not one of the accepted values.
     """
-    assert tree.name != 'ROOT'
+    assert tree.name != 'ROOT', "Tree node cannot be named 'ROOT'"
 
     if mode == 'max':
         _, md = tree.get_farthest_leaf()

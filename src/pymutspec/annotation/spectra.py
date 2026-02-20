@@ -30,7 +30,7 @@ def calculate_mutspec(
     ---------
     obs_muts: pd.DataFrame
         table containing mutations with annotation; table must contain 2 columns:
-        - Mut: str; Pattern: '[ACGT][[ACGT]>[ACGT]][ACGT]'
+        - Mut: str; Pattern: ``[ACGT]\\[[ACGT]>[ACGT]\\][ACGT]``
         - ProbaFull (optional, only for use_proba=True) - probability of mutation
 
     exp_muts: dict[str, float]
@@ -203,9 +203,9 @@ def collapse_mutspec(ms192: pd.DataFrame):
         If ``ms192`` does not have exactly 192 rows or is missing required
         columns.
     """
-    assert ms192.shape[0] == 192
+    assert ms192.shape[0] == 192, f"Expected 192 rows, got {ms192.shape[0]}"
     for c in ["Mut", "ObsFr", "ExpFr"]:
-        assert c in ms192.columns
+        assert c in ms192.columns, f"Required column '{c}' not found in ms192"
 
     ms1 = ms192[ms192["Mut"].str.get(2).isin(list("CT"))]
     ms2 = ms192[ms192["Mut"].str.get(2).isin(list("AG"))]
@@ -273,7 +273,8 @@ def collapse_sbs192(df: pd.DataFrame, to=12):
     NotImplementedError
         If ``to`` is not ``12``.
     """
-    assert (df.columns == possible_sbs192).all()
+    assert (df.columns == possible_sbs192).all(), \
+        "DataFrame columns must match possible_sbs192 in canonical order"
     df = df.copy()
     if to == 12:
         for sbs192 in possible_sbs192:
