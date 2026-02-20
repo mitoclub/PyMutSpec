@@ -10,6 +10,14 @@ Fixes:
 
 -  -->
 
+## 0.0.14 (2026-02-20)
+
+Features:
+
+- Replaced `ete3` dependency with a custom `TreeNode`/`Tree` implementation in `src/pymutspec/annotation/phylo_tree.py` that uses BioPython for newick parsing and provides an ete3-compatible interface (node iteration, branch traversal, distance computation, node search, and newick serialisation)
+- Removed `ete3` from package dependencies in `pyproject.toml`; kept in `dev` extras for comparison tests
+- Added `tests/test_tree_vs_ete3.py` with tests that verify the custom `Tree` produces identical results to ete3's `PhyloTree` when loading and iterating nodes/edges
+
 ## 0.0.13 (2025-03-31)
 
 Features:

@@ -2,7 +2,7 @@ from queue import Queue
 from statistics import geometric_mean
 
 import numpy as np
-from ete3 import PhyloTree, PhyloNode
+from .phylo_tree import TreeNode, Tree
 
 
 def node_parent(node: PhyloNode):
