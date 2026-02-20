@@ -13,7 +13,7 @@ from shutil import rmtree
 import click
 import numpy as np
 import pandas as pd
-from pymutspec.annotation.phylo_tree import PhyloTree
+from pymutspec.annotation.phylo_tree import Tree
 
 from pymutspec.annotation import (
     CodonAnnotation, calculate_mutspec, 
@@ -77,7 +77,7 @@ class MutSpec(CodonAnnotation, GenesStates):
             self.mut_labels.append("nonsyn")
         logger.info(f"Types of mutations to collect and process: {self.mut_labels}")
         self.fp_format = np.float32
-        self.tree = PhyloTree(path_to_tree, format=1)
+        self.tree = Tree(path_to_tree, format=1)
         logger.info(
             f"Tree loaded, number of leaf nodes: {len(self.tree)}, "
             f"total number of nodes: {len(self.tree.get_cached_content())}"

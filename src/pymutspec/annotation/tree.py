@@ -2,17 +2,17 @@ from queue import Queue
 from statistics import geometric_mean
 
 import numpy as np
-from .phylo_tree import PhyloNode, PhyloTree
+from .phylo_tree import TreeNode, Tree
 
 
-def node_parent(node: PhyloNode):
+def node_parent(node: TreeNode):
     try:
         return next(node.iter_ancestors())
     except BaseException:
         return None
 
 
-def iter_tree_edges(tree: PhyloTree):
+def iter_tree_edges(tree: Tree):
     discovered_nodes = set()
     discovered_nodes.add(tree.name)
     Q = Queue()
@@ -30,7 +30,7 @@ def iter_tree_edges(tree: PhyloTree):
             yield ref_node, alt_node
 
 
-def get_tree_len(tree: PhyloTree, mode='geom_mean'):
+def get_tree_len(tree: Tree, mode='geom_mean'):
     '''
     TODO check if tree is rooted 
 
@@ -58,7 +58,7 @@ def get_tree_len(tree: PhyloTree, mode='geom_mean'):
     return md
 
 
-def get_ingroup_root(tree: PhyloTree) -> PhyloTree:
+def get_ingroup_root(tree: Tree) -> Tree:
     assert len(tree.children) == 2, 'Tree must be binary'
     found_outgroup = False
     for node in tree.children:
@@ -73,7 +73,7 @@ def get_ingroup_root(tree: PhyloTree) -> PhyloTree:
         return tree
 
 
-def calc_phylocoefs(tree: PhyloTree):
+def calc_phylocoefs(tree: Tree):
     tree_len = get_tree_len(get_ingroup_root(tree), 'geom_mean')
     phylocoefs = {tree.name: 1 - min(0.999, tree.get_closest_leaf()[1] / tree_len)}
     for node in tree.iter_descendants():

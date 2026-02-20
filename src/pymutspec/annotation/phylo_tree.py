@@ -7,7 +7,7 @@ from io import StringIO
 from Bio import Phylo as _BioPhylo
 
 
-class PhyloNode:
+class TreeNode:
     """
     A phylogenetic tree node with an ete3-compatible interface.
     Instances form a tree through parent/child references.
@@ -163,7 +163,7 @@ class PhyloNode:
         return sum(1 for _ in self.iter_leaves())
 
     def __repr__(self):
-        return f"PhyloNode(name={self.name!r}, dist={self.dist}, children={len(self.children)})"
+        return f"TreeNode(name={self.name!r}, dist={self.dist}, children={len(self.children)})"
 
 
 # ---------------------------------------------------------------------------
@@ -171,8 +171,8 @@ class PhyloNode:
 # ---------------------------------------------------------------------------
 
 def _bio_clade_to_node(clade):
-    """Recursively convert a BioPython Clade into a PhyloNode tree."""
-    node = PhyloNode(
+    """Recursively convert a BioPython Clade into a TreeNode tree."""
+    node = TreeNode(
         name=clade.name if clade.name is not None else "",
         dist=clade.branch_length if clade.branch_length is not None else 0.0,
     )
@@ -187,7 +187,7 @@ def _bio_clade_to_node(clade):
 # Public constructor – mirrors ete3's PhyloTree(path, format=N)
 # ---------------------------------------------------------------------------
 
-class PhyloTree(PhyloNode):
+class Tree(TreeNode):
     """
     Load a phylogenetic tree from a newick file.
 
@@ -208,7 +208,7 @@ class PhyloTree(PhyloNode):
         bio_tree = _BioPhylo.read(StringIO(tree_str), "newick")
         root = _bio_clade_to_node(bio_tree.root)
 
-        # Initialise self as the root node (PhyloNode.__init__ not called via
+        # Initialise self as the root node (TreeNode.__init__ not called via
         # super because we copy attributes from the parsed root directly).
         self.name = root.name
         self.dist = root.dist
@@ -217,3 +217,4 @@ class PhyloTree(PhyloNode):
         # Re-point children's _parent to self (they currently point to root).
         for child in self.children:
             child._parent = self
+

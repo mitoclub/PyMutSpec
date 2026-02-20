@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
 import sys
-from pymutspec.annotation.phylo_tree import PhyloTree, PhyloNode
+from pymutspec.annotation.phylo_tree import Tree, TreeNode
 
 dist_formatter = "%0.8f"
 
 
-def node_parent(node: PhyloNode):
+def node_parent(node: TreeNode):
     try:
         return next(node.iter_ancestors())
     except BaseException:
@@ -20,8 +20,8 @@ def main():
     except:
         print("ERROR\nUSAGE: script.py path_to_dist_tree path_to_named_tree path_to_out_tree", file=sys.stderr)
     
-    tree_dist = PhyloTree(path_to_dist_tree, format=0)
-    tree_named = PhyloTree(path_to_named_tree, format=8)
+    tree_dist = Tree(path_to_dist_tree, format=0)
+    tree_named = Tree(path_to_named_tree, format=8)
 
     nd = len(tree_dist.get_cached_content())
     nn = len(tree_named.get_cached_content())
@@ -44,7 +44,7 @@ def main():
             node_named = pa_named
 
     nwk = tree_dist.write(format=1, outfile=None, dist_formatter=dist_formatter)
-    nwk = nwk.replace(";", "ROOT;")  # add ROOT label, that cannot be added with PhyloTree
+    nwk = nwk.replace(";", "ROOT;")  # add ROOT label, that cannot be added with Tree
     with open(path_to_out, "w") as fout:
         fout.write(nwk)
 

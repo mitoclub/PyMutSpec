@@ -17,7 +17,7 @@ from collections import defaultdict
 
 import numpy as np
 import pandas as pd
-from pymutspec.annotation.phylo_tree import PhyloTree
+from pymutspec.annotation.phylo_tree import Tree
 from pymutspec.annotation import (
     CodonAnnotation, iter_tree_edges, get_tree_len,
 )
@@ -28,7 +28,7 @@ logger = basic_logger()
 nucl_order5 = ['A', 'C', 'G', 'T', '-']
 
 
-def calc_phylocoefs(tree: PhyloTree):
+def calc_phylocoefs(tree: Tree):
     tree_len = get_tree_len(tree, 'geom_mean')
     logger.info(f'Tree len = {tree_len:.3f}')
     phylocoefs = {tree.name: 1 - min(0.999, tree.get_closest_leaf()[1] / tree_len)}
@@ -342,7 +342,7 @@ class MutSpec(CodonAnnotation):
         logger.info(f"Minimal probability for mutations to use: {proba_cutoff}")
 
         self.fp_format = np.float32
-        self.tree = PhyloTree(path_to_tree, format=1)
+        self.tree = Tree(path_to_tree, format=1)
         logger.info(
             f"Tree loaded, number of leaf nodes: {len(self.tree)}, "
             f"total number of nodes: {len(self.tree.get_cached_content())}, "

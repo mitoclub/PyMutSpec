@@ -1,5 +1,5 @@
 import pytest
-from pymutspec.annotation.phylo_tree import PhyloTree
+from pymutspec.annotation.phylo_tree import Tree
 
 from pymutspec.annotation import CodonAnnotation
 from pymutspec.io import GenesStates
@@ -30,6 +30,6 @@ def coda():
 
 
 @pytest.fixture
-def tree_rooted() -> PhyloTree:
-    t = PhyloTree(path_to_tree_rooted, format=1)
+def tree_rooted() -> Tree:
+    t = Tree(path_to_tree_rooted, format=1)
     return t

@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from Bio.Data import CodonTable
 from Bio.Data.CodonTable import NCBICodonTableDNA
-from .phylo_tree import PhyloTree
+from .phylo_tree import Tree
 
 from ..constants import *
 from ..utils import basic_logger
@@ -975,7 +975,7 @@ class MutSpecExtractor(CodonAnnotation):
         self.logger.info(f"Minimal probability for mutations to use: {proba_cutoff}")
 
         self.fp_format = np.float32
-        self.tree = PhyloTree(path_to_tree, format=1)
+        self.tree = Tree(path_to_tree, format=1)
         self.logger.info(
             f"Tree loaded, number of leaf nodes: {len(self.tree)}, "
             f"total number of nodes: {len(self.tree.get_cached_content())}, "
