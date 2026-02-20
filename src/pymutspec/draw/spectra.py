@@ -67,6 +67,26 @@ for _sbs192 in ordered_sbs192:
 
 
 def _prepare_nice_labels(sbs192: Iterable[str], kk=False):
+    """
+    Build a display-friendly label list for 192-component SBS axes.
+
+    A short separator string (underscores) is inserted between groups of
+    substitutions that share the same base substitution type.
+
+    Arguments
+    ---------
+    sbs192: iterable of str
+        Ordered list of 192-component SBS strings (e.g. ``'A[C>A]C'``).
+    kk: bool
+        If ``True``, use the compact KK-style label format
+        ``'CA: ACA'`` instead of the full COSMIC string.
+
+    Return
+    ------
+    labels: list of str
+        Label strings suitable for use as tick labels, with separator
+        entries inserted between substitution groups.
+    """
     _nice_sbs = []
     prev = None
     for i, sbs in enumerate(sbs192, 1):
@@ -87,6 +107,7 @@ def plot_mutspec(
         style="bar",
         sbs_kind=12,
         sbs_order=None,
+        labels_style="cosmic",
         savepath=None,
         fontname=None,
         ticksize=8,
@@ -101,11 +122,66 @@ def plot_mutspec(
     """
     General plotting function for mutational spectra supporting 
     12- and 192-component spectra.
+
+    Arguments
+    ---------
+    mutspec: pd.DataFrame
+        Table containing at least a ``'Mut'`` column and a column named
+        *spectra_col* with spectrum values.
+    spectra_col: str
+        Column name used for the y-axis values.
+    title: str
+        Plot title.
+    ylabel: str or None
+        Y-axis label.
+    figsize: tuple or None
+        Figure size ``(width, height)`` in inches.  Defaults to ``(24, 8)``
+        for 192-component and ``(6, 4)`` for 12-component spectra.
+    style: str
+        ``'bar'`` for a bar plot or ``'box'`` for a box plot.
+    sbs_kind: int
+        Number of SBS components: ``12`` or ``192``.
+    sbs_order: list or None
+        Custom order for SBS labels on the x-axis.
+    labels_style: str
+        Style for 192-component tick labels.  One of:
+
+        - ``'cosmic'`` – full COSMIC-format strings, e.g. ``'A[C>A]T'``
+          (default)
+        - ``'long'``   – same as ``'cosmic'``
+        - ``'kk'``     – compact KK-style labels, e.g. ``'CA: ACT'``
+    savepath: str or None
+        File path to save the figure.  If ``None`` the figure is not saved.
+    fontname: str or None
+        Font family for all text elements.
+    ticksize: int
+        Font size for tick labels.
+    titlesize: int
+        Font size for the title.
+    ylabelsize: int
+        Font size for the y-axis label.
+    bar_width: float
+        Width of bars in bar plots.
+    show: bool
+        If ``True`` call ``plt.show()``; otherwise close the figure.
+    dpi: int
+        Resolution for saved figures.
+    ax: matplotlib.axes.Axes or None
+        Axes to draw on.  A new figure is created when ``None``.
+    **kwargs
+        Additional keyword arguments forwarded to the underlying seaborn
+        plot function.
+
+    Return
+    ------
+    ax: matplotlib.axes.Axes
+        The axes containing the plot.
     """
     if "filepath" in kwargs:
         savepath = kwargs.pop("filepath")
 
     is_192 = (sbs_kind == 192)
+    kk_labels = (labels_style == "kk")
 
     # Defaults
     if figsize is None:
@@ -113,7 +189,7 @@ def plot_mutspec(
 
     if is_192:
         sbs_order = sbs_order or ordered_sbs192
-        order = _prepare_nice_labels(sbs_order)
+        order = _prepare_nice_labels(sbs_order, kk=kk_labels)
         palette = color_mapping192
         tick_rotation = 90
     else:
@@ -206,7 +282,52 @@ def plot_mutspec12(
         ax=None,
         **kwargs,
     ):
-    # delegate to generic plotter for 12-component spectra
+    """
+    Plot a 12-component mutational spectrum.
+
+    A convenience wrapper around :func:`plot_mutspec` for 12-component
+    (SBS12) spectra.
+
+    Arguments
+    ---------
+    mutspec: pd.DataFrame
+        Table containing at least a ``'Mut'`` column with 12-component SBS
+        codes and a column named *spectra_col* with spectrum values.
+    spectra_col: str
+        Column name used for the y-axis values.
+    title: str
+        Plot title.
+    ylabel: str or None
+        Y-axis label.  Defaults to an empty string when ``None``.
+    figsize: tuple
+        Figure size ``(width, height)`` in inches.
+    style: str
+        ``'bar'`` for a bar plot or ``'box'`` for a box plot.
+    savepath: str or None
+        File path to save the figure.  If ``None`` the figure is not saved.
+    fontname: str or None
+        Font family for all text elements.
+    ticksize: int
+        Font size for tick labels.
+    titlesize: int
+        Font size for the title.
+    ylabelsize: int
+        Font size for the y-axis label.
+    show: bool
+        If ``True`` call ``plt.show()``; otherwise close the figure.
+    dpi: int
+        Resolution for saved figures.
+    ax: matplotlib.axes.Axes or None
+        Axes to draw on.  A new figure is created when ``None``.
+    **kwargs
+        Additional keyword arguments forwarded to the underlying seaborn
+        plot function.
+
+    Return
+    ------
+    ax: matplotlib.axes.Axes
+        The axes containing the plot.
+    """
     return plot_mutspec(
         mutspec=mutspec,
         spectra_col=spectra_col,
@@ -236,6 +357,7 @@ def plot_mutspec192(
         figsize=(24, 8), 
         style="bar",
         sbs_order=ordered_sbs192_kp,
+        labels_style="cosmic",
         savepath=None,
         fontname=None,
         ticksize=6,
@@ -248,16 +370,55 @@ def plot_mutspec192(
         **kwargs,
     ):
     """
-    Plot barblot of given mutational spectrum calculated from single nucleotide substitutions
+    Plot a barplot of a 192-component mutational spectrum.
 
     Arguments
     ---------
     mutspec192: pd.DataFrame
-        table, containing 192 component mutational spectrum for one or many species, all substitutions must be presented in the table
-    title: str, default = 'Mutational spectrum'
-        Title on the plot
-    savepath: str, default = None
-        Path to output plot file. If None no images will be written
+        Table containing 192-component mutational spectrum for one or many
+        species; all substitution types must be present in the table.
+    spectra_col: str
+        Column name used for the y-axis values.
+    title: str
+        Title on the plot.
+    ylabel: str or None
+        Y-axis label.
+    figsize: tuple
+        Figure size ``(width, height)`` in inches.
+    style: str
+        ``'bar'`` for a bar plot or ``'box'`` for a box plot.
+    sbs_order: list or None
+        Custom ordering of SBS192 labels on the x-axis.  Defaults to
+        COSMIC ordering.
+    labels_style: str
+        Style for tick labels.  One of ``'cosmic'``/``'long'`` (full COSMIC
+        strings) or ``'kk'`` (compact KK-style labels).
+    savepath: str or None
+        Path to output plot file.  If ``None`` no image is written.
+    fontname: str or None
+        Font family for all text elements.
+    ticksize: int
+        Font size for tick labels.
+    titlesize: int
+        Font size for the title.
+    ylabelsize: int
+        Font size for the y-axis label.
+    bar_width: float
+        Width of bars.
+    show: bool
+        If ``True`` call ``plt.show()``; otherwise close the figure.
+    dpi: int
+        Resolution for saved figures.
+    ax: matplotlib.axes.Axes or None
+        Axes to draw on.  A new figure is created when ``None``.
+    **kwargs
+        Additional keyword arguments forwarded to the underlying seaborn
+        plot function.
+
+    Return
+    ------
+    ax: matplotlib.axes.Axes
+        The axes containing the plot.
     """
     # delegate to generic plotter for 192-component spectra
     return plot_mutspec(
@@ -269,6 +430,7 @@ def plot_mutspec192(
         style=style,
         sbs_kind=192,
         sbs_order=sbs_order,
+        labels_style=labels_style,
         savepath=savepath,
         fontname=fontname,
         ticksize=ticksize,

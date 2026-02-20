@@ -6,6 +6,20 @@ from ete3 import PhyloTree, PhyloNode
 
 
 def node_parent(node: PhyloNode):
+    """
+    Return the parent node of *node*, or ``None`` if *node* is the root.
+
+    Arguments
+    ---------
+    node: PhyloNode
+        A node in a phylogenetic tree.
+
+    Return
+    ------
+    parent: PhyloNode or None
+        The immediate ancestor of *node*, or ``None`` when *node* has no
+        ancestors (i.e. it is the root).
+    """
     try:
         return next(node.iter_ancestors())
     except BaseException:
@@ -13,6 +27,25 @@ def node_parent(node: PhyloNode):
 
 
 def iter_tree_edges(tree: PhyloTree):
+    """
+    Iterate over all directed edges (parent → child) in the tree via BFS.
+
+    The root node itself is skipped; every other node produces exactly one
+    ``(ref_node, alt_node)`` pair where *ref_node* is the parent and
+    *alt_node* is the child.
+
+    Arguments
+    ---------
+    tree: PhyloTree
+        Rooted phylogenetic tree.
+
+    Yields
+    ------
+    ref_node: PhyloNode
+        Parent (reference) node of the edge.
+    alt_node: PhyloNode
+        Child (alternative) node of the edge.
+    """
     discovered_nodes = set()
     discovered_nodes.add(tree.name)
     Q = Queue()
@@ -31,12 +64,31 @@ def iter_tree_edges(tree: PhyloTree):
 
 
 def get_tree_len(tree: PhyloTree, mode='geom_mean'):
-    '''
-    TODO check if tree is rooted 
+    """
+    Return the characteristic length of a (sub)tree as the distance from
+    the root to its leaves.
 
-    Params:
-        - mode: str - calculate 'mean', 'geom_mean' or 'max' of distribution of len from current node to leaves
-    '''
+    Arguments
+    ---------
+    tree: PhyloTree
+        Rooted phylogenetic tree or subtree.  Must not be named ``'ROOT'``.
+    mode: str
+        Aggregation method over leaf distances.  One of:
+
+        - ``'mean'``      – arithmetic mean of leaf distances
+        - ``'geom_mean'`` – geometric mean of leaf distances (default)
+        - ``'max'``       – distance to the farthest leaf
+
+    Return
+    ------
+    tree_len: float
+        Characteristic length of the tree.
+
+    Raises
+    ------
+    TypeError
+        If *mode* is not one of the accepted values.
+    """
     assert tree.name != 'ROOT'
 
     if mode == 'max':
@@ -59,6 +111,28 @@ def get_tree_len(tree: PhyloTree, mode='geom_mean'):
 
 
 def get_ingroup_root(tree: PhyloTree) -> PhyloTree:
+    """
+    Return the ingroup root of a binary rooted tree that contains an outgroup.
+
+    The function assumes the tree root has exactly two children, one of which
+    is a leaf (the outgroup).  If no leaf child is found the tree root itself
+    is returned.
+
+    Arguments
+    ---------
+    tree: PhyloTree
+        Rooted binary tree with an outgroup leaf attached to the root.
+
+    Return
+    ------
+    ingrp: PhyloTree
+        Root of the ingroup clade.
+
+    Raises
+    ------
+    AssertionError
+        If the tree root does not have exactly two children.
+    """
     assert len(tree.children) == 2, 'Tree must be binary'
     found_outgroup = False
     for node in tree.children:
@@ -74,6 +148,25 @@ def get_ingroup_root(tree: PhyloTree) -> PhyloTree:
 
 
 def calc_phylocoefs(tree: PhyloTree):
+    """
+    Calculate a phylogenetic coefficient for every node in the tree.
+
+    The coefficient for a node is ``1 - d / tree_len``, where *d* is the
+    distance from the node to its closest leaf and *tree_len* is the
+    geometric-mean leaf distance of the ingroup root.  Values are capped so
+    that the minimum coefficient is > 0 (i.e. ``d / tree_len`` is capped
+    at 0.99999).
+
+    Arguments
+    ---------
+    tree: PhyloTree
+        Rooted binary phylogenetic tree (with an outgroup leaf).
+
+    Return
+    ------
+    phylocoefs: dict[str, float]
+        Mapping from node name to its phylogenetic coefficient.
+    """
     tree_len = get_tree_len(get_ingroup_root(tree), 'geom_mean')
     phylocoefs = {tree.name: 1 - min(0.999, tree.get_closest_leaf()[1] / tree_len)}
     for node in tree.iter_descendants():
