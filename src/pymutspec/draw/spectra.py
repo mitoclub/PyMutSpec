@@ -8,6 +8,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+from ..constants import possible_sbs192
+
 ordered_sbs12 = ["C>A", "G>T", "C>G", "G>C", "C>T", "G>A", 
                  "T>A", "A>T", "T>C", "A>G", "T>G", "A>C"]
 ordered_sbs192 = [
@@ -45,6 +47,27 @@ ordered_sbs192 = [
     'C[A>C]C', 'A[A>C]C', 'T[A>C]A', 'G[A>C]A', 'C[A>C]A', 'A[A>C]A'
 ]
 ordered_sbs192_kp = ordered_sbs192
+
+# KK-style ordering: substitutions are grouped by base type and sorted using
+# the SBS itself for kk_lbls, or its reverse-complement otherwise.
+_kk_lbl_set = set("A>C A>G A>T C>T G>C G>T".split())
+_transcriptor = str.maketrans("ACGT", "TGCA")
+
+
+def _sbs192_rev_comp(sbs: str) -> str:
+    """Return the reverse complement of a 192-component SBS string.
+
+    The input must be a 7-character string of the form ``X[N>M]Y`` where
+    ``X`` and ``Y`` are single flanking nucleotides and ``N>M`` is the
+    substitution (e.g. ``'A[C>A]T'``).
+    """
+    return (sbs[-1] + sbs[1:-1] + sbs[0]).translate(_transcriptor)
+
+
+ordered_sbs192_kk = sorted(
+    possible_sbs192,
+    key=lambda sbs: (sbs[2:5], sbs if sbs[2:5] in _kk_lbl_set else _sbs192_rev_comp(sbs)),
+)
 
 color_mapping12 = {
     "C>A": "deepskyblue",
@@ -187,17 +210,26 @@ def plot_mutspec(
     if figsize is None:
         figsize = (24, 8) if is_192 else (6, 4)
 
+    ms = mutspec.copy()
+
     if is_192:
         sbs_order = sbs_order or ordered_sbs192
         order = _prepare_nice_labels(sbs_order, kk=kk_labels)
-        palette = color_mapping192
+        if kk_labels:
+            # Map COSMIC SBS strings to KK-style display labels and rebuild palette
+            sbs_to_kk = {
+                sbs: sbs[2] + sbs[4] + ": " + sbs[0] + sbs[2] + sbs[-1]
+                for sbs in possible_sbs192
+            }
+            ms['Mut'] = ms['Mut'].map(sbs_to_kk)
+            palette = {sbs_to_kk[sbs]: color_mapping192[sbs] for sbs in possible_sbs192}
+        else:
+            palette = color_mapping192
         tick_rotation = 90
     else:
         order = sbs_order or ordered_sbs12
         palette = color_mapping12
         tick_rotation = 0
-
-    ms = mutspec.copy()
 
     if ax is None:
         fig = plt.figure(figsize=figsize)
