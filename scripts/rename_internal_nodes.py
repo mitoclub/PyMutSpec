@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
-from ete3 import PhyloTree, PhyloNode
+from pymutspec.annotation.phylo_tree import PhyloTree, PhyloNode
 
 dist_formatter = "%0.8f"
 

@@ -17,7 +17,7 @@ from collections import defaultdict
 
 import numpy as np
 import pandas as pd
-from ete3 import PhyloTree
+from pymutspec.annotation.phylo_tree import PhyloTree
 from pymutspec.annotation import (
     CodonAnnotation, iter_tree_edges, get_tree_len,
 )

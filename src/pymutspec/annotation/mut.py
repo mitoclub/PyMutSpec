@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from Bio.Data import CodonTable
 from Bio.Data.CodonTable import NCBICodonTableDNA
-from ete3 import PhyloTree
+from .phylo_tree import PhyloTree
 
 from ..constants import *
 from ..utils import basic_logger

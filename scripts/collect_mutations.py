@@ -13,7 +13,7 @@ from shutil import rmtree
 import click
 import numpy as np
 import pandas as pd
-from ete3 import PhyloTree
+from pymutspec.annotation.phylo_tree import PhyloTree
 
 from pymutspec.annotation import (
     CodonAnnotation, calculate_mutspec, 

@@ -1,5 +1,5 @@
 import pytest
-from ete3 import PhyloTree
+from pymutspec.annotation.phylo_tree import PhyloTree
 
 from pymutspec.annotation import CodonAnnotation
 from pymutspec.io import GenesStates

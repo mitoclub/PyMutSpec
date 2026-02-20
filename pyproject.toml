@@ -30,7 +30,6 @@ dependencies = [
     "pandas",
     "seaborn",
     "biopython>=1.75",
-    "ete3>=3",
     "legacy-cgi",
     "tqdm",
     "PyYAML",
@@ -39,7 +38,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-cov", "flake8", "ete3>=3"]
+dev = ["pytest", "pytest-cov", "flake8"]
 
 [project.urls]
 Homepage = "https://github.com/mitoclub/PyMutSpec"
