@@ -1,4 +1,3 @@
-import pytest
 from pymutspec.annotation import get_ingroup_root, get_tree_len, calc_phylocoefs
 
 

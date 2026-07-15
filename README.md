@@ -23,8 +23,9 @@ spectra from 2,591 chordate mitochondrial genomes
 ## Table of Contents
 
 1. [Installation](#installation)
-2. [Quick start](#quick-start)
-3. [User guide](#user-guide)
+2. [Development testing with tox](#development-testing-with-tox)
+3. [Quick start](#quick-start)
+4. [User guide](#user-guide)
    - [Genetic codes and CodonAnnotation](#genetic-codes-and-codonannotation)
    - [Computing expected mutation frequencies](#computing-expected-mutation-frequencies)
    - [Observed mutations table format](#observed-mutations-table-format)
@@ -33,9 +34,9 @@ spectra from 2,591 chordate mitochondrial genomes
    - [Collapsing a 192-component spectrum](#collapsing-a-192-component-spectrum)
    - [Jackknife confidence intervals](#jackknife-confidence-intervals)
    - [Edge-wise (per-branch) spectra](#edge-wise-per-branch-spectra)
-4. [API overview](#api-overview)
-5. [Links](#links)
-6. [How to cite](#how-to-cite)
+5. [API overview](#api-overview)
+6. [Links](#links)
+7. [How to cite](#how-to-cite)
 
 ---
 
@@ -44,6 +45,20 @@ spectra from 2,591 chordate mitochondrial genomes
 ```bash
 pip install pymutspec
 ```
+
+## Development testing with tox
+
+Use tox to test the package in isolated environments across multiple Python versions.
+
+```bash
+pip install tox
+tox -e py38,py39,py310,py311,py312
+```
+
+Each tox environment installs the package and runs the test suite with pytest.
+
+If a specific Python interpreter is not installed locally, that environment will be skipped or fail to create.
+Install missing versions with pyenv (or your system package manager) and re-run tox.
 
 ---
 

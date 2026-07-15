@@ -24,7 +24,7 @@ def parse_alignment_and_write_states(files: list, outfile) -> Tuple[str, int]:
 
     return states table and full alignment length
     """
-    print(f"Processing...", file=sys.stderr)
+    print("Processing...", file=sys.stderr)
     handle = open(outfile, "w")
     ngenes = len(files)  
     columns = "Node Part Site State p_A p_C p_G p_T".split()
@@ -72,7 +72,7 @@ def parse_alignment_and_write_states(files: list, outfile) -> Tuple[str, int]:
 @click.argument("states", nargs=1, type=click.Path(writable=True))
 def main(alignment, states):
     parse_alignment_and_write_states(alignment, states)
-    print(f"Done.", file=sys.stderr)
+    print("Done.", file=sys.stderr)
 
 if __name__ == "__main__":
     main()

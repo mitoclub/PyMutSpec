@@ -10,7 +10,7 @@ Fixes:
 
 -  -->
 
-## 0.0.14 (2026-02-20)
+## 0.0.15 (2026-02-20)
 
 Features:
 
@@ -18,7 +18,7 @@ Features:
 - Removed `ete3` from package dependencies in `pyproject.toml`; kept in `dev` extras for comparison tests
 - Added `tests/test_tree_vs_ete3.py` with tests that verify the custom `Tree` produces identical results to ete3's `PhyloTree` when loading and iterating nodes/edges
 
-## 0.0.13 (2025-03-31)
+## 0.0.14 (2025-03-31)
 
 Features:
 
