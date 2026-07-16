@@ -51,8 +51,11 @@ pip install pymutspec
 Use tox to test the package in isolated environments across multiple Python versions.
 
 ```bash
+pyenv install 3.8 3.9 3.10 3.11 3.12 3.13 3.14
+pyenv local 3.8 3.9 3.10 3.11 3.12 3.13 3.14
+
 pip install tox
-tox -e py38,py39,py310,py311,py312
+tox p
 ```
 
 Each tox environment installs the package and runs the test suite with pytest.

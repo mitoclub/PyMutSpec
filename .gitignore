@@ -16,3 +16,4 @@ dist
 build
 test.ipynb
 .tox
+.python-version
