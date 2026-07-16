@@ -2,7 +2,6 @@
 
 import os
 import sys
-from functools import partial
 
 import click
 import pandas as pd
@@ -12,7 +11,6 @@ from pymutspec.annotation import (
 )
 from pymutspec.constants import possible_sbs12, possible_sbs192
 from pymutspec.draw import plot_mutspec12, plot_mutspec192
-from pymutspec.draw.sbs_orders import ordered_sbs192_kp
 
 
 def save_tsv(df: pd.DataFrame, path):

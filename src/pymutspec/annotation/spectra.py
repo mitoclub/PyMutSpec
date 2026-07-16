@@ -1,5 +1,5 @@
 from sys import stderr
-from typing import Set, Union, Dict, Iterable
+from typing import Dict
 
 import numpy as np
 import pandas as pd
@@ -30,7 +30,7 @@ def calculate_mutspec(
     ---------
     obs_muts: pd.DataFrame
         table containing mutations with annotation; table must contain 2 columns:
-        - Mut: str; Pattern: '[ACGT]\[[ACGT]>[ACGT]\][ACGT]'
+        - Mut: str; Pattern: ``[ACGT]\\[[ACGT]>[ACGT]\\][ACGT]``
         - ProbaFull (optional, only for use_proba=True) - probability of mutation
 
     exp_muts: dict[str, float]
@@ -145,6 +145,25 @@ def get_iqr_bounds(series: pd.Series):
 
 
 def filter_outlier_branches(obs_df: pd.DataFrame, use_proba=True):
+    """
+    Remove branches with an outlier-high number of observed mutations.
+
+    Outliers are identified using the IQR method: branches whose mutation
+    count exceeds ``Q3 + 1.5 * IQR`` are dropped.
+
+    Arguments
+    ---------
+    obs_df: pd.DataFrame
+        Observed-mutations table containing at least the columns
+        ``'AltNode'``, ``'Mut'``, and optionally ``'ProbaMut'``.
+    use_proba: bool
+        If ``True`` sum ``'ProbaMut'`` per branch; otherwise count rows.
+
+    Return
+    ------
+    obs_df_flt: pd.DataFrame
+        Filtered mutations table with outlier branches removed.
+    """
     if use_proba:
         edge_nobs = obs_df.groupby('AltNode')['ProbaMut'].sum()
     else:
@@ -158,9 +177,35 @@ def filter_outlier_branches(obs_df: pd.DataFrame, use_proba=True):
 
 
 def collapse_mutspec(ms192: pd.DataFrame):
-    assert ms192.shape[0] == 192
+    """
+    Collapse a 192-component spectrum to 96 components using reverse complement.
+
+    Mutations on the ``A``/``G`` strand are reverse-complemented so that all
+    substitutions are expressed relative to the pyrimidine base (``C`` or
+    ``T``), then the ``ObsFr`` and ``ExpFr`` columns are summed for matching
+    contexts, yielding a 96-component spectrum.
+
+    Arguments
+    ---------
+    ms192: pd.DataFrame
+        192-component spectrum table.  Must contain columns ``'Mut'``,
+        ``'ObsFr'``, and ``'ExpFr'``, and must have exactly 192 rows.
+
+    Return
+    ------
+    ms96: pd.DataFrame
+        96-component spectrum with columns ``'ObsFr'``, ``'ExpFr'``,
+        ``'RawMutSpec'``, and ``'MutSpec'`` (normalised to sum to 1).
+
+    Raises
+    ------
+    AssertionError
+        If ``ms192`` does not have exactly 192 rows or is missing required
+        columns.
+    """
+    assert ms192.shape[0] == 192, f"Expected 192 rows, got {ms192.shape[0]}"
     for c in ["Mut", "ObsFr", "ExpFr"]:
-        assert c in ms192.columns
+        assert c in ms192.columns, f"Required column '{c}' not found in ms192"
 
     ms1 = ms192[ms192["Mut"].str.get(2).isin(list("CT"))]
     ms2 = ms192[ms192["Mut"].str.get(2).isin(list("AG"))]
@@ -174,6 +219,23 @@ def collapse_mutspec(ms192: pd.DataFrame):
 
 
 def complete_sbs192_columns(df: pd.DataFrame):
+    """
+    Ensure a DataFrame has all 192 SBS columns, filling missing ones with 0.
+
+    The resulting DataFrame is reordered so its columns follow the canonical
+    ``possible_sbs192`` order.
+
+    Arguments
+    ---------
+    df: pd.DataFrame
+        DataFrame whose columns are a (possibly incomplete) subset of the 192
+        SBS mutation types.
+
+    Return
+    ------
+    df: pd.DataFrame
+        DataFrame with exactly 192 columns in canonical order.
+    """
     df = df.copy()
     if len(df.columns) != 192:
         for sbs192 in possible_sbs192_set.difference(df.columns.values):
@@ -183,7 +245,36 @@ def complete_sbs192_columns(df: pd.DataFrame):
 
 
 def collapse_sbs192(df: pd.DataFrame, to=12):
-    assert (df.columns == possible_sbs192).all()
+    """
+    Sum a 192-component SBS DataFrame into a 12-component representation.
+
+    Each 192-component mutation type is mapped to its 12-component base
+    substitution (the middle three characters, e.g. ``'C>A'``), and the
+    values are accumulated.
+
+    Arguments
+    ---------
+    df: pd.DataFrame
+        DataFrame with columns equal to ``possible_sbs192`` in canonical order.
+        Each row typically represents one sample or branch.
+    to: int
+        Target number of components.  Currently only ``12`` is supported.
+
+    Return
+    ------
+    df12: pd.DataFrame
+        DataFrame with 12 columns corresponding to the 12 base substitution
+        types in ``possible_sbs12`` order.
+
+    Raises
+    ------
+    AssertionError
+        If ``df.columns`` does not match ``possible_sbs192``.
+    NotImplementedError
+        If ``to`` is not ``12``.
+    """
+    assert (df.columns == possible_sbs192).all(), \
+        "DataFrame columns must match possible_sbs192 in canonical order"
     df = df.copy()
     if to == 12:
         for sbs192 in possible_sbs192:
@@ -199,6 +290,36 @@ def collapse_sbs192(df: pd.DataFrame, to=12):
 
 
 def jackknife_spectra_sampling(obs: pd.DataFrame, exp: pd.DataFrame, frac=0.5, n=1000):
+    """
+    Estimate spectrum variability via jackknife resampling of tree branches.
+
+    On each iteration a random subset of branches (edges) is drawn without
+    replacement and a per-branch spectrum ratio ``obs / exp`` is computed.
+    The resulting collection of spectra can be used to derive confidence
+    intervals.
+
+    Arguments
+    ---------
+    obs: pd.DataFrame
+        Observed mutations.  Either a pre-pivoted wide DataFrame with 192
+        SBS columns and a ``(RefNode, AltNode)`` MultiIndex, or a long-format
+        DataFrame with columns ``'AltNode'``, ``'RefNode'``, ``'Mut'``,
+        and ``'ProbaFull'``.
+    exp: pd.DataFrame
+        Expected mutation frequencies.  Either a pre-pivoted wide DataFrame
+        with 192 SBS columns and a ``Node`` index, or a long-format DataFrame
+        with columns ``'Node'``, ``'Mut'``, and ``'Proba'``.
+    frac: float
+        Fraction of branches to sample on each iteration.
+    n: int
+        Number of jackknife iterations.
+
+    Return
+    ------
+    spectra: pd.DataFrame
+        DataFrame of shape ``(n, 192)`` where each row is the spectrum
+        computed from one jackknife sample.
+    """
     if len(obs.columns) == 192 and \
             (obs.columns == possible_sbs192).all() and \
                 (exp.columns == possible_sbs192).all():
@@ -235,28 +356,51 @@ def jackknife_spectra_sampling(obs: pd.DataFrame, exp: pd.DataFrame, frac=0.5, n
     return pd.DataFrame(spectra).fillna(0.)
 
 
-def collapse_sbs192(df: pd.DataFrame, to=12):
-    assert (df.columns == possible_sbs192).all()
-    df = df.copy()
-    if to == 12:
-        for sbs192 in possible_sbs192:
-            sbs12 = sbs192[2:5]
-            if sbs12 in df.columns.values:
-                df[sbs12] += df[sbs192]
-            else:
-                df[sbs12] = df[sbs192]
-
-        return df[possible_sbs12]
-    else:
-        raise NotImplementedError()
-
-
 def calc_edgewise_spectra(
         obs: pd.DataFrame, exp: pd.DataFrame, 
         nmtypes_cutoff=10, nobs_cuttof=10, 
         collapse_to_12=False, scale=True, 
         both_12_and_192=False
     ):
+    """
+    Calculate per-branch (edge-wise) mutational spectra.
+
+    For each tree branch the observed mutation counts are divided by the
+    expected frequencies of the reference (parent) node, yielding a
+    branch-specific spectrum.
+
+    Arguments
+    ---------
+    obs: pd.DataFrame
+        Observed mutations.  Either a pre-pivoted wide DataFrame with 192
+        SBS columns and a ``(RefNode, AltNode)`` MultiIndex, or a long-format
+        DataFrame with columns ``'RefNode'``, ``'AltNode'``, ``'Mut'``, and
+        ``'ProbaFull'``.
+    exp: pd.DataFrame
+        Expected mutation frequencies.  Either a pre-pivoted wide DataFrame
+        with 192 SBS columns and a ``Node`` index, or a long-format DataFrame
+        with columns ``'Node'``, ``'Mut'``, and ``'Proba'``.
+    nmtypes_cutoff: int
+        Minimum number of distinct mutation types a branch must have to be
+        retained (only applied when ``collapse_to_12=False``).
+    nobs_cuttof: int
+        Minimum total observed mutations a branch must have to be retained
+        (only applied when ``collapse_to_12=False``).
+    collapse_to_12: bool
+        If ``True`` collapse the 192-component spectra to 12 components before
+        returning.
+    scale: bool
+        If ``True`` normalise each branch spectrum to sum to 1.
+    both_12_and_192: bool
+        If ``True`` return both 12- and 192-component spectra as a tuple
+        ``(spectra12, spectra192)``.
+
+    Return
+    ------
+    spectra: pd.DataFrame or tuple[pd.DataFrame, pd.DataFrame]
+        Branch-wise spectrum DataFrame (or tuple of two DataFrames when
+        ``both_12_and_192=True``).
+    """
     if len(obs.columns) == 192 and \
             (obs.columns == possible_sbs192).all() and \
                 (exp.columns == possible_sbs192).all():
@@ -321,7 +465,24 @@ def calc_edgewise_spectra(
 
 
 def get_cossim(a: pd.DataFrame, b: pd.DataFrame):
-    assert (a.columns == b.columns).all()
+    """
+    Compute row-wise cosine similarity between two aligned DataFrames.
+
+    Only rows present in both DataFrames (intersection of indices) are used.
+
+    Arguments
+    ---------
+    a: pd.DataFrame
+        First DataFrame; columns must match those of *b*.
+    b: pd.DataFrame
+        Second DataFrame; columns must match those of *a*.
+
+    Return
+    ------
+    cossim: pd.Series
+        Cosine similarity for each shared index, ranging from -1 to 1.
+        Returns an empty Series if the indices do not overlap.
+    """
     
     common_index = a.index.intersection(b.index)
     if len(common_index) == 0:
@@ -338,7 +499,24 @@ def get_cossim(a: pd.DataFrame, b: pd.DataFrame):
 
 
 def get_eucdist(a: pd.DataFrame, b: pd.DataFrame):
-    assert (a.columns == b.columns).all()
+    """
+    Compute row-wise Euclidean distance between two aligned DataFrames.
+
+    Only rows present in both DataFrames (intersection of indices) are used.
+
+    Arguments
+    ---------
+    a: pd.DataFrame
+        First DataFrame; columns must match those of *b*.
+    b: pd.DataFrame
+        Second DataFrame; columns must match those of *a*.
+
+    Return
+    ------
+    d: pd.Series
+        Euclidean distance for each shared index.
+        Returns an empty Series if the indices do not overlap.
+    """
     
     common_index = a.index.intersection(b.index)
     if len(common_index) == 0:

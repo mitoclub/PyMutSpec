@@ -1,7 +1,7 @@
 import pandas as pd
 
 from pymutspec.draw import plot_mutspec12, plot_mutspec192
-from pymutspec.draw.sbs_orders import ordered_sbs192_kk
+from pymutspec.draw.spectra import ordered_sbs192_kk
 
 show = False
 

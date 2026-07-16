@@ -29,7 +29,7 @@ def parse_alignment_and_write_states(files: list, outfile) -> Tuple[str, int]:
 
     return states table and full alignment length
     """
-    print(f"Processing...", file=sys.stderr)
+    print("Processing...", file=sys.stderr)
     handle = open(outfile, "w")
     ngenes = len(files)
     columns = "Node Part Site State p_A p_C p_G p_T".split()

@@ -1,5 +1,4 @@
 import os
-import sys
 from collections import defaultdict
 from typing import Set, Union, Dict, Iterable
 import multiprocessing as mp
@@ -9,9 +8,9 @@ import numpy as np
 import pandas as pd
 from Bio.Data import CodonTable
 from Bio.Data.CodonTable import NCBICodonTableDNA
-from ete3 import PhyloTree
 
-from ..constants import *
+from .phylo_tree import Tree
+from ..constants import possible_nucls
 from ..utils import basic_logger
 from ..io import GenomeStatesTotal
 from .tree import iter_tree_edges, calc_phylocoefs
@@ -439,9 +438,7 @@ class CodonAnnotation:
         n = len(cds)
         if mask is not None and len(mask) != n:
             msg = f"Mask (len = {len(mask)}) must have same lenght as cds (len = {n})"
-            print(msg, file=sys.stderr)
-            # logger.error(msg)
-            # logger.info("Termination")
+            self.logger.error(msg)
             raise ValueError(msg)
 
         assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
@@ -506,13 +503,17 @@ class CodonAnnotation:
         n = len(cds)
         if mask is not None and len(mask) != n:
             msg = f"Mask (len = {len(mask)}) must have same lenght as cds (len = {n})"
-            print(msg, file=sys.stderr)
-            # logger.error(msg)
-            # logger.info("Termination")
+            self.logger.error(msg)
             raise ValueError(msg)
 
-        assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
-        assert 0 < phylocoef <= 1, "Evol coefficient must be between 0 and 1"
+        if n % 3 != 0:
+            self.logger.warning(f"genomes length ({n}) is not divisible by 3 (codon structure). Last codon will be skipped in syn, syn4f and pos3 modes")
+            n = n - (n % 3)
+
+        if phylocoef <= 0 or phylocoef > 1:
+            msg = f"Evol coefficient must be between 0 and 1, but got {phylocoef}"
+            self.logger.error(msg)
+            raise ValueError(msg)
 
         labels = set(labels)
         data = []
@@ -975,7 +976,7 @@ class MutSpecExtractor(CodonAnnotation):
         self.logger.info(f"Minimal probability for mutations to use: {proba_cutoff}")
 
         self.fp_format = np.float32
-        self.tree = PhyloTree(path_to_tree, format=1)
+        self.tree = Tree(path_to_tree, format=1)
         self.logger.info(
             f"Tree loaded, number of leaf nodes: {len(self.tree)}, "
             f"total number of nodes: {len(self.tree.get_cached_content())}, "
@@ -1097,7 +1098,7 @@ def mutations_summary(mutations: pd.DataFrame, gene_col=None, proba_col=None, ge
     ---------
     mutations: pd.DataFrame 
         table must contain at least 2 columns:
-        - Mut: str; Pattern: '[ACGT]\[[ACGT]>[ACGT]\][ACGT]'
+        - Mut: str; Pattern: ``[ACGT]\\[[ACGT]>[ACGT]\\][ACGT]``
         - Label: int; [-3, 2]. See CodonAnnotation.get_mut_type
         - $gene_col, optional. If gene_col=None annotation will be formed on full mutations without genes splitting
         - $proba_col, optional. If proba_col=None each row of table assumed to be mutation, else probabilities will be used
@@ -1115,7 +1116,7 @@ def mutations_summary(mutations: pd.DataFrame, gene_col=None, proba_col=None, ge
         table with mutations annotation
     """
     mutations = mutations.copy()
-    mut_pattern = "[ACGT]\[[ACGT]>[ACGT]\][ACGT]"
+    mut_pattern = r"[ACGT]\[[ACGT]>[ACGT]\][ACGT]"
     label_mapper = {
         -3: "6Stop to stop",
         -2: "4Stop loss",

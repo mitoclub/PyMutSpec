@@ -86,7 +86,7 @@ def test_ms192_calc(mut, cxt_freqs, use_proba, lbl_id):
         divisor = cxt_freqs[lbl].get(cxt, 0)
         if divisor == 0:
             continue
-        cond = cur_mut.Mut.str.fullmatch(sbs.replace("[", "\[").replace("]", "\]"))
+        cond = cur_mut.Mut.str.fullmatch(sbs.replace("[", r"\[").replace("]", r"\]"))
         if use_proba:
             expected = cur_mut[cond].ProbaFull.sum() / divisor
         else:

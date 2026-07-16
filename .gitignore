@@ -11,3 +11,9 @@ evn*
 tmp
 .idea
 .coverage
+*.egg-info
+dist
+build
+test.ipynb
+.tox
+.python-version
