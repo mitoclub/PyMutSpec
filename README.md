@@ -505,9 +505,9 @@ twine upload dist/*
 
 ## TODO
 
-- [ ] Custom tree implementation
+- [x] Custom tree implementation
 - [ ] New way of annotation from HGT
-- [ ] Separate scripts for mutation collection and annotation
+- [ ] Separate scripts for mutations collection and annotation
 - [ ] Integrate parallelisation from HGT project
 - [ ] Add feature to calculate mutation rate (MutRate)
 - [ ] Rename some functions and variables for better readability

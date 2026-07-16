@@ -5,7 +5,6 @@ import sqlite3
 from collections import defaultdict
 from typing import List
 
-import tqdm
 import numpy as np
 import pandas as pd
 from Bio import SeqIO
@@ -269,7 +268,7 @@ class GenesStates:
                 con.close()
                 raise ValueError(f"Inappropriate type of table, expected another columns order,\ngot {repr(header)}")
 
-            for line in tqdm.tqdm(handle, total=8652300):  # TODO estimate total
+            for line in handle:
                 row = line.strip().split()
                 query = "INSERT INTO states VALUES ('{}',{},{},'{}',{},{},{},{})".format(*row)
                 cur.execute(query)

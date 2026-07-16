@@ -439,9 +439,7 @@ class CodonAnnotation:
         n = len(cds)
         if mask is not None and len(mask) != n:
             msg = f"Mask (len = {len(mask)}) must have same lenght as cds (len = {n})"
-            print(msg, file=sys.stderr)
-            # logger.error(msg)
-            # logger.info("Termination")
+            self.logger.error(msg)
             raise ValueError(msg)
 
         assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
@@ -506,13 +504,17 @@ class CodonAnnotation:
         n = len(cds)
         if mask is not None and len(mask) != n:
             msg = f"Mask (len = {len(mask)}) must have same lenght as cds (len = {n})"
-            print(msg, file=sys.stderr)
-            # logger.error(msg)
-            # logger.info("Termination")
+            self.logger.error(msg)
             raise ValueError(msg)
 
-        assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
-        assert 0 < phylocoef <= 1, "Evol coefficient must be between 0 and 1"
+        if n % 3 != 0:
+            self.logger.warning(f"genomes length ({n}) is not divisible by 3 (codon structure). Last codon will be skipped in syn, syn4f and pos3 modes")
+            n = n - (n % 3)
+
+        if phylocoef <= 0 or phylocoef > 1:
+            msg = f"Evol coefficient must be between 0 and 1, but got {phylocoef}"
+            self.logger.error(msg)
+            raise ValueError(msg)
 
         labels = set(labels)
         data = []
