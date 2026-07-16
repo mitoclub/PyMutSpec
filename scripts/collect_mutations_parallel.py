@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 from pymutspec.annotation.phylo_tree import Tree
 from pymutspec.annotation import (
-    CodonAnnotation, iter_tree_edges, get_tree_len,
+    CodonAnnotation, iter_tree_edges, get_tree_height,
 )
 from pymutspec.utils import load_logger, basic_logger
 
@@ -29,12 +29,12 @@ nucl_order5 = ['A', 'C', 'G', 'T', '-']
 
 
 def calc_phylocoefs(tree: Tree):
-    tree_len = get_tree_len(tree, 'geom_mean')
-    logger.info(f'Tree len = {tree_len:.3f}')
-    phylocoefs = {tree.name: 1 - min(0.999, tree.get_closest_leaf()[1] / tree_len)}
+    tree_height = get_tree_height(tree, 'geom_mean')
+    logger.info(f'Tree height = {tree_height:.3f}')
+    phylocoefs = {tree.name: 1 - min(0.999, tree.get_closest_leaf()[1] / tree_height)}
     for node in tree.iter_descendants():
         _closest, d = node.get_closest_leaf()
-        phylocoefs[node.name] = 1 - min(0.99999, d / tree_len)
+        phylocoefs[node.name] = 1 - min(0.99999, d / tree_height)
     logger.info(f'Phylocoefs range: [{min(phylocoefs.values()):.3f}, {max(phylocoefs.values()):.3f}]')
     return phylocoefs
 

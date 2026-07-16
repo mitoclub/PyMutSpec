@@ -6,6 +6,7 @@ import yaml
 
 DEFAULT_PATH_TO_LOGCONF = os.path.join(os.path.dirname(__file__), "configs/log_settings.yaml")
 
+# TODO remove config file requirement and write directly here the logging configuration, as it is not very complex and does not need to be changed by the user.
 
 def load_logger(path=None, stream_level: str = None, filename=None):
     path = path or DEFAULT_PATH_TO_LOGCONF

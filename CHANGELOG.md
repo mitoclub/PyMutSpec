@@ -10,13 +10,21 @@ Fixes:
 
 -  -->
 
-## 0.0.15 (2026-02-20)
+## 0.0.15 (2026-07-16)
 
 Features:
 
-- Replaced `ete3` dependency with a custom `TreeNode`/`Tree` implementation in `src/pymutspec/annotation/phylo_tree.py` that uses BioPython for newick parsing and provides an ete3-compatible interface (node iteration, branch traversal, distance computation, node search, and newick serialisation)
-- Removed `ete3` from package dependencies in `pyproject.toml`; kept in `dev` extras for comparison tests
-- Added `tests/test_tree_vs_ete3.py` with tests that verify the custom `Tree` produces identical results to ete3's `PhyloTree` when loading and iterating nodes/edges
+- Replaced `ete3` runtime dependency with a custom `TreeNode`/`Tree` implementation in `src/pymutspec/annotation/phylo_tree.py`
+- Added BioPython-based Newick parsing and an ete3-compatible tree API (node iteration, branch traversal, distance computation, node search, and Newick serialisation)
+- Added `tests/test_tree_vs_ete3.py` to verify parity with ete3 `PhyloTree` for tree loading and node/edge iteration
+
+Fixes:
+
+- Kept `ete3` only in `dev` extras for comparison tests
+- Fixed `get_tree_len` name to `get_tree_height` to better reflect its purpose (computing tree height from root to leaves)
+- Removed requirement for trees have outgroup and be named "ROOT"; now any tree can be used, and the ingroup is defined as the sister node of the outgroup if present, or the root if not.
+
+**Full Changelog**: https://github.com/mitoclub/PyMutSpec/compare/0.0.14...0.0.15
 
 ## 0.0.14 (2025-03-31)
 

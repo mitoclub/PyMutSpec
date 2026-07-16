@@ -5,6 +5,7 @@ from typing import Dict
 
 def load_scheme(path: str) -> Dict[str, str]:
     """
+    TODO deprecate
     parse files like scheme_birds_genes.nex (just separated genes)
 
     return dict(charset_lbl: gene_fp)

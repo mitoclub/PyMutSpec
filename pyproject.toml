@@ -39,7 +39,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-cov", "flake8", "ete3>=3", "legacy-cgi", "tox", "ruff"]
+dev = ["pytest", "pytest-cov", "flake8", "ete3>=3", "legacy-cgi", "tox", "ruff", "build", "twine"]
 
 [project.urls]
 Homepage = "https://github.com/mitoclub/PyMutSpec"

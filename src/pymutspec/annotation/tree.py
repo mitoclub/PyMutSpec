@@ -3,9 +3,12 @@ from statistics import geometric_mean
 
 import numpy as np
 
+# TODO merge with phylo_tree.py and remove this file; fix tests after these changes
 
 def node_parent(node):
     """
+    TODO remove this function and use node._parent directly AND rename node._parent to node.parent
+
     Return the parent node of *node*, or ``None`` if *node* is the root.
 
     Arguments
@@ -27,6 +30,8 @@ def node_parent(node):
 
 def iter_tree_edges(tree):
     """
+    TODO integrate to Tree class
+
     Iterate over all directed edges (parent → child) in the tree via BFS.
 
     The root node itself is skipped; every other node produces exactly one
@@ -62,7 +67,7 @@ def iter_tree_edges(tree):
             yield ref_node, alt_node
 
 
-def get_tree_len(tree, mode='geom_mean'):
+def get_tree_height(tree, mode='geom_mean'):
     """
     Return the characteristic length of a (sub)tree as the distance from
     the root to its leaves.
@@ -88,8 +93,6 @@ def get_tree_len(tree, mode='geom_mean'):
     TypeError
         If *mode* is not one of the accepted values.
     """
-    assert tree.name != 'ROOT', "Tree node cannot be named 'ROOT'"
-
     if mode == 'max':
         _, md = tree.get_farthest_leaf()
     elif mode in ['mean', 'geom_mean']:
@@ -159,16 +162,18 @@ def calc_phylocoefs(tree):
     Arguments
     ---------
     tree
-        Rooted binary phylogenetic tree (with an outgroup leaf).
+        Rooted binary phylogenetic tree (with an outgroup leaf, optional).
 
     Return
     ------
     phylocoefs: dict[str, float]
         Mapping from node name to its phylogenetic coefficient.
     """
-    tree_len = get_tree_len(get_ingroup_root(tree), 'geom_mean')
-    phylocoefs = {tree.name: 1 - min(0.999, tree.get_closest_leaf()[1] / tree_len)}
-    for node in tree.iter_descendants():
+    ingroup = get_ingroup_root(tree)
+    tree_height = get_tree_height(ingroup, 'geom_mean')
+    root_phylocoef = 1 - min(0.999, ingroup.get_closest_leaf()[1] / tree_height)
+    phylocoefs = {ingroup.name: root_phylocoef}
+    for node in ingroup.iter_descendants():
         _closest, d = node.get_closest_leaf()
-        phylocoefs[node.name] = 1 - min(0.99999, d / tree_len)
+        phylocoefs[node.name] = 1 - min(0.99999, d / tree_height)
     return phylocoefs

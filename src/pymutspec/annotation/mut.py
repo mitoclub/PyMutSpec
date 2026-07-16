@@ -1,5 +1,4 @@
 import os
-import sys
 from collections import defaultdict
 from typing import Set, Union, Dict, Iterable
 import multiprocessing as mp
@@ -9,9 +8,9 @@ import numpy as np
 import pandas as pd
 from Bio.Data import CodonTable
 from Bio.Data.CodonTable import NCBICodonTableDNA
-from .phylo_tree import Tree
 
-from ..constants import *
+from .phylo_tree import Tree
+from ..constants import possible_nucls
 from ..utils import basic_logger
 from ..io import GenomeStatesTotal
 from .tree import iter_tree_edges, calc_phylocoefs
