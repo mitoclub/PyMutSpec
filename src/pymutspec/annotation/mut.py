@@ -28,12 +28,55 @@ class CodonAnnotation:
         self.possible_syn_contexts = self.__extract_possible_syn_contexts()
         self.startcodons, self.stopcodons = self.read_start_stop_codons(gencode)
 
+    def _cds_bounds(self, cds):
+        """Return ``(full_length, coding_length)`` for a CDS-like sequence.
+
+        Coding length is truncated to a multiple of 3.  A warning is emitted
+        when the input length is not codon-aligned.
+        """
+        n = len(cds)
+        n_coding = n - (n % 3)
+        if n_coding != n:
+            warn(
+                f"Sequence length ({n}) is not divisible by 3; "
+                "the incomplete last codon is ignored for codon-aware labels "
+                "(syn, ff, pos3, nonsyn)",
+                UserWarning,
+                stacklevel=3,
+            )
+        return n, n_coding
+
+    def _iter_cds_sites(self, cds, mask=None):
+        """Yield ``(pos, pic, nuc, cdn, cxt, codon_complete)`` for each site.
+
+        ``pos`` is 0-based.  Sites without a full trinucleotide context
+        (first and last nucleotide) are skipped.  ``cdn`` is ``None`` when
+        the site falls in an incomplete trailing codon.
+        """
+        n, n_coding = self._cds_bounds(cds)
+        if mask is not None and len(mask) != n:
+            raise ValueError(f"Mask must have same length as cds ({len(mask)} != {n})")
+        for pos in range(1, n - 1):
+            if mask is not None and not mask[pos]:
+                continue
+            pic = pos % 3
+            codon_complete = pos < n_coding
+            nuc = cds[pos]
+            cxt = cds[pos - 1: pos + 2]
+            cxt = cxt if isinstance(cxt, str) else "".join(cxt)
+            if codon_complete:
+                cdn = cds[pos - pic: pos - pic + 3]
+                cdn = cdn if isinstance(cdn, str) else "".join(cdn)
+            else:
+                cdn = None
+            yield pos, pic, nuc, cdn, cxt, codon_complete
+
     def is_fourfold(self, cdn: str):
         """Check if codon is neutral in 3rd position"""
         return cdn in self._ff_codons
 
     def translate_codon(self, cdn: str) -> str:
-        """Translate codon to animo acid"""
+        """Translate codon to an amino acid"""
         if isinstance(cdn, str):
             return self.codontable.forward_table.get(cdn, "*")
         else:
@@ -75,7 +118,7 @@ class CodonAnnotation:
             possible synonymous codons
         """
         assert 0 <= pic <= 2, "pic must be 0-based and less than 3"
-        syn_codons = self._syn_codons.get((cdn, pic), dict())
+        syn_codons = self._syn_codons.get((cdn, pic), set())
         return syn_codons
 
     def get_mut_type(self, cdn1: str, cdn2: str, pic: int):
@@ -158,13 +201,14 @@ class CodonAnnotation:
             - AltAa
         """
         n, m = len(g1), len(g2)
-        assert n == m, f"genomes lengths are not equal: {n} != {m}"
-        assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
+        if n != m:
+            raise ValueError(f"genomes lengths are not equal: {n} != {m}")
+        _, n_coding = self._cds_bounds(g1)
         nucleotides = set("ACGTacgt")
 
         mutations = []
         # pass initial codon and last nucleotide without right context
-        for pos in range(3, n - 1):
+        for pos in range(3, min(n - 1, n_coding)):
             pic = pos % 3  # 0-based
             cdn_start = pos - pic
             cdn1 = g1[cdn_start: cdn_start + 3]
@@ -199,6 +243,11 @@ class CodonAnnotation:
             mutations.append(sbs)
 
         mut_df = pd.DataFrame(mutations)
+        if mut_df.empty:
+            mut_df = pd.DataFrame(columns=[
+                "Mut", "Label", "PosInGene", "PosInCodon",
+                "RefCodon", "AltCodon", "RefAa", "AltAa",
+            ])
         return mut_df
 
     def collect_exp_mut_freqs(self, cds: Union[str, Iterable[str]], mask: Iterable[Union[int, bool]] = None, labels=["all", "syn", "ff"]):
@@ -222,35 +271,21 @@ class CodonAnnotation:
         sbs192_freqs: Dict[label, Dict[context, count]]
             for each label collected expected single nucleotide substitutions frequencies with contexts
         """
-        n = len(cds)
-        if mask is not None and len(mask) != n:
-            raise ValueError("Mask must have same lenght as cds")
-        
-        assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
-
         labels = set(labels)
         sbs12_freqs = {lbl: defaultdict(int) for lbl in labels}
         sbs192_freqs = {lbl: defaultdict(int) for lbl in labels}
 
-        for pos in range(1, n - 1):
-            if mask is not None and not mask[pos]:
-                continue
-            pic = pos % 3
-            nuc = cds[pos]
-            cdn = cds[pos - pic: pos - pic + 3]
-            cdn = cdn if isinstance(cdn, str) else "".join(cdn)
-            cxt = cds[pos - 1: pos + 2]
-            cxt = cxt if isinstance(cxt, str) else "".join(cxt)
+        for pos, pic, nuc, cdn, cxt, codon_complete in self._iter_cds_sites(cds, mask):
             sbs12_pattern = nuc + ">" + "{}"
             sbs192_pattern = cxt[0] + "[" + nuc + ">{}]" + cxt[-1]
-            syn_codons = self.get_syn_codons(cdn, pic)
+            syn_codons = self.get_syn_codons(cdn, pic) if codon_complete else set()
 
-            if "syn" in labels:
+            if codon_complete and "syn" in labels:
                 for alt_cdn in syn_codons:
                     alt_nuc = alt_cdn[pic]
                     sbs12_freqs["syn"][sbs12_pattern.format(alt_nuc)] += 1
                     sbs192_freqs["syn"][sbs192_pattern.format(alt_nuc)] += 1
-            if "nonsyn" in labels:
+            if codon_complete and "nonsyn" in labels:
                 syn_alt_nucs = [cdn[pic] for cdn in syn_codons]
                 syn_alt_nucs.append(nuc)
                 nonsyn_alt_nucs = set(self.nucl_order).difference(syn_alt_nucs)
@@ -267,13 +302,13 @@ class CodonAnnotation:
                 if "all" in labels:
                     sbs12_freqs["all"][cur_sbs12] += 1
                     sbs192_freqs["all"][cur_sbs192] += 1
-                if "pos3" in labels and pic == 2:
+                if codon_complete and "pos3" in labels and pic == 2:
                     sbs12_freqs["pos3"][cur_sbs12] += 1
                     sbs192_freqs["pos3"][cur_sbs192] += 1
-                if "ff" in labels and pic == 2 and self.is_fourfold(cdn):
+                if codon_complete and "ff" in labels and pic == 2 and self.is_fourfold(cdn):
                     sbs12_freqs["ff"][cur_sbs12] += 1
                     sbs192_freqs["ff"][cur_sbs192] += 1
-                if "syn_c" in labels and len(syn_codons) > 0:
+                if codon_complete and "syn_c" in labels and len(syn_codons) > 0:
                     sbs12_freqs["syn_c"][cur_sbs12] += 1
                     sbs192_freqs["syn_c"][cur_sbs192] += 1
 
@@ -296,27 +331,13 @@ class CodonAnnotation:
         ---------
             sbs_table: pd.DataFrame
         """
-        n = len(cds)
-        if mask is not None and len(mask) != n:
-            raise ValueError("Mask must have same lenght as cds")
-
-        assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
-
         labels = set(labels)
         data = []
-        for pos in range(1, n - 1):
-            if mask is not None and not mask[pos]:
-                continue
-            pic = pos % 3
-            nuc = cds[pos]
-            cdn = cds[pos - pic: pos - pic + 3]
-            cdn = cdn if isinstance(cdn, str) else "".join(cdn)
-            cxt = cds[pos - 1: pos + 2]
-            cxt = cxt if isinstance(cxt, str) else "".join(cxt)
+        for pos, pic, nuc, cdn, cxt, codon_complete in self._iter_cds_sites(cds, mask):
             sbs192_pattern = cxt[0] + "[" + nuc + ">{}]" + cxt[-1]
-            syn_codons = self.get_syn_codons(cdn, pic)
+            syn_codons = self.get_syn_codons(cdn, pic) if codon_complete else set()
 
-            if "syn" in labels:
+            if codon_complete and "syn" in labels:
                 for alt_cdn in syn_codons:
                     alt_nuc = alt_cdn[pic]
                     data.append({
@@ -324,7 +345,7 @@ class CodonAnnotation:
                         "Mut": sbs192_pattern.format(alt_nuc),
                         "Cdn": cdn, "Label": "syn",
                     })
-            if "nonsyn" in labels:
+            if codon_complete and "nonsyn" in labels:
                 syn_alt_nucs = [cdn[pic] for cdn in syn_codons]
                 syn_alt_nucs.append(nuc)
                 nonsyn_alt_nucs = set(self.nucl_order).difference(syn_alt_nucs)
@@ -346,19 +367,19 @@ class CodonAnnotation:
                         "Mut": cur_sbs192,
                         "Cdn": cdn, "Label": "all",
                     })
-                if "pos3" in labels and pic == 2:
+                if codon_complete and "pos3" in labels and pic == 2:
                     data.append({
                         "Pos": pos + 1, "Pic": pic + 1,
                         "Mut": cur_sbs192,
                         "Cdn": cdn, "Label": "pos3",
                     })
-                if "ff" in labels and pic == 2 and self.is_fourfold(cdn):
+                if codon_complete and "ff" in labels and pic == 2 and self.is_fourfold(cdn):
                     data.append({
                         "Pos": pos + 1, "Pic": pic + 1,
                         "Mut": cur_sbs192,
                         "Cdn": cdn, "Label": "syn4f",
                     })
-                if "syn_c" in labels and len(syn_codons) > 0:
+                if codon_complete and "syn_c" in labels and len(syn_codons) > 0:
                     data.append({
                         "Pos": pos + 1, "Pic": pic + 1,
                         "Mut": cur_sbs192,
@@ -386,12 +407,13 @@ class CodonAnnotation:
         - mut - dataframe of mutations
         """
         n, m = len(g1), len(g2)
-        assert n == m, f"genomes lengths are not equal: {n} != {m}"
-        assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
+        if n != m:
+            raise ValueError(f"genomes lengths are not equal: {n} != {m}")
+        _, n_coding = self._cds_bounds(g1)
 
         mutations = []
         # pass initial codon and last nucleotide without right context
-        for pos in range(3, n - 1):
+        for pos in range(3, min(n - 1, n_coding)):
             pic = pos % 3  # 0-based
             for cdn1, mut_cxt1, proba1 in self.sample_context(pos, pic, g1, mut_proba_cutoff / phylocoef):
                 cdn1_str = "".join(cdn1)
@@ -428,6 +450,12 @@ class CodonAnnotation:
                     mutations.append(sbs)
 
         mut_df = pd.DataFrame(mutations)
+        if mut_df.empty:
+            mut_df = pd.DataFrame(columns=[
+                "Mut", "Label", "PosInGene", "PosInCodon",
+                "RefCodon", "AltCodon", "RefAa", "AltAa",
+                "ProbaRef", "ProbaMut", "ProbaFull",
+            ])
         return mut_df
 
     def collect_exp_mut_freqs_proba(
@@ -435,14 +463,13 @@ class CodonAnnotation:
             mask: Iterable[Union[int, bool]] = None, 
             labels = ["all", "syn", "ff"],  mut_proba_cutoff=0.05,
         ):
-        n = len(cds)
+        n, n_coding = self._cds_bounds(cds)
         if mask is not None and len(mask) != n:
-            msg = f"Mask (len = {len(mask)}) must have same lenght as cds (len = {n})"
-            self.logger.error(msg)
-            raise ValueError(msg)
-
-        assert n % 3 == 0, "genomes length must be divisible by 3 (codon structure)"
-        assert 0 < phylocoef <= 1, "Evol coefficient must be between 0 and 1"
+            raise ValueError(
+                f"Mask (len = {len(mask)}) must have same length as cds (len = {n})"
+            )
+        if phylocoef <= 0 or phylocoef > 1:
+            raise ValueError(f"Evol coefficient must be between 0 and 1, but got {phylocoef}")
 
         labels = set(labels)
         sbs12_freqs = {lbl: defaultdict(int) for lbl in labels}
@@ -451,6 +478,8 @@ class CodonAnnotation:
         for pos in range(1, n - 1):
             if mask is not None and not mask[pos]:
                 continue
+            if pos >= n_coding:
+                continue  # sample_context requires a complete codon
             pic = pos % 3  # 0-based
             for cdn_tuple, cxt, p in self.sample_context(pos, pic, cds, mut_proba_cutoff / phylocoef):
                 # we don't use low-probability mutations by unite cutoff `mut_proba_cutoff / phylocoef`
@@ -500,25 +529,20 @@ class CodonAnnotation:
             mask: Iterable[Union[int, bool]] = None, 
             labels = ["all", "syn", "ff"],  mut_proba_cutoff=0.05,
         ):
-        n = len(cds)
+        n, n_coding = self._cds_bounds(cds)
         if mask is not None and len(mask) != n:
-            msg = f"Mask (len = {len(mask)}) must have same lenght as cds (len = {n})"
-            self.logger.error(msg)
-            raise ValueError(msg)
-
-        if n % 3 != 0:
-            self.logger.warning(f"genomes length ({n}) is not divisible by 3 (codon structure). Last codon will be skipped in syn, syn4f and pos3 modes")
-            n = n - (n % 3)
-
+            raise ValueError(
+                f"Mask (len = {len(mask)}) must have same length as cds (len = {n})"
+            )
         if phylocoef <= 0 or phylocoef > 1:
-            msg = f"Evol coefficient must be between 0 and 1, but got {phylocoef}"
-            self.logger.error(msg)
-            raise ValueError(msg)
+            raise ValueError(f"Evol coefficient must be between 0 and 1, but got {phylocoef}")
 
         labels = set(labels)
         data = []
         for pos in range(1, n - 1):
             if mask is not None and not mask[pos]:
+                continue
+            if pos >= n_coding:
                 continue
             pic = pos % 3  # 0-based
             for cdn_tuple, cxt, p in self.sample_context(pos, pic, cds, mut_proba_cutoff / phylocoef):
@@ -696,7 +720,7 @@ class CodonAnnotation:
         elif isinstance(codontable, int):
             codontable = CodonTable.unambiguous_dna_by_id[codontable]
         else:
-            ValueError("passed codontable is not appropriate")
+            raise ValueError("passed codontable is not appropriate")
         return codontable
 
     def _codon_iterator(self, codon_states: np.ndarray, cutoff=0.01):
@@ -844,6 +868,10 @@ class Branch:
                 g1, g2, site, g1_most_prob, g2_most_prob, mut_proba_cutoff, phylocoef)
             mutations.extend(site_mutations)
         mut_df = pd.DataFrame(mutations)
+        if mut_df.empty:
+            mut_df = pd.DataFrame(columns=[
+                "Mut", "Site", "ProbaRef", "ProbaMut", "ProbaFull",
+            ])
         return mut_df
 
     def process_site(self, g1: pd.DataFrame, g2: pd.DataFrame, site: int,
@@ -1010,21 +1038,22 @@ class MutSpecExtractor(CodonAnnotation):
     def _derive_mutspec(self):
         self.logger.info("Start mutation extraction from tree")
         self.open_handles(self.outdir)
-        add_header = defaultdict(lambda: True)
+        add_header = True
         total_mut_num = 0
+        n_edges = 0
 
-        for edge_data in self.iter_branches():
-            edge_mutations = self.process_branch(*edge_data[1:])
+        for branch in self.iter_branches():
+            n_edges += 1
+            edge_mutations = branch.process_branch()
             mut_num = edge_mutations['ProbaFull'].sum() if self.use_proba and \
                 'ProbaFull' in edge_mutations.columns else len(edge_mutations)
             total_mut_num += mut_num
 
-            # dump current edge mutations
-            self.dump_table(edge_mutations, self.handle["mut"], add_header["mut"])
-            add_header["mut"] = False
+            if self.dump_table(edge_mutations, self.handle["mut"], add_header):
+                add_header = False
 
         self.close_handles()
-        self.logger.info(f"Processed {edge_data[1]} tree edges")
+        self.logger.info(f"Processed {n_edges} tree edges")
         self.logger.info(f"Observed {total_mut_num:.3f} substitutions")
         self.logger.info("Extraction of mutations from phylogenetic tree completed succesfully")
 
@@ -1034,7 +1063,13 @@ class MutSpecExtractor(CodonAnnotation):
         with mp.Pool(processes=self.num_processes) as pool:
             genome_mutations_lst = pool.map(Branch.process_branch, self.iter_branches())
 
-        genome_mutations = pd.concat(genome_mutations_lst)
+        frames = [df for df in genome_mutations_lst if df is not None and not df.empty]
+        if frames:
+            genome_mutations = pd.concat(frames, ignore_index=True)
+        else:
+            genome_mutations = pd.DataFrame(columns=[
+                "Mut", "Site", "ProbaRef", "ProbaMut", "ProbaFull", "RefNode", "AltNode",
+            ])
 
         self.open_handles(self.outdir)
         self.dump_table(genome_mutations, self.handle["mut"], True)
@@ -1079,9 +1114,12 @@ class MutSpecExtractor(CodonAnnotation):
 
     @staticmethod
     def dump_table(df: pd.DataFrame, handle, header=False):
+        if df is None or df.empty:
+            return False
         if header:
-            handle.write("\t".join(df.columns) + "\n")
+            handle.write("\t".join(map(str, df.columns)) + "\n")
         handle.write(df.to_csv(sep="\t", index=None, header=None, float_format='%g'))
+        return True
 
     def turn_to_MAP(self, states: np.ndarray):
         if isinstance(states, pd.DataFrame):
@@ -1139,7 +1177,9 @@ def mutations_summary(mutations: pd.DataFrame, gene_col=None, proba_col=None, ge
     ].groupby(grp)[proba_col].sum().reset_index()
 
     mutations_descr["Label"] = mutations_descr.Label.map(label_mapper)
-    pivot_mutations = mutations_descr.pivot_table(proba_col, gene_col, "Label", fill_value=0)
+    pivot_mutations = mutations_descr.pivot_table(
+        values=proba_col, index=gene_col, columns="Label", fill_value=0
+    )
     pivot_mutations.columns = [x[1:] for x in pivot_mutations.columns]
 
     if gene_name_mapper is not None:

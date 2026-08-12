@@ -380,7 +380,7 @@ class MutSpec(CodonAnnotation):
         total_mut_num = 0
 
         for edge_data in self.iter_branches():
-            edge_mutations = self.process_branch(*edge_data[1:])
+            edge_mutations = edge_data.process_branch()
             mut_num = edge_mutations['ProbaFull'].sum() if self.use_proba and \
                 'ProbaFull' in edge_mutations.columns else len(edge_mutations)
             total_mut_num += mut_num
@@ -390,7 +390,7 @@ class MutSpec(CodonAnnotation):
             add_header["mut"] = False
 
         self.close_handles()
-        logger.info(f"Processed {edge_data[1]} tree edges")
+        logger.info(f"Processed {edge_data.index} tree edges")
         logger.info(f"Observed {total_mut_num:.3f} substitutions")
         logger.info("Extraction of mutations from phylogenetic tree completed succesfully")
 
@@ -400,7 +400,11 @@ class MutSpec(CodonAnnotation):
         with mp.Pool(processes=self.num_processes) as pool:
             genome_mutations_lst = pool.map(Branch.process_branch, self.iter_branches())
 
-        genome_mutations = pd.concat(genome_mutations_lst)
+        frames = [df for df in genome_mutations_lst if df is not None and not df.empty]
+        if frames:
+            genome_mutations = pd.concat(frames, ignore_index=True)
+        else:
+            genome_mutations = pd.DataFrame()
 
         self.open_handles(self.outdir)
         self.dump_table(genome_mutations, self.handle["mut"], True)
@@ -450,9 +454,12 @@ class MutSpec(CodonAnnotation):
 
     @staticmethod
     def dump_table(df: pd.DataFrame, handle, header=False):
+        if df is None or df.empty:
+            return False
         if header:
-            handle.write("\t".join(df.columns) + "\n")
+            handle.write("\t".join(map(str, df.columns)) + "\n")
         handle.write(df.to_csv(sep="\t", index=None, header=None, float_format='%g'))
+        return True
 
     def turn_to_MAP(self, states: np.ndarray):
         if isinstance(states, pd.DataFrame):

@@ -11,6 +11,18 @@ from ..constants import (
 from .auxiliary import rev_comp
 
 
+_SBS12_RE = r"[ACGT]>[ACGT]"
+
+
+def _as_sbs12(mut_series: pd.Series) -> pd.Series:
+    """Accept both 192-component (``A[C>T]G``) and 12-component (``C>T``) Mut values."""
+    mut_str = mut_series.astype(str)
+    sbs12 = mut_str.str.slice(2, 5)
+    already_sbs12 = mut_str.str.fullmatch(_SBS12_RE)
+    sbs12 = sbs12.where(~already_sbs12, mut_str)
+    return sbs12
+
+
 def calculate_mutspec(
     obs_muts: pd.DataFrame,
     exp_muts: Dict[str, float],
@@ -30,16 +42,12 @@ def calculate_mutspec(
     ---------
     obs_muts: pd.DataFrame
         table containing mutations with annotation; table must contain 2 columns:
-        - Mut: str; Pattern: ``[ACGT]\\[[ACGT]>[ACGT]\\][ACGT]``
+        - Mut: str; Pattern: ``[ACGT]\\[[ACGT]>[ACGT]\\][ACGT]`` or ``[ACGT]>[ACGT]``
         - ProbaFull (optional, only for use_proba=True) - probability of mutation
 
     exp_muts: dict[str, float]
         dictionary that contains expected mutations frequencies of reference genome if use_context=False, 
         else trinucleotide freqs
-    label: str
-        kind of needed mutspec, coulb be one of ['all', 'syn', 'ff']
-    gencode: int
-        Number of genetic code to use in expected mutations collection, required if exp_muts_or_genome is genome
     use_context: bool
         To use trinucleotide context or not, in other words calculate 192 component mutspec
     use_proba: bool
@@ -60,7 +68,8 @@ def calculate_mutspec(
     Return
     -------
     mutspec: pd.DataFrame
-        table, containing extended mutspec values including observed mutations numbers. 
+        table, containing observed/expected counts and both unscaled (``RawMutSpec``)
+        and optionally scaled (``MutSpec``) rates.
         If use_context=True len(mutspec) = 192, else len(mutspec) = 12
     """
     _cols = ["Mut", "ProbaFull"] if use_proba else ["Mut"]
@@ -75,40 +84,85 @@ def calculate_mutspec(
         col_mut = "Mut"
         full_sbs = possible_sbs192_set
     else:
-        # TODO add support of sbs12 in Mut column
-        mut["Sbs12"] = mut["Mut"].str.slice(2, 5)
+        mut["Sbs12"] = _as_sbs12(mut["Mut"])
         col_mut = "Sbs12"
         full_sbs = possible_sbs12_set
 
     if not use_proba:
         mut["ProbaFull"] = 1
 
-    mutspec = mut.groupby(col_mut)["ProbaFull"].sum().reset_index()
+    mutspec = mut.groupby(col_mut, sort=False)["ProbaFull"].sum().reset_index()
     mutspec.columns = ["Mut", "ObsNum"]
 
     if fill_unobserved:
-        # fill unobserved mutations by zeros
-        mutspec_appendix = []
         unobserved_sbs = full_sbs.difference(mutspec["Mut"].values)
-        for usbs in unobserved_sbs:
-            mutspec_appendix.append({"Mut": usbs, "ObsNum": 0})
-        mutspec = pd.concat([mutspec, pd.DataFrame(mutspec_appendix)], ignore_index=True)
+        if unobserved_sbs:
+            mutspec = pd.concat(
+                [mutspec, pd.DataFrame({"Mut": list(unobserved_sbs), "ObsNum": 0})],
+                ignore_index=True,
+            )
 
     mutspec["ExpNum"] = mutspec["Mut"].map(exp_muts)
-    mutspec["MutSpec"] = (mutspec["ObsNum"] / mutspec["ExpNum"]).fillna(0)
+    raw = mutspec["ObsNum"] / mutspec["ExpNum"]
     if verbose:
-        msg = mutspec[mutspec["MutSpec"] == np.inf]
-        if len(msg) > 0:
-            print(f"WARNING! Following substitutions are unexpected but observed:\n{msg}", file=stderr)
-    
-    mutspec.loc[mutspec["MutSpec"] == np.inf, "MutSpec"] = 0
-    
+        unexpected = mutspec[(mutspec["ObsNum"] > 0) & (mutspec["ExpNum"].fillna(0) <= 0)]
+        if len(unexpected) > 0:
+            print(f"WARNING! Following substitutions are unexpected but observed:\n{unexpected}", file=stderr)
+
+    raw = raw.replace([np.inf, -np.inf], np.nan).fillna(0)
+    mutspec["RawMutSpec"] = raw
+    mutspec["MutSpec"] = raw
+
     if drop_underrepresented:
-        mutspec.loc[(mutspec["ObsNum"] < nobs_min) | (mutspec.ExpNum < nexp_min), "MutSpec"] = 0.
+        under = (mutspec["ObsNum"] < nobs_min) | (mutspec["ExpNum"] < nexp_min)
+        mutspec.loc[under.fillna(False), "MutSpec"] = 0.
     if scale:
-        mutspec["MutSpec"] = mutspec["MutSpec"] / mutspec["MutSpec"].sum()
+        total = mutspec["MutSpec"].sum()
+        if total > 0:
+            mutspec["MutSpec"] = mutspec["MutSpec"] / total
+        else:
+            mutspec["MutSpec"] = 0.
 
     return mutspec
+
+
+def calculate_mutrate(
+    obs_muts: pd.DataFrame,
+    exp_muts: Dict[str, float],
+    use_context: bool = False,
+    use_proba: bool = False,
+    fill_unobserved=True,
+    verbose=False,
+):
+    """
+    Calculate mutation rates (observed / expected) without scaling to a spectrum.
+
+    This is the un-normalised rate vector that ``calculate_mutspec`` stores in
+    ``RawMutSpec``.  The returned table uses the column name ``MutRate``.
+
+    Arguments
+    ---------
+    obs_muts, exp_muts, use_context, use_proba, fill_unobserved, verbose
+        Same meaning as in :func:`calculate_mutspec`.
+
+    Return
+    ------
+    mutrate: pd.DataFrame
+        Table with columns ``Mut``, ``ObsNum``, ``ExpNum``, ``RawMutSpec``,
+        ``MutSpec`` (unscaled) and ``MutRate`` (alias of ``RawMutSpec``).
+    """
+    mutrate = calculate_mutspec(
+        obs_muts,
+        exp_muts,
+        use_context=use_context,
+        use_proba=use_proba,
+        scale=False,
+        fill_unobserved=fill_unobserved,
+        drop_underrepresented=False,
+        verbose=verbose,
+    )
+    mutrate["MutRate"] = mutrate["RawMutSpec"]
+    return mutrate
 
 
 def sample_spectrum(obs_df: pd.DataFrame, exp_freqs,
@@ -155,9 +209,11 @@ def filter_outlier_branches(obs_df: pd.DataFrame, use_proba=True):
     ---------
     obs_df: pd.DataFrame
         Observed-mutations table containing at least the columns
-        ``'AltNode'``, ``'Mut'``, and optionally ``'ProbaMut'``.
+        ``'AltNode'``, ``'Mut'``, and optionally ``'ProbaMut'`` or
+        ``'ProbaFull'``.
     use_proba: bool
-        If ``True`` sum ``'ProbaMut'`` per branch; otherwise count rows.
+        If ``True`` sum ``'ProbaMut'`` (falling back to ``'ProbaFull'``)
+        per branch; otherwise count rows.
 
     Return
     ------
@@ -165,7 +221,15 @@ def filter_outlier_branches(obs_df: pd.DataFrame, use_proba=True):
         Filtered mutations table with outlier branches removed.
     """
     if use_proba:
-        edge_nobs = obs_df.groupby('AltNode')['ProbaMut'].sum()
+        if "ProbaMut" in obs_df.columns:
+            proba_col = "ProbaMut"
+        elif "ProbaFull" in obs_df.columns:
+            proba_col = "ProbaFull"
+        else:
+            raise ValueError(
+                "use_proba=True requires a 'ProbaMut' or 'ProbaFull' column"
+            )
+        edge_nobs = obs_df.groupby('AltNode')[proba_col].sum()
     else:
         edge_nobs = obs_df.groupby('AltNode')['Mut'].count()
 
@@ -188,8 +252,9 @@ def collapse_mutspec(ms192: pd.DataFrame):
     Arguments
     ---------
     ms192: pd.DataFrame
-        192-component spectrum table.  Must contain columns ``'Mut'``,
-        ``'ObsFr'``, and ``'ExpFr'``, and must have exactly 192 rows.
+        192-component spectrum table.  Must contain column ``'Mut'`` and
+        either ``'ObsFr'``/``'ExpFr'`` or ``'ObsNum'``/``'ExpNum'``, and
+        must have exactly 192 rows.
 
     Return
     ------
@@ -204,11 +269,16 @@ def collapse_mutspec(ms192: pd.DataFrame):
         columns.
     """
     assert ms192.shape[0] == 192, f"Expected 192 rows, got {ms192.shape[0]}"
+    ms192 = ms192.copy()
+    if "ObsFr" not in ms192.columns and "ObsNum" in ms192.columns:
+        ms192["ObsFr"] = ms192["ObsNum"]
+    if "ExpFr" not in ms192.columns and "ExpNum" in ms192.columns:
+        ms192["ExpFr"] = ms192["ExpNum"]
     for c in ["Mut", "ObsFr", "ExpFr"]:
         assert c in ms192.columns, f"Required column '{c}' not found in ms192"
 
-    ms1 = ms192[ms192["Mut"].str.get(2).isin(list("CT"))]
-    ms2 = ms192[ms192["Mut"].str.get(2).isin(list("AG"))]
+    ms1 = ms192.loc[ms192["Mut"].str.get(2).isin(list("CT"))].copy()
+    ms2 = ms192.loc[ms192["Mut"].str.get(2).isin(list("AG"))].copy()
     ms2["Mut"] = ms2["Mut"].apply(rev_comp)
 
     ms96 = pd.concat([ms1, ms2]).groupby("Mut")[["ObsFr", "ExpFr"]].sum()
@@ -237,11 +307,13 @@ def complete_sbs192_columns(df: pd.DataFrame):
         DataFrame with exactly 192 columns in canonical order.
     """
     df = df.copy()
-    if len(df.columns) != 192:
-        for sbs192 in possible_sbs192_set.difference(df.columns.values):
-            df[sbs192] = 0.
-    df = df[possible_sbs192]
-    return df
+    missing = [sbs for sbs in possible_sbs192 if sbs not in df.columns]
+    if missing:
+        df = pd.concat(
+            [df, pd.DataFrame(0.0, index=df.index, columns=missing)],
+            axis=1,
+        )
+    return df[possible_sbs192]
 
 
 def collapse_sbs192(df: pd.DataFrame, to=12):
@@ -326,8 +398,8 @@ def jackknife_spectra_sampling(obs: pd.DataFrame, exp: pd.DataFrame, frac=0.5, n
         assert obs.index.names == ["RefNode", "AltNode"]
         assert exp.index.names == ["Node"]
         altnodes  = obs.index.get_level_values(1).values
-        obs_edges = obs
-        freqs_nodes = exp
+        obs_edges = obs.copy()
+        freqs_nodes = exp.copy()
         obs_edges.index = obs_edges.index.reorder_levels(order=["AltNode", "RefNode"])
         freqs_nodes.index.name = "RefNode"
     else:
@@ -342,7 +414,7 @@ def jackknife_spectra_sampling(obs: pd.DataFrame, exp: pd.DataFrame, frac=0.5, n
     spectra = []
     for _ in range(n):
         altnodes_sample = np.random.choice(altnodes, edges_sample_size, False)
-        obs_sample = obs_edges.loc[altnodes_sample].reset_index(0, drop=True)
+        obs_sample = obs_edges.loc[altnodes_sample].reset_index(level=0, drop=True)
         exp_sample = freqs_nodes.loc[obs_sample.index]
         
         obs_sample_cnt = obs_sample.sum()
@@ -358,9 +430,10 @@ def jackknife_spectra_sampling(obs: pd.DataFrame, exp: pd.DataFrame, frac=0.5, n
 
 def calc_edgewise_spectra(
         obs: pd.DataFrame, exp: pd.DataFrame, 
-        nmtypes_cutoff=10, nobs_cuttof=10, 
+        nmtypes_cutoff=10, nobs_cutoff=None, 
         collapse_to_12=False, scale=True, 
-        both_12_and_192=False
+        both_12_and_192=False,
+        nobs_cuttof=10,
     ):
     """
     Calculate per-branch (edge-wise) mutational spectra.
@@ -383,9 +456,11 @@ def calc_edgewise_spectra(
     nmtypes_cutoff: int
         Minimum number of distinct mutation types a branch must have to be
         retained (only applied when ``collapse_to_12=False``).
-    nobs_cuttof: int
+    nobs_cutoff: int
         Minimum total observed mutations a branch must have to be retained
         (only applied when ``collapse_to_12=False``).
+    nobs_cuttof: int
+        Deprecated alias of ``nobs_cutoff`` kept for backward compatibility.
     collapse_to_12: bool
         If ``True`` collapse the 192-component spectra to 12 components before
         returning.
@@ -401,13 +476,15 @@ def calc_edgewise_spectra(
         Branch-wise spectrum DataFrame (or tuple of two DataFrames when
         ``both_12_and_192=True``).
     """
+    if nobs_cutoff is None:
+        nobs_cutoff = nobs_cuttof
     if len(obs.columns) == 192 and \
             (obs.columns == possible_sbs192).all() and \
                 (exp.columns == possible_sbs192).all():
         assert obs.index.names == ["RefNode", "AltNode"]
         assert exp.index.names == ["Node"]
-        obs_edges = obs
-        freqs_nodes = exp
+        obs_edges = obs.copy()
+        freqs_nodes = exp.copy()
         freqs_nodes.index.name = "RefNode"
     else:
         obs_edges = obs.groupby(["RefNode", "AltNode", "Mut"]).ProbaFull.sum().unstack()
@@ -418,7 +495,7 @@ def calc_edgewise_spectra(
 
     if not collapse_to_12:
         obs_edges = obs_edges[((obs_edges > 0).sum(axis=1) >= nmtypes_cutoff) & \
-                               (obs_edges.sum(axis=1) >= nobs_cuttof)]
+                               (obs_edges.sum(axis=1) >= nobs_cutoff)]
     
     edges_df = obs_edges.index.to_frame(False)
 

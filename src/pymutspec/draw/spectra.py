@@ -231,9 +231,13 @@ def plot_mutspec(
         palette = color_mapping12
         tick_rotation = 0
 
+    created_fig = False
     if ax is None:
         fig = plt.figure(figsize=figsize)
         ax = fig.gca()
+        created_fig = True
+    else:
+        fig = ax.figure
 
     if style == "bar":
         _cols = set(ms.columns)
@@ -286,14 +290,15 @@ def plot_mutspec(
         ax.set_xticks(range(len(order_styled)))
         ax.set_xticklabels(order_styled, rotation=tick_rotation, fontsize=ticksize, fontname=fontname)
     else:
-        plt.xticks(fontsize=ticksize, fontname=fontname)
+        ax.set_xticks(range(len(order)))
+        ax.set_xticklabels(order, fontsize=ticksize, fontname=fontname)
 
     if savepath is not None:
-        plt.savefig(savepath, dpi=dpi, bbox_inches="tight")
+        fig.savefig(savepath, dpi=dpi, bbox_inches="tight")
     if show:
         plt.show()
-    else:
-        plt.close()
+    elif created_fig:
+        plt.close(fig)
     return ax
 
 

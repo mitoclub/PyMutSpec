@@ -14,14 +14,15 @@ from ..utils import basic_logger
 
 class GenomeStates:
     def __init__(self, path_to_states, path_to_gappy_sites=None, format='tsv', logger=None):
-        for path in list([path_to_states, path_to_gappy_sites]):
-            if not os.path.exists(path):
-                raise ValueError(f"Path to states doesn't exist: '{path}'")
+        if not os.path.exists(path_to_states):
+            raise ValueError(f"Path to states doesn't exist: '{path_to_states}'")
+        if path_to_gappy_sites is not None and not os.path.exists(path_to_gappy_sites):
+            raise ValueError(f"Path to gappy sites doesn't exist: '{path_to_gappy_sites}'")
 
         self.logger = logger or basic_logger()
 
         self.logger.info(f'Reading states "{path_to_states}"')
-        states = self.read_states(path, format)
+        states = self.read_states(path_to_states, format)
 
         nodes_arr = states['Node'].unique()
         self.node2id = dict(zip(nodes_arr, range(len(nodes_arr))))
@@ -51,20 +52,20 @@ class GenomeStates:
     def __getitem__(self, item: str):
         return self.get_genome(item)
 
-    def read_states(self, path, fmt='iqtree'):
+    def read_states(self, path, fmt='tsv'):
         fpt = np.float32
         dtype = {
             "p_A":  fpt, "p_C": fpt, "p_G":  fpt, "p_T": fpt,
             "Site": np.int32, "Node": str,
         }
-        if fmt == 'iqtree':
+        if fmt in ('iqtree', 'tsv'):
             states = pd.read_csv(path, sep='\t', comment='#', dtype=dtype)
-        if fmt == 'csv':
+        elif fmt == 'csv':
             states = pd.read_csv(path, dtype=dtype)
-        elif fmt == 'tsv':
-            states = pd.read_csv(path, sep='\t', dtype=dtype)
         elif fmt == 'parquet':
             states = pd.read_parquet(path)
+        else:
+            raise ValueError(f"Unsupported states format: {fmt!r}")
         return states
 
     def read_nongappy_sites(self, path):
@@ -170,7 +171,7 @@ class GenesStates:
             if states_fmt == "table":
                 self._prepare_node2genome(path_states)
             else:
-                states = self.read_alignment(path_states)
+                states = self.read_alignment(path_states, fmt=states_fmt)
                 self._prepare_node2genome(states)
         elif mode == "db":
             if states_fmt in ["fasta", "phylip"]:
@@ -191,7 +192,9 @@ class GenesStates:
         if self.category: 
             for part in genes_sizes:
                 if genes_sizes[part] != len(self.category[part]):
-                    raise RuntimeError("Wrong rates: number of positions in alignment are not equal to number of rates", file=sys.stderr)
+                    raise RuntimeError(
+                        "Wrong rates: number of positions in alignment are not equal to number of rates"
+                    )
             self.mask = self.get_mask(self.category, cat_cutoff)
     
     def get_genome(self, node: str):
@@ -202,17 +205,17 @@ class GenesStates:
             genome_raw = defaultdict(list)
             cur = self.con.cursor()
             if self.use_proba:
-                query = f"""SELECT Part, Site, p_A, p_C, p_G, p_T FROM states WHERE Node='{node}'"""
+                query = """SELECT Part, Site, p_A, p_C, p_G, p_T FROM states WHERE Node=?"""
                 dtype = [
                     ("Site", np.int32),
                     ("p_A", np.float32), ("p_C", np.float32), 
                     ("p_G", np.float32), ("p_T", np.float32),
                 ]
             else:
-                query = f"""SELECT Part, Site, State FROM states WHERE Node='{node}'"""
+                query = """SELECT Part, Site, State FROM states WHERE Node=?"""
                 dtype = [("Site", np.int32), ("State", np.object_)]
 
-            for row in cur.execute(query):
+            for row in cur.execute(query, (node,)):
                 part = str(row[0])
                 state = row[1:]
                 genome_raw[part].append(state)
@@ -270,8 +273,7 @@ class GenesStates:
 
             for line in handle:
                 row = line.strip().split()
-                query = "INSERT INTO states VALUES ('{}',{},{},'{}',{},{},{},{})".format(*row)
-                cur.execute(query)
+                cur.execute("INSERT INTO states VALUES (?,?,?,?,?,?,?,?)", row)
 
             con.commit()
             handle.close()
@@ -288,7 +290,7 @@ class GenesStates:
     
     def states2dct(self, states: pd.DataFrame, out=None):
         # all genes (genomes) must have same length
-        aln_sizes = states.groupby("Node").apply(len)
+        aln_sizes = states.groupby("Node").size()
         assert aln_sizes.nunique() == 1, "uncomplete state table: some site states absent in some node genomes"
         
         node2genome = defaultdict(dict) if out is None else out

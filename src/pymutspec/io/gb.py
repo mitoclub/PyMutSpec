@@ -41,11 +41,19 @@ def read_genbank_ref(gb: Union[str, SeqRecord]):
             if gene_qualifier is None:
                 raise RuntimeError(f"Cannot find any expected qualifier of feature: {ftr}; with following qualifiers: {ftr.qualifiers}")
 
+        if df is None:
+            raise ValueError("GenBank record must contain a source feature before other features")
+
         for pos in list(ftr.location):
             df.at[pos, "Type"] = ftr.type
-            df.at[pos, "Strand"] = ftr.strand
-            if ftr.type in ftypes:
-                df.at[pos, qualifier] = ftr.qualifiers[qualifier][0]
+            strand = getattr(ftr, "strand", None)
+            if strand is None:
+                strand = ftr.location.strand
+            df.at[pos, "Strand"] = strand
+            if ftr.type in ftypes and gene_qualifier is not None:
+                values = ftr.qualifiers.get(gene_qualifier)
+                if values:
+                    df.at[pos, gene_qualifier] = values[0]
 
     # add codon features
     df["PosInGene"] = -1
