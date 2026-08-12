@@ -24,7 +24,7 @@ def node_parent(node):
     """
     try:
         return next(node.iter_ancestors())
-    except BaseException:
+    except StopIteration:
         return None
 
 
@@ -102,9 +102,10 @@ def get_tree_height(tree, mode='geom_mean'):
             distances_to_leaves.append(d)
         
         if mode == 'mean':
-            md = np.mean(distances_to_leaves)
+            md = np.mean(distances_to_leaves) if distances_to_leaves else 0.0
         elif mode == 'geom_mean':
-            md = geometric_mean(distances_to_leaves)
+            positive = [d for d in distances_to_leaves if d > 0]
+            md = geometric_mean(positive) if positive else 0.0
 
     else:
         raise TypeError("mode must be 'mean', 'geom_mean' or 'max'")
@@ -116,8 +117,9 @@ def get_ingroup_root(tree):
     """
     Return the ingroup root of a binary rooted tree that contains an outgroup.
 
-    The function assumes the tree root has exactly two children, one of which
-    is a leaf (the outgroup).  If no leaf child is found the tree root itself
+    The function assumes the tree root has exactly two children.  If exactly
+    one child is a leaf, that leaf is treated as the outgroup and the other
+    child is returned as the ingroup root.  Otherwise the tree root itself
     is returned.
 
     Arguments
@@ -137,16 +139,16 @@ def get_ingroup_root(tree):
     """
     assert len(tree.children) == 2, 'Tree must be binary'
     found_outgroup = False
+    ingrp = tree
     for node in tree.children:
         if node.is_leaf():
             found_outgroup = True
         else:
             ingrp = node
 
-    if found_outgroup:
+    if found_outgroup and ingrp is not tree:
         return ingrp
-    else:
-        return tree
+    return tree
 
 
 def calc_phylocoefs(tree):
@@ -171,6 +173,8 @@ def calc_phylocoefs(tree):
     """
     ingroup = get_ingroup_root(tree)
     tree_height = get_tree_height(ingroup, 'geom_mean')
+    if tree_height <= 0:
+        return {node.name: 1.0 for node in ingroup.traverse()}
     root_phylocoef = 1 - min(0.999, ingroup.get_closest_leaf()[1] / tree_height)
     phylocoefs = {ingroup.name: root_phylocoef}
     for node in ingroup.iter_descendants():

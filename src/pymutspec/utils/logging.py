@@ -21,11 +21,13 @@ def load_logger(path=None, stream_level: str = None, filename=None):
     return logger
 
 
-def basic_logger():
-    logger = logging.getLogger(__name__)
+def basic_logger(name="pymutspec"):
+    logger = logging.getLogger(name)
+    if logger.handlers:
+        return logger
     logger.setLevel(logging.DEBUG)
+    logger.propagate = False
 
-    # create console handler and set level to debug
     ch = logging.StreamHandler()
     ch.setLevel(logging.DEBUG)
     formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s', '%d-%m-%y %H:%M:%S')

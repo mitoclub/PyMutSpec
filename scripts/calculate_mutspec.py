@@ -28,9 +28,9 @@ def dump_expected(exp, path):
 
 def filter_short_exp_seqs(exp_freqs: pd.DataFrame):
     gene_len_proxy = exp_freqs.set_index(['Label', 'Node'])[possible_sbs12]\
-        .sum(1).unstack(0).iloc[:, 0]
+        .sum(axis=1).unstack(0).iloc[:, 0]
     lower_bound, upper_bound = get_iqr_bounds(gene_len_proxy)
-    used_nodes = gene_len_proxy.between(lower_bound, upper_bound).index.values
+    used_nodes = gene_len_proxy[gene_len_proxy.between(lower_bound, upper_bound)].index
     exp_freqs_flt = exp_freqs[exp_freqs.Node.isin(used_nodes)]
     return exp_freqs_flt
 
@@ -115,7 +115,7 @@ def main(
         if branches:
             raise ValueError("For branch specific spectra expected mutations required for every internal tree node")
 
-        exp_mean = exp_raw.pivot("Label", "Mut", "Count")
+        exp_mean = exp_raw.pivot(index="Label", columns="Mut", values="Count")
         exp_freqs = None
     else:
         raise RuntimeError("Expected another columns in the table {}".format(path_to_exp))

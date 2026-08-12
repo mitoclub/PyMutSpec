@@ -1,14 +1,37 @@
 # CHANGELOG
 
-<!-- ## 0.0.XX (2025-XX-XX)
+## 0.0.16 (2026-08-12)
 
 Features:
 
-- 
+- Added `calculate_mutrate` for unscaled observed/expected mutation rates
+- `calculate_mutspec` now keeps `RawMutSpec` (obs/exp) separately from scaled `MutSpec`
+- `CodonAnnotation` accepts sequences whose length is not divisible by 3 (incomplete last codon is ignored for codon-aware labels)
+- `Tree` can be loaded from a Newick string as well as a file path
+- `TreeNode` gained `parent` / `up` properties and `iter_edges()`
+- `calc_edgewise_spectra` accepts `nobs_cutoff` (the misspelled `nobs_cuttof` remains as an alias)
 
 Fixes:
 
--  -->
+- `_prepare_codontable` now raises `ValueError` for invalid genetic-code arguments
+- `collect_exp_muts_proba` no longer requires a `logger` attribute on `CodonAnnotation`
+- `GenomeStates` reads the states file instead of the gappy-sites path, and `path_to_gappy_sites` is optional
+- `GenesStates` passes `states_fmt` through to alignment readers and uses parameterized SQL
+- `GenesStates` rate-length mismatch raises a valid `RuntimeError` (previously passed an illegal `file=` keyword)
+- `MutSpecExtractor._derive_mutspec` now processes `Branch` objects (serial extraction was broken after the parallel refactor)
+- `plot_mutspec` no longer closes a figure the caller passed in via `ax=`
+- `filter_short_exp_seqs` actually drops IQR outliers (previously kept every node)
+- `scripts/calculate_mutspec.py` uses keyword arguments for `DataFrame.pivot` (required by pandas 3)
+- `collapse_mutspec` accepts `ObsNum`/`ExpNum` as well as `ObsFr`/`ExpFr`
+- `jackknife_spectra_sampling` / `calc_edgewise_spectra` no longer mutate caller-provided DataFrames
+- `filter_outlier_branches` falls back to `ProbaFull` when `ProbaMut` is absent
+- `read_genbank_ref` writes the detected gene qualifier instead of a leftover loop variable
+- `basic_logger` no longer attaches duplicate handlers
+- Spectrum scaling of an all-zero vector no longer produces NaNs
+- `complete_sbs192_columns` fills missing columns in one concat (avoids pandas fragmentation warning)
+- Tests for `calculate_mutspec` now actually assert `RawMutSpec` values
+
+**Full Changelog**: https://github.com/mitoclub/PyMutSpec/compare/0.0.15...0.0.16
 
 ## 0.0.15 (2026-07-16)
 

@@ -172,8 +172,8 @@ class MutSpec(CodonAnnotation, GenesStates):
                     )
                     add_header["freqs"] = False
                     if self._save_exp_muts and node_expected_sbs is not None:
-                        self.dump_table(node_expected_sbs, self.handle["exp"], add_header["exp"])
-                        add_header["exp"] = False
+                        if self.dump_table(node_expected_sbs, self.handle["exp"], add_header["exp"]):
+                            add_header["exp"] = False
                 
                 # summarize state frequencies over genome
                 for lbl in self.mut_labels:
@@ -212,8 +212,8 @@ class MutSpec(CodonAnnotation, GenesStates):
                         mutspec12["Label"] = lbl
                         mutspec12["Gene"]  = gene
                         # Dump gene mutspecs 
-                        self.dump_table(mutspec12, self.handle["ms12s"], add_header["ms12g"])
-                        add_header["ms12g"] = False
+                        if self.dump_table(mutspec12, self.handle["ms12s"], add_header["ms12g"]):
+                            add_header["ms12g"] = False
 
                         if gene_mut_df.Mut.nunique() >= self.mnum192:
                             if lbl == 'nonsyn':
@@ -233,8 +233,8 @@ class MutSpec(CodonAnnotation, GenesStates):
                             mutspec192["Label"] = lbl
                             mutspec192["Gene"] = gene
                             # Dump gene mutspecs 
-                            self.dump_table(mutspec192, self.handle["ms192g"], add_header["ms192g"])
-                            add_header["ms192g"] = False
+                            if self.dump_table(mutspec192, self.handle["ms192g"], add_header["ms192g"]):
+                                add_header["ms192g"] = False
 
             visited_nodes.add(ref_node.name)
             
@@ -252,8 +252,8 @@ class MutSpec(CodonAnnotation, GenesStates):
                 logger.warning(f"Observed too many mutations ({mut_num} > {aln_size} * 0.1) for branch ({ref_node.name} - {alt_node.name})")
 
             # dump mutations
-            self.dump_table(genome_mutations_df, self.handle["mut"], add_header["mut"])
-            add_header["mut"] = False
+            if self.dump_table(genome_mutations_df, self.handle["mut"], add_header["mut"]):
+                add_header["mut"] = False
             
             # calculate full genome mutational spectra for all labels
             if self.derive_spectra:
@@ -289,9 +289,10 @@ class MutSpec(CodonAnnotation, GenesStates):
                     mutspec192["Label"] = lbl
 
                     # Dump genome spectra
-                    self.dump_table(mutspec12,  self.handle["ms12"],  add_header["ms"])
-                    self.dump_table(mutspec192, self.handle["ms192"], add_header["ms"])
-                    add_header["ms"] = False
+                    if self.dump_table(mutspec12,  self.handle["ms12"],  add_header["ms12"]):
+                        add_header["ms12"] = False
+                    if self.dump_table(mutspec192, self.handle["ms192"], add_header["ms192"]):
+                        add_header["ms192"] = False
 
         logger.info(f"Processed {ei} tree edges")
         logger.info(f"Observed {total_mut_num:.3f} substitutions")
@@ -302,9 +303,12 @@ class MutSpec(CodonAnnotation, GenesStates):
 
     @staticmethod
     def dump_table(df: pd.DataFrame, handle, header=False):
+        if df is None or df.empty:
+            return False
         if header:
-            handle.write("\t".join(df.columns) + "\n")
+            handle.write("\t".join(map(str, df.columns)) + "\n")
         handle.write(df.to_csv(sep="\t", index=None, header=None, float_format='%g'))
+        return True
     
     def dump_expected_mutations(self, gene_exp_sbs12, gene_exp_sbs192, node, gene, handle, header=False):
         # TODO rewrite using self.dump_table

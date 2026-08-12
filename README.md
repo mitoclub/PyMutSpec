@@ -404,7 +404,7 @@ spectra_per_edge = calc_edgewise_spectra(
     obs,                   # observed mutations with RefNode/AltNode columns
     exp,                   # expected frequencies with Node column
     nmtypes_cutoff=10,     # minimum distinct mutation types per branch
-    nobs_cuttof=10,        # minimum observed mutations per branch
+    nobs_cutoff=10,        # minimum observed mutations per branch
     scale=True,            # normalise each branch spectrum
 )
 # spectra_per_edge: DataFrame indexed by (RefNode, AltNode), 192 columns
@@ -428,7 +428,8 @@ cossim = get_cossim(spectra_per_edge.loc[["nodeA"]], spectra_per_edge.loc[["node
 | `CodonAnnotation.is_fourfold(cdn)` | Test if a codon is fourfold-degenerate |
 | `CodonAnnotation.translate_codon(cdn)` | Translate a codon to a single-letter amino acid |
 | `CodonAnnotation.get_mut_type(cdn1, cdn2, pic)` | Return mutation type label, ref AA, alt AA |
-| `calculate_mutspec(obs, exp, ...)` | Compute a 12- or 192-component mutational spectrum |
+| `calculate_mutspec(obs, exp, ...)` | Compute a 12- or 192-component mutational spectrum (`RawMutSpec` = obs/exp, `MutSpec` = scaled) |
+| `calculate_mutrate(obs, exp, ...)` | Compute unscaled mutation rates (`MutRate` = observed / expected) |
 | `complete_sbs192_columns(df)` | Ensure a DataFrame has all 192 SBS columns (fill missing with 0) |
 | `mutations_summary(mutations, ...)` | Tabulate mutation type counts from an observed-mutations table |
 | `rev_comp(sbs)` | Reverse-complement a 192-component SBS string, e.g. `A[C>A]T` → `A[G>T]T` |
@@ -509,5 +510,5 @@ twine upload dist/*
 - [ ] New way of annotation from HGT
 - [ ] Separate scripts for mutations collection and annotation
 - [ ] Integrate parallelisation from HGT project
-- [ ] Add feature to calculate mutation rate (MutRate)
-- [ ] Rename some functions and variables for better readability
+- [x] Add feature to calculate mutation rate (MutRate)
+- [x] Rename some functions and variables for better readability

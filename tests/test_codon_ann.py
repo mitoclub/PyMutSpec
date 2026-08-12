@@ -1,4 +1,5 @@
 from collections import Counter
+import numpy as np
 import pytest
 
 def test_get_syn_codons(coda):
@@ -194,9 +195,13 @@ def test_collect_exp_muts_on_real_gene_proba(coda, states):
         assert exp_sbs192_freqs['nonsyn'][k] == pytest.approx(v, abs=1e-3)
 
 
-def test_extract_mutations_simple():
-    # TODO
-    pass
+def test_extract_mutations_simple(coda):
+    g1 = np.array(list("ATGCTAGTA"))
+    g2 = np.array(list("ATGCTGGTA"))
+    muts = coda.extract_mutations_simple(g1, g2)
+    assert len(muts) == 1
+    assert muts.iloc[0]["Mut"] == "T[A>G]G"
+    assert int(muts.iloc[0]["Label"]) == 2
 
 # use to test collect_exp_muts_proba and collect_exp_mut_freqs_proba (results must be comparable and equal)
 # np.all(coda.collect_exp_muts_proba(states.get_genome("Node4705")["1"], 1, mut_proba_cutoff=0.05).groupby(["Label", "Mut"]).Proba.sum().unstack()[possible_sbs192].fillna(0) == \

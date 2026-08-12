@@ -2,6 +2,7 @@
 Custom phylogenetic tree classes replacing ete3 dependency.
 Uses BioPython for newick format parsing.
 """
+import os
 from io import StringIO
 
 from Bio import Phylo as _BioPhylo
@@ -25,6 +26,21 @@ class TreeNode:
 
     def is_leaf(self):
         return len(self.children) == 0
+
+    @property
+    def parent(self):
+        """Immediate ancestor, or ``None`` for the root."""
+        return self._parent
+
+    @property
+    def up(self):
+        """ete3-compatible alias of :attr:`parent`."""
+        return self._parent
+
+    def iter_edges(self):
+        """Yield ``(parent, child)`` for every directed edge under this node."""
+        for node in self.iter_descendants():
+            yield node.parent, node
 
     def traverse(self):
         """Yield all nodes (self first, then descendants)."""
@@ -189,12 +205,13 @@ def _bio_clade_to_node(clade):
 
 class Tree(TreeNode):
     """
-    Load a phylogenetic tree from a newick file.
+    Load a phylogenetic tree from a newick file or newick string.
 
     Parameters
     ----------
     newick_path : str
-        Path to a newick-format tree file.
+        Path to a newick-format tree file, or a newick string
+        (must start with ``(`` or end with ``;``).
     format : int
         Newick format hint (kept for API compatibility with ete3; this
         parameter is currently ignored – BioPython's newick parser handles
@@ -202,8 +219,17 @@ class Tree(TreeNode):
     """
 
     def __init__(self, newick_path, format=1):  # noqa: A002
-        with open(newick_path) as fh:
-            tree_str = fh.read().strip()
+        if not isinstance(newick_path, str):
+            raise TypeError("newick_path must be a file path or newick string")
+
+        stripped = newick_path.strip()
+        if os.path.isfile(newick_path):
+            with open(newick_path) as fh:
+                tree_str = fh.read().strip()
+        elif stripped.startswith("(") or stripped.endswith(";"):
+            tree_str = stripped
+        else:
+            raise FileNotFoundError(f"Tree file not found: {newick_path}")
 
         bio_tree = _BioPhylo.read(StringIO(tree_str), "newick")
         root = _bio_clade_to_node(bio_tree.root)
